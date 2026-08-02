@@ -4,7 +4,7 @@ The job pipeline for Brothers Hauling — three access levels, one board.
 A Flutter rebuild of the `haulboardv3` React prototype, running from the same
 codebase on **iPhone, iPad, Android, macOS, Windows, Linux and the web**.
 
-**Try it:** https://natehale05-gif.github.io/brothers-hauling/ — no install, no
+**Try it:** https://natehale05-gif.github.io/Brothers-Hauling/ — no install, no
 sign-up. Pick any of the three access levels to see what that role sees.
 
 ---
@@ -95,7 +95,7 @@ drives the real artifact through Chromium — signing in, reading the accessibil
 tree the way a screen reader would, and failing on any console error:
 
 ```bash
-flutter build web --release --base-href "/brothers-hauling/"
+flutter build web --release --base-href "/Brothers-Hauling/"
 npm install --no-save playwright && npx playwright install --with-deps chromium
 node tool/web_smoke_test.js
 ```

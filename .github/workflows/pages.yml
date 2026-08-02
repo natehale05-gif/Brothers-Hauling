@@ -27,6 +27,12 @@ jobs:
           channel: stable
           cache: true
 
+      # Makes the workflow self-sufficient: enables Pages and switches the
+      # source to GitHub Actions if the repository hasn't been set up yet.
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
       - run: flutter pub get
 
       - name: Analyze
@@ -35,10 +41,16 @@ jobs:
       - name: Test
         run: flutter test
 
-      # base-href must match the repo name so asset URLs resolve under
-      # https://<user>.github.io/<repo>/
+      # base-href must match the repo name — case included — so asset URLs
+      # resolve under https://<user>.github.io/<repo>/
+      #
+      # pwa-strategy=none because web/flutter_bootstrap.js deliberately does
+      # not register Flutter's service worker; see the comment there.
       - name: Build web
-        run: flutter build web --release --base-href "/${GITHUB_REPOSITORY#*/}/"
+        run: |
+          flutter build web --release \
+            --pwa-strategy=none \
+            --base-href "/${GITHUB_REPOSITORY#*/}/"
 
       # Widget tests say nothing about whether the compiled bundle boots in a
       # real browser at the real base href. This drives the actual artifact.
@@ -47,6 +59,11 @@ jobs:
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
           BASE_PATH="/${GITHUB_REPOSITORY#*/}/" node tool/web_smoke_test.js
+        env:
+          # The runner's POSIX locale leaks into navigator.language as
+          # "en-US@posix", which Flutter's engine cannot parse. The test pins a
+          # real locale per page; this keeps the browser itself consistent too.
+          LANG: en_US.UTF-8
 
       # GitHub Pages serves 404.html for unknown paths; pointing it at the app
       # keeps a refresh on a deep link working.

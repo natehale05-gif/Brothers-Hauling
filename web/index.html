@@ -56,7 +56,10 @@
       text-align: center;
     }
     #boot h1 span { color: #FFD400; }
-    #boot p { margin: 0; font-size: 13px; color: #979DAE; }
+    #boot p { margin: 0; font-size: 13px; color: #979DAE; max-width: 340px; text-align: center; line-height: 1.5; }
+    #boot.failed .bar { display: none; }
+    #boot.failed p { color: #FF7454; }
+    #boot a { color: #FFD400; }
     #boot .bar {
       width: 168px;
       height: 5px;
@@ -96,12 +99,32 @@
   </noscript>
 
   <script>
-    // Flutter fires this once it has actually painted, which is the only
-    // honest moment to take the splash down.
-    window.addEventListener('flutter-first-frame', function () {
+    (function () {
       var boot = document.getElementById('boot');
-      if (boot) boot.remove();
-    });
+      if (!boot) return;
+
+      // Flutter fires this once it has actually painted, which is the only
+      // honest moment to take the splash down.
+      var painted = false;
+      window.addEventListener('flutter-first-frame', function () {
+        painted = true;
+        clearTimeout(giveUp);
+        boot.remove();
+      });
+
+      // Without this, anything that stops the engine starting — a browser
+      // without WebGL, a blocked asset, an engine crash before the first
+      // frame — leaves the visitor staring at "Loading the board…" forever.
+      // Say what happened instead.
+      var giveUp = setTimeout(function () {
+        if (painted) return;
+        boot.className = 'failed';
+        boot.querySelector('p').innerHTML =
+          "The board didn't finish loading. It needs a current browser with " +
+          'JavaScript and WebGL enabled — try reloading, or open it in ' +
+          'Chrome, Safari, Firefox or Edge.';
+      }, 30000);
+    })();
   </script>
 
   <script src="flutter_bootstrap.js" async></script>
