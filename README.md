@@ -168,6 +168,25 @@ State is a single `ChangeNotifier` reached through an `InheritedNotifier`. No
 state-management package: the app has one screen's worth of state, and every
 dependency is a dependency that can break a Windows or Linux build.
 
+### App icon
+
+One source image, `assets/branding/app_icon_source.png`, drives every
+platform's icon. `python3 tool/generate_icons.py` regenerates all 44 outputs —
+edit the source and re-run rather than hand-editing any of them.
+
+Each platform frames it differently, which is the reason for the script:
+iOS gets a full-bleed square with no alpha channel (it rounds the corners
+itself, and the App Store rejects alpha); Android gets a legacy square plus an
+adaptive icon with a monochrome layer for themed icons; macOS gets the rounded
+square inset in a transparent canvas the way the Dock expects; Windows gets a
+multi-resolution `.ico`; Linux gets a PNG the GTK window loads at runtime.
+
+Where something else masks the icon — Android's launcher shapes, a maskable
+web icon — the script sizes the mark by **where its ink actually falls** rather
+than by its bounding box. Fitting the bounding box inside the safe circle
+shrinks the logo needlessly; fitting the box's corners, which are empty, is
+what clips "HAULING" off the bottom under a circular mask.
+
 ### Dependencies
 
 `geolocator`, `url_launcher`, `image_picker` — all three ship implementations
