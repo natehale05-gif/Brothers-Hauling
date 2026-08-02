@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!--
+    Replaced at build time by the `--base-href` argument. On GitHub Pages the
+    app is served from /<repo>/, not the domain root, so this has to match or
+    every asset 404s.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Haul Board — the job pipeline for Brothers Hauling. Three access levels, one board.">
+  <meta name="theme-color" content="#14161C">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Haul Board">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Haul Board</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #14161C; }
+
+    /*
+      Shown until Flutter paints its first frame. The web bundle is a couple of
+      megabytes, and a blank black screen over a phone hotspot reads as a
+      broken link.
+    */
+    #boot {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      background: #14161C;
+      color: #F1F3F7;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      z-index: 10;
+    }
+    #boot h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 0.95;
+      letter-spacing: -0.01em;
+      font-weight: 800;
+      text-transform: uppercase;
+      text-align: center;
+    }
+    #boot h1 span { color: #FFD400; }
+    #boot p { margin: 0; font-size: 13px; color: #979DAE; }
+    #boot .bar {
+      width: 168px;
+      height: 5px;
+      border-radius: 3px;
+      background: #282C38;
+      overflow: hidden;
+    }
+    #boot .bar i {
+      display: block;
+      width: 40%;
+      height: 100%;
+      border-radius: 3px;
+      background: #FFD400;
+      animation: slide 1.1s ease-in-out infinite;
+    }
+    @keyframes slide {
+      0%   { transform: translateX(-110%); }
+      100% { transform: translateX(310%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #boot .bar i { animation: none; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div id="boot" role="status" aria-live="polite">
+    <h1>Haul<br><span>Board</span></h1>
+    <div class="bar" aria-hidden="true"><i></i></div>
+    <p>Loading the board…</p>
+  </div>
+
+  <noscript>
+    <div style="padding:32px;color:#F1F3F7;font-family:system-ui,sans-serif">
+      <h1>Haul Board</h1>
+      <p>This app needs JavaScript enabled.</p>
+    </div>
+  </noscript>
+
+  <script>
+    // Flutter fires this once it has actually painted, which is the only
+    // honest moment to take the splash down.
+    window.addEventListener('flutter-first-frame', function () {
+      var boot = document.getElementById('boot');
+      if (boot) boot.remove();
+    });
+  </script>
+
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

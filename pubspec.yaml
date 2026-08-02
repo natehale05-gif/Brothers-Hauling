@@ -1,0 +1,51 @@
+name: haul_board
+description: "Haul Board — the job pipeline for Brothers Hauling. Three access levels, one board."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+  flutter: 3.44.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  # Position reporting. Only runs while the app is open — see LocationService.
+  geolocator: ^14.0.2
+  # Hands directions/phone links to whatever app the platform defaults to.
+  url_launcher: ^6.3.2
+  # Before/after photos. Camera on mobile, file picker on desktop and web.
+  image_picker: ^1.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  fonts:
+    - family: Archivo
+      fonts:
+        - asset: fonts/Archivo-Regular.ttf
+          weight: 400
+        - asset: fonts/Archivo-Medium.ttf
+          weight: 500
+        - asset: fonts/Archivo-SemiBold.ttf
+          weight: 600
+        - asset: fonts/Archivo-Bold.ttf
+          weight: 700
+    - family: ArchivoBlack
+      fonts:
+        - asset: fonts/ArchivoBlack-Regular.ttf
+          weight: 900
+    - family: DMMono
+      fonts:
+        - asset: fonts/DMMono-Regular.ttf
+          weight: 400
+        - asset: fonts/DMMono-Medium.ttf
+          weight: 500
