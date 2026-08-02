@@ -1,0 +1,63 @@
+name: Build all platforms
+
+# Proof that the six targets actually compile, not just a claim in the README.
+# Runs on demand and on main — the per-platform toolchains are slow enough that
+# every-push would be wasteful, and CI already covers analyze + test there.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: android
+            os: ubuntu-latest
+            command: flutter build apk --release
+          - target: linux
+            os: ubuntu-latest
+            command: flutter build linux --release
+            setup: |
+              sudo apt-get update
+              sudo apt-get install -y clang cmake ninja-build pkg-config \
+                libgtk-3-dev liblzma-dev libstdc++-12-dev
+          - target: web
+            os: ubuntu-latest
+            command: flutter build web --release
+          - target: windows
+            os: windows-latest
+            command: flutter build windows --release
+          - target: macos
+            os: macos-latest
+            command: flutter build macos --release
+          - target: ios
+            os: macos-latest
+            # No signing identity on a CI runner, hence --no-codesign.
+            command: flutter build ios --release --no-codesign
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        if: matrix.target == 'android'
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: pubspec.yaml
+          channel: stable
+          cache: true
+
+      - name: Platform setup
+        if: matrix.setup != ''
+        run: ${{ matrix.setup }}
+
+      - run: flutter pub get
+      - run: ${{ matrix.command }}

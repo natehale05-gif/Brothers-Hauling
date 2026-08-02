@@ -1,0 +1,71 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; let an in-flight run finish so Pages is never half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: pubspec.yaml
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      # base-href must match the repo name so asset URLs resolve under
+      # https://<user>.github.io/<repo>/
+      - name: Build web
+        run: flutter build web --release --base-href "/${GITHUB_REPOSITORY#*/}/"
+
+      # Widget tests say nothing about whether the compiled bundle boots in a
+      # real browser at the real base href. This drives the actual artifact.
+      - name: Browser smoke test
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          BASE_PATH="/${GITHUB_REPOSITORY#*/}/" node tool/web_smoke_test.js
+
+      # GitHub Pages serves 404.html for unknown paths; pointing it at the app
+      # keeps a refresh on a deep link working.
+      - name: Add SPA fallback
+        run: cp build/web/index.html build/web/404.html
+
+      - name: Disable Jekyll
+        run: touch build/web/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
