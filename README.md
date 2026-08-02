@@ -4,7 +4,7 @@ The job pipeline for Brothers Hauling — three access levels, one board.
 A Flutter rebuild of the `haulboardv3` React prototype, running from the same
 codebase on **iPhone, iPad, Android, macOS, Windows, Linux and the web**.
 
-**Try it:** https://natehale05-gif.github.io/brothers-hauling/ — no install, no
+**Try it:** https://natehale05-gif.github.io/Brothers-Hauling/ — no install, no
 sign-up. Pick any of the three access levels to see what that role sees.
 
 ---
@@ -95,7 +95,7 @@ drives the real artifact through Chromium — signing in, reading the accessibil
 tree the way a screen reader would, and failing on any console error:
 
 ```bash
-flutter build web --release --base-href "/brothers-hauling/"
+flutter build web --release --base-href "/Brothers-Hauling/"
 npm install --no-save playwright && npx playwright install --with-deps chromium
 node tool/web_smoke_test.js
 ```
@@ -167,6 +167,25 @@ Same widgets either way; only the chrome differs.
 State is a single `ChangeNotifier` reached through an `InheritedNotifier`. No
 state-management package: the app has one screen's worth of state, and every
 dependency is a dependency that can break a Windows or Linux build.
+
+### App icon
+
+One source image, `assets/branding/app_icon_source.png`, drives every
+platform's icon. `python3 tool/generate_icons.py` regenerates all 44 outputs —
+edit the source and re-run rather than hand-editing any of them.
+
+Each platform frames it differently, which is the reason for the script:
+iOS gets a full-bleed square with no alpha channel (it rounds the corners
+itself, and the App Store rejects alpha); Android gets a legacy square plus an
+adaptive icon with a monochrome layer for themed icons; macOS gets the rounded
+square inset in a transparent canvas the way the Dock expects; Windows gets a
+multi-resolution `.ico`; Linux gets a PNG the GTK window loads at runtime.
+
+Where something else masks the icon — Android's launcher shapes, a maskable
+web icon — the script sizes the mark by **where its ink actually falls** rather
+than by its bounding box. Fitting the bounding box inside the safe circle
+shrinks the logo needlessly; fitting the box's corners, which are empty, is
+what clips "HAULING" off the bottom under a circular mask.
 
 ### Dependencies
 

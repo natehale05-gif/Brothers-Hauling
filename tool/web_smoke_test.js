@@ -22,8 +22,9 @@ const { chromium } = require('playwright');
 
 const BUILD_DIR = path.resolve(__dirname, '..', 'build', 'web');
 
-// Must match the --base-href the bundle was built with.
-const BASE_PATH = process.env.BASE_PATH || '/brothers-hauling/';
+// Must match the --base-href the bundle was built with. GitHub Pages serves a
+// project site under the repository name, case included.
+const BASE_PATH = process.env.BASE_PATH || '/Brothers-Hauling/';
 const PORT = Number(process.env.PORT || 8099);
 
 const MIME = {
@@ -74,7 +75,12 @@ function serve() {
 
 /** Boots the app and turns on the semantics tree, as assistive tech would. */
 async function boot(browser, viewport) {
-  const page = await browser.newPage({ viewport });
+  // An explicit locale is load-bearing, not cosmetic. Playwright's headless
+  // shell inherits the container's POSIX locale and reports
+  // navigator.language as "en-US@posix"; Flutter's engine hands that straight
+  // to Intl.Locale, which rejects it, and the app dies before its first frame.
+  // No real browser reports a tag like that.
+  const page = await browser.newPage({ viewport, locale: 'en-US' });
   const errors = [];
   page.on('pageerror', (e) => errors.push('page error: ' + e.message));
   page.on('requestfailed', (r) => {
@@ -91,9 +97,17 @@ async function boot(browser, viewport) {
     timeout: 60000,
   });
   // The boot splash removes itself on Flutter's first painted frame.
-  await page.waitForFunction(() => !document.getElementById('boot'), {
-    timeout: 60000,
-  });
+  try {
+    await page.waitForFunction(() => !document.getElementById('boot'), {
+      timeout: 60000,
+    });
+  } catch (e) {
+    // The splash is still up, so Flutter never painted. Whatever the page
+    // logged is far more useful than a bare timeout.
+    console.error('\nThe app never painted its first frame. Page errors:');
+    console.error(errors.length ? errors.join('\n') : '  (none captured)');
+    throw e;
+  }
   await page.waitForTimeout(1500);
 
   await page.evaluate(() => {

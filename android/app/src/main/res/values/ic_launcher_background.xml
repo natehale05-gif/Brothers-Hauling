@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches the field the mark sits on in assets/branding/app_icon_source.png,
+         so the adaptive layers meet without a visible seam. -->
+    <color name="ic_launcher_background">#111112</color>
+</resources>
