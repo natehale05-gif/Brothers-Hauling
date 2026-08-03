@@ -262,7 +262,7 @@ class _NavRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             style: FilledButton.styleFrom(
-              backgroundColor: HaulColors.hivis,
+              backgroundColor: HaulColors.brand,
               foregroundColor: HaulColors.asphalt,
               minimumSize: const Size(0, HaulSpace.tap),
               shape: RoundedRectangleBorder(
@@ -599,7 +599,7 @@ class _AdvanceBar extends StatelessWidget {
               ),
               style: FilledButton.styleFrom(
                 backgroundColor: job.stage >= 4 && !blocked
-                    ? HaulColors.hivis
+                    ? HaulColors.brand
                     : HaulColors.raised,
                 foregroundColor: job.stage >= 4 && !blocked
                     ? HaulColors.asphalt

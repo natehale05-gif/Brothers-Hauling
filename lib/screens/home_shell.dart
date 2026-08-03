@@ -397,7 +397,7 @@ class _Tab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? HaulColors.hivis : HaulColors.grey;
+    final color = selected ? HaulColors.brand : HaulColors.grey;
 
     return Semantics(
       button: true,
@@ -415,7 +415,7 @@ class _Tab extends StatelessWidget {
             // doesn't rest on colour alone.
             border: Border(
               top: BorderSide(
-                color: selected ? HaulColors.hivis : Colors.transparent,
+                color: selected ? HaulColors.brand : Colors.transparent,
                 width: 3,
               ),
             ),
@@ -458,7 +458,7 @@ class _NavRail extends StatelessWidget {
       selectedIndex: index,
       onDestinationSelected: (i) => state.setTab(tabs[i]),
       backgroundColor: HaulColors.surface,
-      indicatorColor: HaulColors.hivisWash,
+      indicatorColor: HaulColors.brandWash,
       labelType: NavigationRailLabelType.all,
       selectedLabelTextStyle: HaulText.eyebrow.copyWith(
         color: HaulColors.white,
@@ -468,7 +468,7 @@ class _NavRail extends StatelessWidget {
         for (final t in tabs)
           NavigationRailDestination(
             icon: Icon(_tabIcon(t), color: HaulColors.grey),
-            selectedIcon: Icon(_tabIcon(t), color: HaulColors.hivis),
+            selectedIcon: Icon(_tabIcon(t), color: HaulColors.brand),
             label: Text(t.label),
           ),
       ],
@@ -539,7 +539,7 @@ class _ToastState extends State<_Toast> {
               padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
               decoration: BoxDecoration(
                 border: const Border(
-                  left: BorderSide(color: HaulColors.hivis, width: 4),
+                  left: BorderSide(color: HaulColors.brand, width: 4),
                 ),
                 borderRadius: BorderRadius.circular(11),
                 boxShadow: const [
@@ -628,7 +628,7 @@ class _ClosedOverlay extends StatelessWidget {
                       autofocus: true,
                       onPressed: state.dismissClosedJob,
                       style: FilledButton.styleFrom(
-                        backgroundColor: HaulColors.hivis,
+                        backgroundColor: HaulColors.brand,
                         foregroundColor: HaulColors.asphalt,
                         minimumSize: const Size(240, HaulSpace.tap),
                         shape: RoundedRectangleBorder(

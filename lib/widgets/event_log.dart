@@ -61,7 +61,7 @@ class EventLog extends StatelessWidget {
   };
 
   static Color _color(EventKind kind) => switch (kind) {
-    EventKind.depart => HaulColors.hivis,
+    EventKind.depart => HaulColors.brand,
     EventKind.arrive => HaulColors.go,
     EventKind.flat => HaulColors.white,
   };

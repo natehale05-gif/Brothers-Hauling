@@ -8,17 +8,17 @@ import 'state/app_state.dart';
 import 'theme/haul_theme.dart';
 
 void main() {
-  runApp(const HaulBoardApp());
+  runApp(const BrothersHaulingApp());
 }
 
-/// Haul Board — one job pipeline, three access levels.
+/// Brothers Hauling — one job pipeline, three access levels.
 ///
 /// Runs unchanged on iPhone, iPad, Android, macOS, Windows, Linux and the web.
 /// Everything platform-specific sits behind a service in `lib/services/`, so
 /// tests — and any platform missing a capability — swap in a stand-in rather
 /// than branching the UI.
-class HaulBoardApp extends StatefulWidget {
-  const HaulBoardApp({
+class BrothersHaulingApp extends StatefulWidget {
+  const BrothersHaulingApp({
     super.key,
     this.state,
     this.links = const UrlLauncherLinkService(),
@@ -29,10 +29,10 @@ class HaulBoardApp extends StatefulWidget {
   final LinkService links;
 
   @override
-  State<HaulBoardApp> createState() => _HaulBoardAppState();
+  State<BrothersHaulingApp> createState() => _BrothersHaulingAppState();
 }
 
-class _HaulBoardAppState extends State<HaulBoardApp> {
+class _BrothersHaulingAppState extends State<BrothersHaulingApp> {
   late final AppState _state =
       widget.state ??
       AppState(
@@ -54,7 +54,7 @@ class _HaulBoardAppState extends State<HaulBoardApp> {
     return AppScope(
       state: _state,
       child: MaterialApp(
-        title: 'Haul Board',
+        title: 'Brothers Hauling',
         debugShowCheckedModeBanner: false,
         theme: buildHaulTheme(),
         darkTheme: buildHaulTheme(),

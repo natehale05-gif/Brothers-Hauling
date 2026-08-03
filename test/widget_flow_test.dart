@@ -431,7 +431,7 @@ void main() {
   ) async {
     // Guards the production wiring — the default services must at least
     // construct and render the gate without touching a platform channel.
-    await tester.pumpWidget(HaulBoardApp(links: RecordingLinkService()));
+    await tester.pumpWidget(BrothersHaulingApp(links: RecordingLinkService()));
     await tester.pump();
 
     expect(find.text('Pick an access level to sign in.'), findsOneWidget);
@@ -441,7 +441,7 @@ void main() {
   test('the theme keeps its identity across both slots', () {
     final theme = buildHaulTheme();
     expect(theme.scaffoldBackgroundColor, HaulColors.asphalt);
-    expect(theme.colorScheme.primary, HaulColors.hivis);
+    expect(theme.colorScheme.primary, HaulColors.brand);
     expect(theme.textTheme.bodyLarge?.fontFamily, HaulFonts.body);
   });
 

@@ -80,7 +80,7 @@ class RouteStrip extends StatelessWidget {
                         height: 4,
                         width: x,
                         decoration: BoxDecoration(
-                          color: HaulColors.hivis,
+                          color: HaulColors.brand,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -98,7 +98,7 @@ class RouteStrip extends StatelessWidget {
                         width: rigSize,
                         height: rigSize,
                         decoration: BoxDecoration(
-                          color: HaulColors.hivis,
+                          color: HaulColors.brand,
                           borderRadius: BorderRadius.circular(9),
                           boxShadow: const [
                             BoxShadow(
@@ -157,10 +157,10 @@ class RouteStrip extends StatelessWidget {
         width: 12,
         height: 12,
         decoration: BoxDecoration(
-          color: hit ? HaulColors.hivis : HaulColors.raised,
+          color: hit ? HaulColors.brand : HaulColors.raised,
           shape: BoxShape.circle,
           border: Border.all(
-            color: hit ? HaulColors.hivis : HaulColors.line,
+            color: hit ? HaulColors.brand : HaulColors.line,
             width: 2,
           ),
         ),

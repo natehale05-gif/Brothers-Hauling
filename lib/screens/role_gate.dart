@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/role.dart';
 import '../state/app_state.dart';
 import '../theme/haul_theme.dart';
+import '../widgets/brand_mark.dart';
 
 /// Sign-in. Pick an access level; everything downstream keys off it.
 class RoleGate extends StatelessWidget {
@@ -17,8 +18,8 @@ class RoleGate extends StatelessWidget {
       icon: Icons.shield_outlined,
     ),
     Role.manager => (
-      background: HaulColors.hivisWash,
-      foreground: HaulColors.hivis,
+      background: HaulColors.brandWash,
+      foreground: HaulColors.brand,
       icon: Icons.assignment_outlined,
     ),
     Role.employee => (
@@ -46,24 +47,11 @@ class RoleGate extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Semantics(
-                    header: true,
-                    // The wordmark is stacked over two lines visually; read it
-                    // as the one word it is.
-                    label: 'Haul Board',
-                    excludeSemantics: true,
-                    child: RichText(
-                      text: const TextSpan(
-                        style: HaulText.display,
-                        children: [
-                          TextSpan(text: 'HAUL\n'),
-                          TextSpan(
-                            text: 'BOARD',
-                            style: TextStyle(color: HaulColors.hivis),
-                          ),
-                        ],
-                      ),
-                    ),
+                  // The parent Column stretches its children; the lockup keeps
+                  // its own width.
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: BrandMark(),
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -112,7 +100,7 @@ class _RoleCard extends StatelessWidget {
         child: InkWell(
           onTap: onPick,
           borderRadius: BorderRadius.circular(HaulSpace.radius),
-          focusColor: HaulColors.hivis.withValues(alpha: 0.16),
+          focusColor: HaulColors.brand.withValues(alpha: 0.16),
           child: Container(
             constraints: const BoxConstraints(minHeight: 76),
             padding: const EdgeInsets.all(16),

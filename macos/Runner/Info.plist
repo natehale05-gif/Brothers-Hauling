@@ -29,8 +29,8 @@
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Haul Board shares your position with dispatch while the app is open so they can see where the load is. Closing the app stops it.</string>
+	<string>Brothers Hauling shares your position with dispatch while the app is open so they can see where the load is. Closing the app stops it.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Haul Board uses the camera for the before and after photos that close out a job.</string>
+	<string>Brothers Hauling uses the camera for the before and after photos that close out a job.</string>
 </dict>
 </plist>

@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Haul Board</string>
+	<string>Brothers Hauling</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Haul Board</string>
+	<string>Brothers Hauling</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -69,10 +69,10 @@
 	<!-- Location is only ever read while the board is open — see
 	     LocationService. There is no "always" entitlement on purpose. -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Haul Board shares your position with dispatch while the app is open so they can see where the load is. Closing the app stops it.</string>
+	<string>Brothers Hauling shares your position with dispatch while the app is open so they can see where the load is. Closing the app stops it.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Haul Board uses the camera for the before and after photos that close out a job.</string>
+	<string>Brothers Hauling uses the camera for the before and after photos that close out a job.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Haul Board can attach a before or after photo from your library to a job.</string>
+	<string>Brothers Hauling can attach a before or after photo from your library to a job.</string>
 </dict>
 </plist>

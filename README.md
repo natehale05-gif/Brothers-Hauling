@@ -1,4 +1,4 @@
-# Haul Board
+# Brothers Hauling
 
 The job pipeline for Brothers Hauling — three access levels, one board.
 A Flutter rebuild of the `haulboardv3` React prototype, running from the same
@@ -167,6 +167,31 @@ Same widgets either way; only the chrome differs.
 State is a single `ChangeNotifier` reached through an `InheritedNotifier`. No
 state-management package: the app has one screen's worth of state, and every
 dependency is a dependency that can break a Windows or Linux build.
+
+### Brand
+
+The palette is not eyeballed off the logo — three colours are sampled straight
+out of `assets/branding/app_icon_source.png` and used as-is:
+
+| | | |
+| --- | --- | --- |
+| `#111112` | near-black | the icon's field, and the app's background |
+| `#A4A3A5` | neutral grey | the grey of "BROTHERS" |
+| `#F9570D` | safety orange | the orange of "HAULING", the accent everywhere |
+
+The orange is used untinted because it happens to clear WCAG AA on every
+surface in the app (5.8:1 on the background), so the brand colour and the
+accessible colour are the same colour — no separate "web-safe" variant to keep
+in sync.
+
+Two knock-on changes fell out of it. The alert colour moved to a pink-red
+(`#FF4D6D`); the prototype's alert was itself an orange-red, which stops
+reading as "different" once the accent is orange. And the neutrals lost their
+blue cast — the icon's black is neutral, so the surfaces are too.
+
+The role gate draws the icon's lockup in type (`lib/widgets/brand_mark.dart`)
+rather than shipping it as an image: crisp at any size, and nothing added to
+the web payload.
 
 ### App icon
 

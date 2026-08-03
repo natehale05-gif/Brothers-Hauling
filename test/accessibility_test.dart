@@ -53,13 +53,15 @@ void main() {
       'secondary text on asphalt': (HaulColors.grey, HaulColors.asphalt),
       'secondary text on surface': (HaulColors.grey, HaulColors.surface),
       'secondary text on raised': (HaulColors.grey, HaulColors.raised),
-      'money on surface': (HaulColors.hivis, HaulColors.surface),
+      'brand accent on surface': (HaulColors.brand, HaulColors.surface),
+      'brand accent on raised': (HaulColors.brand, HaulColors.raised),
+      'brand accent on asphalt': (HaulColors.brand, HaulColors.asphalt),
       'stage label on surface': (HaulColors.go, HaulColors.surface),
       'hazard text on surface': (HaulColors.alert, HaulColors.surface),
       'role accent on surface': (HaulColors.violet, HaulColors.surface),
-      'asphalt on hi-vis (the hero tile)': (
+      'asphalt on the brand orange (the hero tile)': (
         HaulColors.asphalt,
-        HaulColors.hivis,
+        HaulColors.brand,
       ),
       'asphalt on go (the done badge)': (HaulColors.asphalt, HaulColors.go),
     };
@@ -90,8 +92,8 @@ void main() {
         HaulColors.surface,
       ),
       'hi-vis pill': (
-        HaulColors.hivis,
-        HaulColors.hivisWash,
+        HaulColors.brand,
+        HaulColors.brandWash,
         HaulColors.surface,
       ),
     };

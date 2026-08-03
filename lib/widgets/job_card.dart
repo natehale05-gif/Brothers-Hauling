@@ -44,7 +44,7 @@ class JobCard extends StatelessWidget {
     final lockedOut = mode == JobCardMode.board && !runnable;
 
     final border = selected
-        ? HaulColors.hivis
+        ? HaulColors.brand
         : isMineActive
         ? HaulColors.go
         : job.status == JobStatus.assigned
