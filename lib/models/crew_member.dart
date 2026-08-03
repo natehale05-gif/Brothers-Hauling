@@ -30,6 +30,30 @@ class CrewMember {
   final String? lastSeen;
   final String? lastPlace;
 
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'name': name,
+    'initials': initials,
+    'unit': unit,
+    'onShift': onShift,
+    'appOpen': appOpen,
+    'rig': rig,
+    'lastSeen': lastSeen,
+    'lastPlace': lastPlace,
+  };
+
+  factory CrewMember.fromJson(Map<String, Object?> json) => CrewMember(
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    initials: json['initials'] as String? ?? '',
+    unit: json['unit'] as String? ?? '',
+    onShift: json['onShift'] as bool? ?? false,
+    appOpen: json['appOpen'] as bool? ?? false,
+    rig: (json['rig'] as List?)?.cast<String>() ?? const [],
+    lastSeen: json['lastSeen'] as String?,
+    lastPlace: json['lastPlace'] as String?,
+  );
+
   /// Equipment strings are compared with whitespace stripped so
   /// "Dump trailer 14k" and "Dump trailer14k" are the same rig.
   bool canRun(String equipment) {

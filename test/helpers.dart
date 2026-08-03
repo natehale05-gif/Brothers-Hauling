@@ -79,7 +79,7 @@ Future<Harness> pumpApp(
         disableAnimations: disableAnimations,
         accessibleNavigation: accessibleNavigation,
       ),
-      child: HaulBoardApp(state: state, links: resolvedLinks),
+      child: BrothersHaulingApp(state: state, links: resolvedLinks),
     ),
   );
   await settle(tester);

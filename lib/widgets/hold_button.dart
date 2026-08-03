@@ -104,7 +104,7 @@ class _HoldButtonState extends State<HoldButton>
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(
-              backgroundColor: HaulColors.hivis,
+              backgroundColor: HaulColors.brand,
               foregroundColor: HaulColors.asphalt,
             ),
             child: const Text('Yes, take it'),
@@ -189,7 +189,7 @@ class _HoldButtonState extends State<HoldButton>
                         color: HaulColors.raised,
                         border: Border(
                           top: BorderSide(
-                            color: focused ? HaulColors.hivis : HaulColors.line,
+                            color: focused ? HaulColors.brand : HaulColors.line,
                             width: focused ? 3 : 1,
                           ),
                         ),
@@ -211,7 +211,7 @@ class _HoldButtonState extends State<HoldButton>
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     colors: [
-                                      HaulColors.hivis,
+                                      HaulColors.brand,
                                       Color(0xFFC9A800),
                                     ],
                                   ),

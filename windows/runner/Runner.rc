@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.brothershauling" "\0"
-            VALUE "FileDescription", "Haul Board" "\0"
+            VALUE "FileDescription", "Brothers Hauling" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "haul_board" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.brothershauling. All rights reserved." "\0"
             VALUE "OriginalFilename", "haul_board.exe" "\0"
-            VALUE "ProductName", "Haul Board" "\0"
+            VALUE "ProductName", "Brothers Hauling" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

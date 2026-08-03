@@ -1,39 +1,50 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-/// The Haul Board palette. Dark by design — these screens get read in a cab in
-/// daylight and in a yard at 5 AM, so contrast is high and the accent is a
-/// hi-vis yellow lifted straight off a safety vest.
+/// The Brothers Hauling palette, taken from the app icon.
 ///
-/// Every foreground/background pairing used for text in this app clears WCAG AA
+/// Three colours are sampled straight out of `assets/branding/app_icon_source.png`
+/// rather than approximated — the near-black field, the neutral grey of
+/// "BROTHERS", and the safety orange of "HAULING". The app and the launcher
+/// icon are then provably the same brand, not two colour schemes that resemble
+/// each other.
+///
+/// Dark by design: these screens get read in a cab in daylight and in a yard at
+/// 5 AM. Every foreground/background pairing used for text clears WCAG AA
 /// (4.5:1); `test/accessibility_test.dart` asserts it rather than trusting it.
 abstract final class HaulColors {
-  static const asphalt = Color(0xFF14161C);
-  static const surface = Color(0xFF1E212A);
-  static const raised = Color(0xFF282C38);
-  static const line = Color(0xFF363B4A);
+  /// The icon's field colour. Neutral, not the blue-black of the prototype.
+  static const asphalt = Color(0xFF111112);
 
-  /// Secondary text. 5.9:1 on [surface].
-  static const grey = Color(0xFF979DAE);
+  static const surface = Color(0xFF1A1A1C);
+  static const raised = Color(0xFF242427);
+  static const line = Color(0xFF34343A);
 
-  static const white = Color(0xFFF1F3F7);
-  static const hivis = Color(0xFFFFD400);
+  /// The grey of "BROTHERS" in the icon. 6.9:1 on [surface].
+  static const grey = Color(0xFFA4A3A5);
+
+  static const white = Color(0xFFF2F2F3);
+
+  /// The safety orange of "HAULING" in the icon, used untinted — it clears AA
+  /// on every surface in the app (5.8:1 on [asphalt]), so the brand colour and
+  /// the accessible colour are the same colour.
+  static const brand = Color(0xFFF9570D);
+
   static const go = Color(0xFF2FCB74);
 
-  /// Lifted off the original #FF5B3D so it still clears 4.5:1 when it sits on
-  /// its own tinted wash.
-  static const alert = Color(0xFFFF7454);
+  /// Pushed to a clear pink-red. The prototype's alert was itself an
+  /// orange-red, which is unreadable as "different" now that the brand accent
+  /// is orange.
+  static const alert = Color(0xFFFF4D6D);
 
-  /// Same reason as [alert] — the original #8B7BFF only managed 3.9:1 on the
-  /// violet wash.
   static const violet = Color(0xFFA99CFF);
 
   /// Tinted chip backgrounds. The alpha is deliberately low: the darker the
   /// blend stays, the more headroom the coloured label has on top of it.
   static const goWash = Color(0x1E2FCB74);
-  static const alertWash = Color(0x1EFF7454);
+  static const alertWash = Color(0x1EFF4D6D);
   static const violetWash = Color(0x1EA99CFF);
-  static const hivisWash = Color(0x1EFFD400);
+  static const brandWash = Color(0x1EF9570D);
 }
 
 /// Font families registered in pubspec.yaml. Bundled, not fetched — the app has
@@ -119,7 +130,7 @@ abstract final class HaulText {
     fontFamily: HaulFonts.black,
     fontSize: 20,
     height: 1.1,
-    color: HaulColors.hivis,
+    color: HaulColors.brand,
     fontFeatures: [FontFeature.tabularFigures()],
   );
 
@@ -166,7 +177,7 @@ abstract final class HaulSpace {
 
 ThemeData buildHaulTheme() {
   const scheme = ColorScheme.dark(
-    primary: HaulColors.hivis,
+    primary: HaulColors.brand,
     onPrimary: HaulColors.asphalt,
     secondary: HaulColors.go,
     onSecondary: HaulColors.asphalt,
@@ -185,7 +196,7 @@ ThemeData buildHaulTheme() {
     splashFactory: InkSparkle.splashFactory,
     // A single, unmissable focus ring in the accent colour — this is how the
     // whole app is navigable from a keyboard on macOS, Windows, Linux and web.
-    focusColor: HaulColors.hivis.withValues(alpha: 0.30),
+    focusColor: HaulColors.brand.withValues(alpha: 0.30),
     textTheme: const TextTheme(
       displayLarge: HaulText.display,
       titleLarge: HaulText.heading,

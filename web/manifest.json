@@ -1,11 +1,11 @@
 {
-    "name": "Haul Board",
-    "short_name": "Haul Board",
+    "name": "Brothers Hauling",
+    "short_name": "Brothers Hauling",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#14161C",
-    "theme_color": "#14161C",
-    "description": "Haul Board — the job pipeline for Brothers Hauling. Three access levels, one board.",
+    "background_color": "#111112",
+    "theme_color": "#111112",
+    "description": "Brothers Hauling — the job pipeline. Three access levels, one board.",
     "orientation": "any",
     "prefer_related_applications": false,
     "icons": [

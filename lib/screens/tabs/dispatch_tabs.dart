@@ -370,7 +370,7 @@ class OverviewTab extends StatelessWidget {
               child: StatTile(
                 value: '${moving.length}',
                 label: 'On the road now',
-                valueColor: HaulColors.hivis,
+                valueColor: HaulColors.brand,
               ),
             ),
           ],
@@ -378,7 +378,7 @@ class OverviewTab extends StatelessWidget {
         const SizedBox(height: 18),
         const SectionHeader(
           title: 'Moving right now',
-          trailing: Pill.hivis(label: 'Live'),
+          trailing: Pill.brand(label: 'Live'),
         ),
         if (moving.isEmpty)
           const EmptyState(
@@ -415,7 +415,7 @@ class OverviewTab extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: week[i] == 0
                                   ? HaulColors.line
-                                  : HaulColors.hivis,
+                                  : HaulColors.brand,
                               borderRadius: const BorderRadius.vertical(
                                 top: Radius.circular(4),
                               ),

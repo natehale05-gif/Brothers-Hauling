@@ -1,4 +1,4 @@
-# Haul Board
+# Brothers Hauling
 
 The job pipeline for Brothers Hauling — three access levels, one board.
 A Flutter rebuild of the `haulboardv3` React prototype, running from the same
@@ -28,6 +28,30 @@ without a before and an after photo.**
 Managers and admins can push a job at a specific driver, but the driver still
 has to accept it. Anyone above employee can flip into the employee view to see
 exactly what their crew sees, money hidden and all.
+
+### Working with no signal
+
+The board lives on the device, not in memory. Every change — claiming a load,
+stepping a stage, filing a photo — is recorded as a **mutation**: applied
+immediately so the driver sees it, written to disk before the call returns, then
+queued for the server and sent when there is something to send to.
+
+That ordering is the whole design. The first three steps cannot fail for lack of
+signal, so a driver can work an entire job in Blodgett, close it, kill the app,
+and lose nothing. Only the fourth step needs a radio, and it is allowed to fail
+for as long as it likes.
+
+The queue preserves order and sends strictly one at a time — "arrived on site"
+before "loaded up" — backs off exponentially on failure, and gives up loudly
+rather than retrying forever. Work the server refuses is never silently
+dropped; it is shown to the driver with a retry.
+
+Nothing in the UI claims a change has reached dispatch until it has. Queued work
+reads "saved on this phone", not "saved".
+
+There is still no server — the send step currently succeeds as soon as a change
+is durable, which is what makes the demo above persist across a reload. Pointing
+it at a real backend means implementing one function.
 
 ### Location, stated plainly
 
@@ -78,7 +102,7 @@ flutter analyze
 flutter test
 ```
 
-**220 tests**, in four files:
+**289 tests**, in seven files:
 
 | File | Covers |
 | --- | --- |
@@ -86,6 +110,10 @@ flutter test
 | `test/widget_flow_test.dart` | End-to-end journeys per role, the hold gesture, money visibility, directions and dialling, layout switching, every `TargetPlatform` |
 | `test/layout_test.dart` | Every tab and every job card across six device sizes at normal and 1.6× text — 122 combinations, each asserting nothing overflows |
 | `test/accessibility_test.dart` | Contrast maths, Flutter's four accessibility guidelines on every screen, screen reader labels, keyboard control, reduced motion |
+| `test/serialization_test.dart` | Everything that is persisted or sent, round-tripped through real JSON, plus what happens when the stored data is malformed |
+| `test/outbox_test.dart` | The offline queue — ordering, backoff, giving up, surviving the process dying |
+| `test/board_repository_test.dart` | A shift worked with no signal: applied locally, kept across relaunch, delivered in order when signal returns |
+| `test/sync_ui_test.dart` | That the app never tells a driver their work landed when it has not |
 
 ### Browser smoke test
 
@@ -167,6 +195,31 @@ Same widgets either way; only the chrome differs.
 State is a single `ChangeNotifier` reached through an `InheritedNotifier`. No
 state-management package: the app has one screen's worth of state, and every
 dependency is a dependency that can break a Windows or Linux build.
+
+### Brand
+
+The palette is not eyeballed off the logo — three colours are sampled straight
+out of `assets/branding/app_icon_source.png` and used as-is:
+
+| | | |
+| --- | --- | --- |
+| `#111112` | near-black | the icon's field, and the app's background |
+| `#A4A3A5` | neutral grey | the grey of "BROTHERS" |
+| `#F9570D` | safety orange | the orange of "HAULING", the accent everywhere |
+
+The orange is used untinted because it happens to clear WCAG AA on every
+surface in the app (5.8:1 on the background), so the brand colour and the
+accessible colour are the same colour — no separate "web-safe" variant to keep
+in sync.
+
+Two knock-on changes fell out of it. The alert colour moved to a pink-red
+(`#FF4D6D`); the prototype's alert was itself an orange-red, which stops
+reading as "different" once the accent is orange. And the neutrals lost their
+blue cast — the icon's black is neutral, so the surfaces are too.
+
+The role gate draws the icon's lockup in type (`lib/widgets/brand_mark.dart`)
+rather than shipping it as an image: crisp at any size, and nothing added to
+the web payload.
 
 ### App icon
 

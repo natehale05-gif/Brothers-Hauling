@@ -112,7 +112,7 @@ class TrackCard extends StatelessWidget {
 
   Widget _statusPill(Phase phase, bool online) {
     if (phase.moving) {
-      return Pill.hivis(
+      return Pill.brand(
         label: phase.label,
         icon: Icons.navigation_rounded,
         semanticLabel: 'Status: ${phase.label}, moving',

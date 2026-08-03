@@ -34,13 +34,13 @@ class Pill extends StatelessWidget {
   }) : foreground = HaulColors.violet,
        background = HaulColors.violetWash;
 
-  const Pill.hivis({
+  const Pill.brand({
     super.key,
     required this.label,
     this.icon,
     this.semanticLabel,
-  }) : foreground = HaulColors.hivis,
-       background = HaulColors.hivisWash;
+  }) : foreground = HaulColors.brand,
+       background = HaulColors.brandWash;
 
   final String label;
   final IconData? icon;
@@ -91,7 +91,7 @@ class CrewAvatar extends StatelessWidget {
     super.key,
     required this.initials,
     this.size = 38,
-    this.background = HaulColors.hivis,
+    this.background = HaulColors.brand,
     this.foreground = HaulColors.asphalt,
   });
 
@@ -317,8 +317,8 @@ class StatTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: hero ? HaulColors.hivis : HaulColors.surface,
-          border: Border.all(color: hero ? HaulColors.hivis : HaulColors.line),
+          color: hero ? HaulColors.brand : HaulColors.surface,
+          border: Border.all(color: hero ? HaulColors.brand : HaulColors.line),
           borderRadius: BorderRadius.circular(HaulSpace.radius),
         ),
         child: Column(
@@ -461,7 +461,7 @@ class ActionBar extends StatelessWidget {
     final bg = ghost
         ? Colors.transparent
         : solid
-        ? HaulColors.hivis
+        ? HaulColors.brand
         : HaulColors.raised;
     final fg = !enabled
         ? HaulColors.grey
@@ -544,7 +544,7 @@ class HaulIconButton extends StatelessWidget {
       onPressed: onPressed,
       tooltip: tooltip,
       icon: Icon(icon, size: 19),
-      color: active ? HaulColors.hivis : HaulColors.grey,
+      color: active ? HaulColors.brand : HaulColors.grey,
       constraints: const BoxConstraints(
         minWidth: HaulSpace.tap,
         minHeight: HaulSpace.tap,
@@ -553,7 +553,7 @@ class HaulIconButton extends StatelessWidget {
         backgroundColor: HaulColors.raised,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(HaulSpace.radiusSm),
-          side: BorderSide(color: active ? HaulColors.hivis : HaulColors.line),
+          side: BorderSide(color: active ? HaulColors.brand : HaulColors.line),
         ),
       ),
     );

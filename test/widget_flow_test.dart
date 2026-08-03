@@ -98,7 +98,7 @@ void main() {
   group('job card', () {
     testWidgets('shows access notes, hazards and the load', (tester) async {
       final harness = await pumpApp(tester, role: Role.employee);
-      harness.state.accept(jobIn(harness.state, 'HL-4491'));
+      await harness.state.accept(jobIn(harness.state, 'HL-4491'));
       await settle(tester);
 
       await tapTab(tester, HaulTab.mine);
@@ -161,9 +161,9 @@ void main() {
       );
 
       // Take a job and drive it to the last stage.
-      harness.state.claim(jobIn(harness.state, 'HL-4471'));
+      await harness.state.claim(jobIn(harness.state, 'HL-4471'));
       for (var i = 0; i < 4; i++) {
-        harness.state.advance(jobIn(harness.state, 'HL-4471'));
+        await harness.state.advance(jobIn(harness.state, 'HL-4471'));
       }
       harness.state.openJobCard(jobIn(harness.state, 'HL-4471'));
       await settle(tester);
@@ -245,7 +245,7 @@ void main() {
       final links = RecordingLinkService();
       final harness = await pumpApp(tester, role: Role.employee, links: links);
 
-      harness.state.claim(jobIn(harness.state, 'HL-4471'));
+      await harness.state.claim(jobIn(harness.state, 'HL-4471'));
       harness.state.openJobCard(jobIn(harness.state, 'HL-4471'));
       await settle(tester);
 
@@ -254,7 +254,7 @@ void main() {
 
       // Roll out, arrive, load up — now the rig is headed for the landfill.
       for (var i = 0; i < 3; i++) {
-        harness.state.advance(jobIn(harness.state, 'HL-4471'));
+        await harness.state.advance(jobIn(harness.state, 'HL-4471'));
       }
       await settle(tester);
 
@@ -431,7 +431,7 @@ void main() {
   ) async {
     // Guards the production wiring — the default services must at least
     // construct and render the gate without touching a platform channel.
-    await tester.pumpWidget(HaulBoardApp(links: RecordingLinkService()));
+    await tester.pumpWidget(BrothersHaulingApp(links: RecordingLinkService()));
     await tester.pump();
 
     expect(find.text('Pick an access level to sign in.'), findsOneWidget);
@@ -441,7 +441,7 @@ void main() {
   test('the theme keeps its identity across both slots', () {
     final theme = buildHaulTheme();
     expect(theme.scaffoldBackgroundColor, HaulColors.asphalt);
-    expect(theme.colorScheme.primary, HaulColors.hivis);
+    expect(theme.colorScheme.primary, HaulColors.brand);
     expect(theme.textTheme.bodyLarge?.fontFamily, HaulFonts.body);
   });
 
