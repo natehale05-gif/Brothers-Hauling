@@ -10,6 +10,7 @@ import '../state/app_state.dart';
 import '../theme/haul_theme.dart';
 import '../widgets/primitives.dart';
 import '../widgets/route_strip.dart';
+import '../widgets/sync_strip.dart';
 import 'job_detail.dart';
 import 'role_gate.dart';
 import 'tabs/dispatch_tabs.dart';
@@ -61,6 +62,9 @@ class HomeShell extends StatelessWidget {
                   Column(
                     children: [
                       const _TopBar(),
+                      // Above the location strip: whether your work has landed
+                      // matters more than where you are.
+                      const SyncStrip(),
                       if (state.employeeView) const _LocationStrip(),
                       Expanded(
                         child: wide

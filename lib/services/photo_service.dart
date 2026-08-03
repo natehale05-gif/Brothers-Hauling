@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../data/ids.dart';
+
 import '../models/job.dart';
 
 /// How a driver is asked for a shot. Desktop has no camera worth using here, so
@@ -44,7 +46,7 @@ class ImagePickerPhotoService implements PhotoService {
     // Bytes rather than a path: web has no readable file path, and holding the
     // bytes means one rendering path across all six platforms.
     final Uint8List bytes = await file.readAsBytes();
-    return JobPhoto(name: file.name, bytes: bytes);
+    return JobPhoto(id: ids.next('photo'), name: file.name, bytes: bytes);
   }
 }
 
@@ -76,6 +78,10 @@ class FakePhotoService implements PhotoService {
   Future<JobPhoto?> capture(PhotoSource source) async {
     captures++;
     if (cancel) return null;
-    return JobPhoto(name: 'shot-$captures.png', bytes: _pixel);
+    return JobPhoto(
+      id: 'photo-fake-$captures',
+      name: 'shot-$captures.png',
+      bytes: _pixel,
+    );
   }
 }

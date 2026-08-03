@@ -94,16 +94,16 @@ void main() {
       textScale: 1.6,
     );
 
-    harness.state.claim(jobIn(harness.state, 'HL-4471'));
+    await harness.state.claim(jobIn(harness.state, 'HL-4471'));
     for (var i = 0; i < 4; i++) {
-      harness.state.advance(jobIn(harness.state, 'HL-4471'));
+      await harness.state.advance(jobIn(harness.state, 'HL-4471'));
     }
     await harness.state.addPhoto(jobIn(harness.state, 'HL-4471'), before: true);
     await harness.state.addPhoto(
       jobIn(harness.state, 'HL-4471'),
       before: false,
     );
-    harness.state.advance(jobIn(harness.state, 'HL-4471'));
+    await harness.state.advance(jobIn(harness.state, 'HL-4471'));
     await settle(tester);
 
     expect(find.text('LOAD CLOSED'), findsOneWidget);

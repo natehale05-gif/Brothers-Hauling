@@ -55,8 +55,18 @@ CrewMember? crewById(String? id) {
   return null;
 }
 
+/// A time on the current day, so the demo board reads as "today" whenever it
+/// is opened rather than being pinned to the date it was written.
+DateTime _today(int hour, int minute) {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day, hour, minute);
+}
+
 /// Today's board.
-const List<Job> kSeedJobs = [
+///
+/// No longer `const`: events carry real [DateTime]s now, and Dart has no const
+/// DateTime. Built once at startup.
+final List<Job> kSeedJobs = [
   Job(
     id: 'HL-4471',
     type: 'Debris haul',
@@ -181,12 +191,12 @@ const List<Job> kSeedJobs = [
     progress: 0.42,
     events: [
       JobEvent(
-        time: '7:48 AM',
+        at: _today(7, 48),
         label: 'Accepted the job',
         kind: EventKind.flat,
       ),
       JobEvent(
-        time: '7:55 AM',
+        at: _today(7, 55),
         label: 'Left the yard — on the way to Tangent',
         kind: EventKind.depart,
       ),
@@ -218,26 +228,26 @@ const List<Job> kSeedJobs = [
     progress: 1,
     events: [
       JobEvent(
-        time: '8:10 AM',
+        at: _today(8, 10),
         label: 'Left the yard — on the way to Corvallis',
         kind: EventKind.depart,
       ),
       JobEvent(
-        time: '8:26 AM',
+        at: _today(8, 26),
         label: 'Arrived on site',
         kind: EventKind.arrive,
       ),
       JobEvent(
-        time: '9:02 AM',
+        at: _today(9, 2),
         label: 'Left the site — hauling to Coffin Butte Landfill',
         kind: EventKind.depart,
       ),
       JobEvent(
-        time: '9:31 AM',
+        at: _today(9, 31),
         label: 'Arrived at Coffin Butte Landfill',
         kind: EventKind.arrive,
       ),
-      JobEvent(time: '9:40 AM', label: 'Job closed', kind: EventKind.flat),
+      JobEvent(at: _today(9, 40), label: 'Job closed', kind: EventKind.flat),
     ],
   ),
 ];

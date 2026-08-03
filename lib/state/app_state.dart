@@ -2,7 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../data/board_repository.dart';
+import '../data/ids.dart';
 import '../data/seed_data.dart';
+import '../data/store.dart';
+import '../models/mutation.dart';
 import '../models/crew_member.dart';
 import '../models/job.dart';
 import '../models/role.dart';
@@ -30,16 +34,39 @@ extension HaulTabLabel on HaulTab {
 class AppState extends ChangeNotifier {
   AppState({
     List<Job>? jobs,
+    BoardRepository? board,
     LocationService? location,
     PhotoService? photos,
     this.tickInterval = const Duration(milliseconds: 2500),
     this.autoAdvance = true,
     this.toastDuration = const Duration(milliseconds: 3800),
+    this.storageIsDurable = true,
     DateTime Function()? now,
-  }) : _jobs = List.of(jobs ?? kSeedJobs),
-       _location = location ?? const GeolocatorLocationService(),
+    IdGenerator? idGenerator,
+  }) : _location = location ?? const GeolocatorLocationService(),
        photos = photos ?? ImagePickerPhotoService(),
-       _now = now ?? DateTime.now;
+       _now = now ?? DateTime.now,
+       _ids = idGenerator ?? ids,
+       _board =
+           board ??
+           LocalBoardRepository(store: MemoryStore(), seed: jobs, now: now) {
+    _board.addListener(_onBoardChanged);
+  }
+
+  /// The board is no longer a list this class owns. Every change goes through
+  /// the repository as a recorded mutation, so it survives the app dying and
+  /// can be replayed at a server later.
+  final BoardRepository _board;
+  final IdGenerator _ids;
+
+  BoardRepository get board => _board;
+  SyncState get syncState => _board.syncState;
+  Set<String> get unsyncedJobIds => _board.unsyncedJobIds;
+
+  void _onBoardChanged() => notifyListeners();
+
+  /// Reads whatever this device already had. Call once at startup.
+  Future<void> restore() => _board.load();
 
   final LocationService _location;
   final PhotoService photos;
@@ -55,9 +82,18 @@ class AppState extends ChangeNotifier {
   /// Null leaves a toast up until it is replaced or dismissed.
   final Duration? toastDuration;
 
+  /// False when the device refused to give us somewhere to write. The board
+  /// still works for this session, but nothing survives closing the app, and
+  /// the driver is told rather than left to find out.
+  final bool storageIsDurable;
+
   final DateTime Function() _now;
 
-  List<Job> _jobs;
+  /// Progress the ticker animates. Kept out of the persisted board: it is a
+  /// derived guess about where a truck is between two real events, not a fact
+  /// worth writing down or syncing.
+  final Map<String, double> _progress = {};
+
   Role? _role;
   HaulTab _tab = HaulTab.board;
   String? _openJobId;
@@ -72,7 +108,11 @@ class AppState extends ChangeNotifier {
 
   // ---------------------------------------------------------------- reading
 
-  List<Job> get jobs => List.unmodifiable(_jobs);
+  List<Job> get jobs => [
+    for (final job in _board.jobs)
+      if (_progress[job.id] case final p?) job.copyWith(progress: p) else job,
+  ];
+
   Role? get role => _role;
   HaulTab get tab => _tab;
   String? get toast => _toast;
@@ -86,7 +126,7 @@ class AppState extends ChangeNotifier {
   /// never shows a stale copy after a stage change.
   Job? get openJob {
     if (_openJobId == null) return null;
-    for (final j in _jobs) {
+    for (final j in jobs) {
       if (j.id == _openJobId) return j;
     }
     return null;
@@ -100,26 +140,26 @@ class AppState extends ChangeNotifier {
   /// stepped into the employee view.
   bool get canSeeMoney => (_role?.seesMoney ?? false) && !_asEmployee;
 
-  List<Job> get myJobs => _jobs
+  List<Job> get myJobs => jobs
       .where((j) => j.assignedTo == kMeId && j.status != JobStatus.done)
       .toList();
 
   List<Job> get openBoard =>
-      _jobs.where((j) => j.status == JobStatus.open).toList();
+      jobs.where((j) => j.status == JobStatus.open).toList();
 
-  List<Job> get activeAll => _jobs
+  List<Job> get activeAll => jobs
       .where(
         (j) => j.status == JobStatus.active || j.status == JobStatus.assigned,
       )
       .toList();
 
   List<Job> get doneAll =>
-      _jobs.where((j) => j.status == JobStatus.done).toList();
+      jobs.where((j) => j.status == JobStatus.done).toList();
 
   List<Job> get myDone => doneAll.where((j) => j.assignedTo == kMeId).toList();
 
   /// Jobs with a driver actually between two stops right now.
-  List<Job> get moving => _jobs
+  List<Job> get moving => jobs
       .where((j) => j.status == JobStatus.active && j.phase.moving)
       .toList();
 
@@ -204,24 +244,28 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Each of these records what the driver did and hands it to the board. The
+  // repository applies it locally, writes it down, and syncs when it can — so
+  // none of these methods can fail for lack of signal.
+
+  Mutation _stamp(Mutation Function(String id, DateTime at) build) =>
+      build(_ids.next('mut'), _now());
+
   /// Driver takes an unclaimed job off the board.
-  void claim(Job job) {
-    _patch(
-      job.id,
-      (j) => j.copyWith(
-        status: JobStatus.active,
-        assignedTo: kMeId,
-        stage: 0,
-        progress: 0,
-        events: [
-          JobEvent(
-            time: _clock(),
-            label: 'Volunteered for this job',
-            kind: EventKind.flat,
-          ),
-        ],
+  Future<void> claim(Job job) async {
+    final ok = await _board.apply(
+      _stamp(
+        (id, at) => ClaimJob(id: id, jobId: job.id, actorId: kMeId, at: at),
       ),
     );
+    if (!ok) {
+      // Another driver got there first — on this device that means the board
+      // moved under us between the tap and the write.
+      showToast('${job.id} is no longer open. Someone else took it.');
+      notifyListeners();
+      return;
+    }
+    _progress.remove(job.id);
     showToast("${job.id} is yours. Dispatch can see you're on it.");
     _openJobId = null;
     _tab = HaulTab.mine;
@@ -229,74 +273,78 @@ class AppState extends ChangeNotifier {
   }
 
   /// Driver says yes to a job dispatch pushed at them.
-  void accept(Job job) {
-    _patch(
-      job.id,
-      (j) => j.copyWith(
-        status: JobStatus.active,
-        stage: 0,
-        progress: 0,
-        events: [
-          JobEvent(
-            time: _clock(),
-            label: 'Accepted the job',
-            kind: EventKind.flat,
-          ),
-        ],
+  Future<void> accept(Job job) async {
+    final ok = await _board.apply(
+      _stamp(
+        (id, at) => AcceptJob(id: id, jobId: job.id, actorId: kMeId, at: at),
       ),
     );
+    if (!ok) {
+      showToast('${job.id} is no longer waiting on you.');
+      notifyListeners();
+      return;
+    }
+    _progress.remove(job.id);
     showToast('Accepted ${job.id}.');
     notifyListeners();
   }
 
   /// Step the job to its next stage. Closing is refused until both photos are
-  /// filed — that rule is the reason the photo slots exist.
+  /// filed — that rule is the reason the photo slots exist, and it is enforced
+  /// in the mutation too, so a replay cannot sneak past it.
   ///
   /// Returns true if the job moved.
-  bool advance(Job job) {
+  Future<bool> advance(Job job) async {
     final next = job.stage + 1;
+    if (next >= kStages.length) return false;
 
-    if (next == 5) {
-      if (!job.photosComplete) {
-        showToast('Add a before and an after photo before closing this job.');
-        notifyListeners();
-        return false;
-      }
-      _patch(
-        job.id,
-        (j) => j.copyWith(
-          status: JobStatus.done,
-          stage: 5,
-          progress: 1,
-          events: [...j.events, j.transitionEvent(5, _clock())],
-        ),
-      );
-      _closedJob = openJob ?? job;
-      _openJobId = null;
+    final closing = next == kStages.length - 1;
+    if (closing && !job.photosComplete) {
+      showToast('Add a before and an after photo before closing this job.');
       notifyListeners();
-      return true;
+      return false;
     }
 
-    if (next > 5) return false;
-
-    _patch(
-      job.id,
-      (j) => j.copyWith(
-        stage: next,
-        progress: 0,
-        events: [...j.events, j.transitionEvent(next, _clock())],
+    final ok = await _board.apply(
+      _stamp(
+        (id, at) => AdvanceStage(
+          id: id,
+          jobId: job.id,
+          actorId: kMeId,
+          at: at,
+          toStage: next,
+        ),
       ),
     );
+    if (!ok) return false;
+
+    _progress.remove(job.id);
+    if (closing) {
+      _closedJob = _board.jobs.firstWhere((j) => j.id == job.id);
+      _openJobId = null;
+    }
     notifyListeners();
     return true;
   }
 
   /// Dispatch pushes a job at a driver. They still have to accept it.
-  void assign(Job job, String crewId) {
-    _patch(
-      job.id,
-      (j) => j.copyWith(status: JobStatus.assigned, assignedTo: crewId),
+  Future<void> assign(Job job, String crewId) async {
+    final ok = await _board.apply(
+      _stamp(
+        (id, at) => AssignJob(
+          id: id,
+          jobId: job.id,
+          actorId: kMeId,
+          at: at,
+          driverId: crewId,
+        ),
+      ),
     );
+    if (!ok) {
+      showToast('${job.id} could not be reassigned.');
+      notifyListeners();
+      return;
+    }
     final name = crewById(crewId)?.name ?? 'the driver';
     showToast('${job.id} pushed to $name. They still have to accept it.');
     notifyListeners();
@@ -306,14 +354,36 @@ class AppState extends ChangeNotifier {
   Future<void> addPhoto(Job job, {required bool before}) async {
     final shot = await photos.capture(PhotoSource.camera);
     if (shot == null) return;
-    _patch(
-      job.id,
-      (j) =>
-          before ? j.copyWith(photoBefore: shot) : j.copyWith(photoAfter: shot),
+
+    final ok = await _board.apply(
+      _stamp(
+        (id, at) => AttachPhoto(
+          id: id,
+          jobId: job.id,
+          actorId: kMeId,
+          at: at,
+          photoId: shot.id,
+          photoName: shot.name,
+          before: before,
+        ),
+      ),
+      photo: shot,
     );
+    if (!ok) {
+      showToast('That photo could not be filed. Try again.');
+      notifyListeners();
+      return;
+    }
     showToast('${before ? "Before" : "After"} photo filed on ${job.id}.');
     notifyListeners();
   }
+
+  /// Push anything queued at the server now. Driver-initiated, so it does not
+  /// wait out a backoff.
+  Future<void> syncNow() => _board.sync(force: true);
+
+  /// Put work the server refused back in the queue.
+  Future<void> retryFailedSync() => _board.retryFailed();
 
   /// Transient message. Also announced to screen readers by the widget that
   /// renders it, so it isn't a visual-only signal.
@@ -329,20 +399,6 @@ class AppState extends ChangeNotifier {
   }
 
   // ------------------------------------------------------------- internals
-
-  void _patch(String id, Job Function(Job) update) {
-    _jobs = [
-      for (final j in _jobs)
-        if (j.id == id) update(j) else j,
-    ];
-  }
-
-  String _clock() {
-    final d = _now();
-    final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
-    final m = d.minute.toString().padLeft(2, '0');
-    return '$h:$m ${d.hour < 12 ? 'AM' : 'PM'}';
-  }
 
   void _startLocation() {
     _gpsSub?.cancel();
@@ -370,24 +426,21 @@ class AppState extends ChangeNotifier {
   @visibleForTesting
   void tick() {
     var changed = false;
-    _jobs = [
-      for (final j in _jobs)
-        if (j.status == JobStatus.active && j.phase.moving && j.progress < 1)
-          () {
-            final legMs = (j.legMiles / kAvgMph) * 3600 * 1000;
-            final step =
-                tickInterval.inMilliseconds / (legMs < 1 ? 1 : legMs) * 12;
-            changed = true;
-            return j.copyWith(progress: (j.progress + step).clamp(0.0, 1.0));
-          }()
-        else
-          j,
-    ];
+    for (final job in jobs) {
+      if (job.status != JobStatus.active || !job.phase.moving) continue;
+      if (job.progress >= 1) continue;
+
+      final legMs = (job.legMiles / kAvgMph) * 3600 * 1000;
+      final step = tickInterval.inMilliseconds / (legMs < 1 ? 1 : legMs) * 12;
+      _progress[job.id] = (job.progress + step).clamp(0.0, 1.0);
+      changed = true;
+    }
     if (changed) notifyListeners();
   }
 
   @override
   void dispose() {
+    _board.removeListener(_onBoardChanged);
     _ticker?.cancel();
     _toastTimer?.cancel();
     _stopLocation();

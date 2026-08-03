@@ -6,6 +6,7 @@ import '../state/app_state.dart';
 import '../theme/haul_theme.dart';
 import 'hold_button.dart';
 import 'primitives.dart';
+import 'sync_strip.dart';
 import 'stage_rail.dart';
 
 /// How a job card behaves depends on where it is being shown.
@@ -109,6 +110,8 @@ class JobCard extends StatelessWidget {
                     ),
                   if (job.status == JobStatus.assigned)
                     const Pill.violet(label: 'Awaiting accept'),
+                  if (state.unsyncedJobIds.contains(job.id))
+                    const UnsyncedChip(),
                 ],
               ),
             ),

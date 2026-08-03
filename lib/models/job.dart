@@ -17,22 +17,96 @@ enum JobStatus {
 
 enum EventKind { flat, depart, arrive }
 
-/// One line in a job's movement log.
-class JobEvent {
-  const JobEvent({required this.time, required this.label, required this.kind});
-
-  final String time;
-  final String label;
-  final EventKind kind;
+/// Reads an enum back by name, falling back rather than throwing — a board
+/// written by a newer build must not brick an older one.
+T _enumFrom<T extends Enum>(List<T> values, Object? name, T fallback) {
+  for (final v in values) {
+    if (v.name == name) return v;
+  }
+  return fallback;
 }
 
-/// A before/after shot. Bytes are held in memory so the same code path works on
-/// web (where there is no readable file path) as on the five native platforms.
-class JobPhoto {
-  const JobPhoto({required this.name, required this.bytes});
+/// One line in a job's movement log.
+///
+/// The moment is a real [DateTime], not the display string the prototype used.
+/// Two devices' logs have to merge into one ordered history, and "9:05 AM"
+/// cannot be compared across a midnight, a timezone, or a server.
+class JobEvent {
+  const JobEvent({required this.at, required this.label, required this.kind});
 
+  final DateTime at;
+  final String label;
+  final EventKind kind;
+
+  /// What the driver reads: "9:05 AM".
+  String get time => formatClock(at);
+
+  Map<String, Object?> toJson() => {
+    'at': at.toUtc().toIso8601String(),
+    'label': label,
+    'kind': kind.name,
+  };
+
+  factory JobEvent.fromJson(Map<String, Object?> json) => JobEvent(
+    at:
+        DateTime.tryParse(json['at'] as String? ?? '')?.toLocal() ??
+        DateTime.fromMillisecondsSinceEpoch(0),
+    label: json['label'] as String? ?? '',
+    kind: _enumFrom(EventKind.values, json['kind'], EventKind.flat),
+  );
+}
+
+/// Twelve-hour clock, no leading zero on the hour.
+String formatClock(DateTime d) {
+  final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
+  return '$h:${d.minute.toString().padLeft(2, '0')} '
+      '${d.hour < 12 ? 'AM' : 'PM'}';
+}
+
+/// A before/after shot.
+///
+/// The record and the pixels are separate concerns. [bytes] is the local copy —
+/// the evidence that closes a job, held until a server confirms it — while
+/// [remoteUrl] is where it ended up. Photos are never inlined into the board's
+/// JSON; they are stored against [id] so a board stays small enough to write on
+/// every change.
+class JobPhoto {
+  const JobPhoto({
+    required this.id,
+    required this.name,
+    required this.bytes,
+    this.remoteUrl,
+  });
+
+  final String id;
   final String name;
   final Uint8List bytes;
+  final String? remoteUrl;
+
+  /// False while the pixels still only exist on this device.
+  bool get uploaded => remoteUrl != null;
+
+  JobPhoto copyWith({Uint8List? bytes, String? remoteUrl}) => JobPhoto(
+    id: id,
+    name: name,
+    bytes: bytes ?? this.bytes,
+    remoteUrl: remoteUrl ?? this.remoteUrl,
+  );
+
+  /// Deliberately without [bytes] — see the class comment.
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'name': name,
+    if (remoteUrl != null) 'remoteUrl': remoteUrl,
+  };
+
+  factory JobPhoto.fromJson(Map<String, Object?> json, Uint8List bytes) =>
+      JobPhoto(
+        id: json['id'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        bytes: bytes,
+        remoteUrl: json['remoteUrl'] as String?,
+      );
 }
 
 /// The six stages a driver walks through, in order.
@@ -178,36 +252,114 @@ class Job {
   }
 
   /// The log line for arriving at [newStage].
-  JobEvent transitionEvent(int newStage, String time) {
+  JobEvent transitionEvent(int newStage, DateTime at) {
     return switch (newStage) {
       1 => JobEvent(
-        time: time,
+        at: at,
         label: 'Left the yard — on the way to $city',
         kind: EventKind.depart,
       ),
-      2 => JobEvent(
-        time: time,
-        label: 'Arrived on site',
-        kind: EventKind.arrive,
-      ),
+      2 => JobEvent(at: at, label: 'Arrived on site', kind: EventKind.arrive),
       3 => JobEvent(
-        time: time,
+        at: at,
         label: 'Left the site — hauling to $disposal',
         kind: EventKind.depart,
       ),
       4 => JobEvent(
-        time: time,
+        at: at,
         label: 'Arrived at $disposal',
         kind: EventKind.arrive,
       ),
-      5 => JobEvent(time: time, label: 'Job closed', kind: EventKind.flat),
-      _ => JobEvent(
-        time: time,
-        label: 'Accepted the job',
-        kind: EventKind.flat,
-      ),
+      5 => JobEvent(at: at, label: 'Job closed', kind: EventKind.flat),
+      _ => JobEvent(at: at, label: 'Accepted the job', kind: EventKind.flat),
     };
   }
+
+  // ---------------------------------------------------------------- wire
+
+  /// The whole job except its photo pixels, which travel separately.
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'type': type,
+    'customer': customer,
+    'address': address,
+    'city': city,
+    'contact': contact,
+    'phone': phone,
+    'access': access,
+    'material': material,
+    'volume': volume,
+    'weight': weight,
+    'equipment': equipment,
+    'disposal': disposal,
+    'dumpFee': dumpFee,
+    'window': window,
+    'miles': miles,
+    'deadhead': deadhead,
+    'payout': payout,
+    'billed': billed,
+    'hazards': hazards,
+    'status': status.name,
+    'assignedTo': assignedTo,
+    'stage': stage,
+    'photoBefore': photoBefore?.toJson(),
+    'photoAfter': photoAfter?.toJson(),
+    'events': events.map((e) => e.toJson()).toList(),
+    'progress': progress,
+  };
+
+  /// [photoBytes] supplies the pixels for any photo id the job references;
+  /// a photo whose bytes are missing locally is dropped rather than faked.
+  factory Job.fromJson(
+    Map<String, Object?> json, {
+    Map<String, Uint8List> photoBytes = const {},
+  }) {
+    JobPhoto? photo(Object? raw) {
+      if (raw is! Map) return null;
+      final map = raw.cast<String, Object?>();
+      final bytes = photoBytes[map['id']];
+      if (bytes == null) return null;
+      return JobPhoto.fromJson(map, bytes);
+    }
+
+    return Job(
+      id: json['id'] as String? ?? '',
+      type: json['type'] as String? ?? '',
+      customer: json['customer'] as String? ?? '',
+      address: json['address'] as String? ?? '',
+      city: json['city'] as String? ?? '',
+      contact: json['contact'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
+      access: json['access'] as String? ?? '',
+      material: json['material'] as String? ?? '',
+      volume: json['volume'] as String? ?? '',
+      weight: json['weight'] as String? ?? '',
+      equipment: json['equipment'] as String? ?? '',
+      disposal: json['disposal'] as String? ?? '',
+      dumpFee: (json['dumpFee'] as num?)?.toInt() ?? 0,
+      window: json['window'] as String? ?? '',
+      miles: (json['miles'] as num?)?.toInt() ?? 0,
+      deadhead: (json['deadhead'] as num?)?.toInt() ?? 0,
+      payout: (json['payout'] as num?)?.toInt() ?? 0,
+      billed: (json['billed'] as num?)?.toInt() ?? 0,
+      hazards: (json['hazards'] as List?)?.cast<String>() ?? const [],
+      status: _enumFrom(JobStatus.values, json['status'], JobStatus.open),
+      assignedTo: json['assignedTo'] as String?,
+      stage: (json['stage'] as num?)?.toInt().clamp(0, kStages.length - 1) ?? 0,
+      photoBefore: photo(json['photoBefore']),
+      photoAfter: photo(json['photoAfter']),
+      events:
+          (json['events'] as List?)
+              ?.whereType<Map>()
+              .map((e) => JobEvent.fromJson(e.cast<String, Object?>()))
+              .toList() ??
+          const [],
+      progress: (json['progress'] as num?)?.toDouble().clamp(0.0, 1.0) ?? 0,
+    );
+  }
+
+  /// Every photo this job references, in slot order.
+  List<JobPhoto> get photos => [?photoBefore, ?photoAfter];
 
   Job copyWith({
     JobStatus? status,

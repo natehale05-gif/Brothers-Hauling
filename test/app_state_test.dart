@@ -68,11 +68,11 @@ void main() {
   });
 
   group('claiming and accepting', () {
-    test('claiming assigns the job to me and logs it', () {
+    test('claiming assigns the job to me and logs it', () async {
       final s = makeState()..enter(Role.employee);
       final job = jobById(s, 'HL-4471');
 
-      s.claim(job);
+      await s.claim(job);
 
       final after = jobById(s, 'HL-4471');
       expect(after.status, JobStatus.active);
@@ -86,21 +86,21 @@ void main() {
       s.dispose();
     });
 
-    test('accepting a pushed job flips it to active', () {
+    test('accepting a pushed job flips it to active', () async {
       final s = makeState()..enter(Role.employee);
       final job = jobById(s, 'HL-4491');
       expect(job.status, JobStatus.assigned);
 
-      s.accept(job);
+      await s.accept(job);
 
       expect(jobById(s, 'HL-4491').status, JobStatus.active);
       expect(s.toast, 'Accepted HL-4491.');
       s.dispose();
     });
 
-    test('assigning pushes to a driver but leaves it unaccepted', () {
+    test('assigning pushes to a driver but leaves it unaccepted', () async {
       final s = makeState()..enter(Role.manager);
-      s.assign(jobById(s, 'HL-4471'), 'c2');
+      await s.assign(jobById(s, 'HL-4471'), 'c2');
 
       final after = jobById(s, 'HL-4471');
       expect(after.status, JobStatus.assigned);
@@ -111,11 +111,11 @@ void main() {
   });
 
   group('stage pipeline', () {
-    test('advancing walks the stages and writes the right log lines', () {
+    test('advancing walks the stages and writes the right log lines', () async {
       final s = makeState()..enter(Role.employee);
-      s.claim(jobById(s, 'HL-4471'));
+      await s.claim(jobById(s, 'HL-4471'));
 
-      s.advance(jobById(s, 'HL-4471'));
+      await s.advance(jobById(s, 'HL-4471'));
       expect(jobById(s, 'HL-4471').stage, 1);
       expect(
         jobById(s, 'HL-4471').events.last.label,
@@ -123,17 +123,17 @@ void main() {
       );
       expect(jobById(s, 'HL-4471').events.last.kind, EventKind.depart);
 
-      s.advance(jobById(s, 'HL-4471'));
+      await s.advance(jobById(s, 'HL-4471'));
       expect(jobById(s, 'HL-4471').events.last.label, 'Arrived on site');
       expect(jobById(s, 'HL-4471').events.last.kind, EventKind.arrive);
 
-      s.advance(jobById(s, 'HL-4471'));
+      await s.advance(jobById(s, 'HL-4471'));
       expect(
         jobById(s, 'HL-4471').events.last.label,
         'Left the site — hauling to Coffin Butte Landfill',
       );
 
-      s.advance(jobById(s, 'HL-4471'));
+      await s.advance(jobById(s, 'HL-4471'));
       expect(jobById(s, 'HL-4471').stage, 4);
       s.dispose();
     });
@@ -141,22 +141,22 @@ void main() {
     test('a job cannot close without both photos', () async {
       final photos = FakePhotoService();
       final s = makeState(photos: photos)..enter(Role.employee);
-      s.claim(jobById(s, 'HL-4471'));
+      await s.claim(jobById(s, 'HL-4471'));
       for (var i = 0; i < 4; i++) {
-        s.advance(jobById(s, 'HL-4471'));
+        await s.advance(jobById(s, 'HL-4471'));
       }
       expect(jobById(s, 'HL-4471').stage, 4);
 
-      expect(s.advance(jobById(s, 'HL-4471')), isFalse);
+      expect(await s.advance(jobById(s, 'HL-4471')), isFalse);
       expect(s.toast, contains('before and an after photo'));
       expect(jobById(s, 'HL-4471').status, JobStatus.active);
 
       // One photo is still not enough.
       await s.addPhoto(jobById(s, 'HL-4471'), before: true);
-      expect(s.advance(jobById(s, 'HL-4471')), isFalse);
+      expect(await s.advance(jobById(s, 'HL-4471')), isFalse);
 
       await s.addPhoto(jobById(s, 'HL-4471'), before: false);
-      expect(s.advance(jobById(s, 'HL-4471')), isTrue);
+      expect(await s.advance(jobById(s, 'HL-4471')), isTrue);
 
       final closed = jobById(s, 'HL-4471');
       expect(closed.status, JobStatus.done);
@@ -170,7 +170,7 @@ void main() {
     test('backing out of the camera files nothing', () async {
       final photos = FakePhotoService(cancel: true);
       final s = makeState(photos: photos)..enter(Role.employee);
-      s.claim(jobById(s, 'HL-4471'));
+      await s.claim(jobById(s, 'HL-4471'));
 
       await s.addPhoto(jobById(s, 'HL-4471'), before: true);
 
@@ -260,13 +260,13 @@ void main() {
     });
   });
 
-  test('leg target switches to the disposal site once loaded', () {
+  test('leg target switches to the disposal site once loaded', () async {
     final s = makeState()..enter(Role.employee);
-    s.claim(jobById(s, 'HL-4471'));
+    await s.claim(jobById(s, 'HL-4471'));
     expect(jobById(s, 'HL-4471').legTarget.query, contains('Sunset Ridge'));
 
     for (var i = 0; i < 3; i++) {
-      s.advance(jobById(s, 'HL-4471'));
+      await s.advance(jobById(s, 'HL-4471'));
     }
     expect(jobById(s, 'HL-4471').stage, 3);
     expect(

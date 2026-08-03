@@ -141,7 +141,7 @@ void main() {
 
     testWidgets('a job card', (tester) async {
       final harness = await pumpApp(tester, role: Role.employee);
-      harness.state.claim(jobIn(harness.state, 'HL-4471'));
+      await harness.state.claim(jobIn(harness.state, 'HL-4471'));
       harness.state.openJobCard(jobIn(harness.state, 'HL-4471'));
       await settle(tester);
       await checkAll(tester);
@@ -175,9 +175,9 @@ void main() {
 
     testWidgets('the closed-job screen', (tester) async {
       final harness = await pumpApp(tester, role: Role.employee);
-      harness.state.claim(jobIn(harness.state, 'HL-4471'));
+      await harness.state.claim(jobIn(harness.state, 'HL-4471'));
       for (var i = 0; i < 4; i++) {
-        harness.state.advance(jobIn(harness.state, 'HL-4471'));
+        await harness.state.advance(jobIn(harness.state, 'HL-4471'));
       }
       await harness.state.addPhoto(
         jobIn(harness.state, 'HL-4471'),
@@ -187,7 +187,7 @@ void main() {
         jobIn(harness.state, 'HL-4471'),
         before: false,
       );
-      harness.state.advance(jobIn(harness.state, 'HL-4471'));
+      await harness.state.advance(jobIn(harness.state, 'HL-4471'));
       await settle(tester);
       await checkAll(tester);
     });
@@ -247,9 +247,9 @@ void main() {
     ) async {
       final handle = tester.ensureSemantics();
       final harness = await pumpApp(tester, role: Role.employee);
-      harness.state.claim(jobIn(harness.state, 'HL-4471'));
-      harness.state.advance(jobIn(harness.state, 'HL-4471'));
-      harness.state.advance(jobIn(harness.state, 'HL-4471'));
+      await harness.state.claim(jobIn(harness.state, 'HL-4471'));
+      await harness.state.advance(jobIn(harness.state, 'HL-4471'));
+      await harness.state.advance(jobIn(harness.state, 'HL-4471'));
       await settle(tester);
 
       expect(
@@ -343,7 +343,7 @@ void main() {
     testWidgets('photo slots say what they are for', (tester) async {
       final handle = tester.ensureSemantics();
       final harness = await pumpApp(tester, role: Role.employee);
-      harness.state.claim(jobIn(harness.state, 'HL-4471'));
+      await harness.state.claim(jobIn(harness.state, 'HL-4471'));
       harness.state.openJobCard(jobIn(harness.state, 'HL-4471'));
       await settle(tester);
       await scrollTo(tester, find.text('BEFORE / AFTER PHOTOS'));
@@ -391,9 +391,9 @@ void main() {
 
     testWidgets('Escape dismisses the closed-job screen', (tester) async {
       final harness = await pumpApp(tester, role: Role.employee);
-      harness.state.claim(jobIn(harness.state, 'HL-4471'));
+      await harness.state.claim(jobIn(harness.state, 'HL-4471'));
       for (var i = 0; i < 4; i++) {
-        harness.state.advance(jobIn(harness.state, 'HL-4471'));
+        await harness.state.advance(jobIn(harness.state, 'HL-4471'));
       }
       await harness.state.addPhoto(
         jobIn(harness.state, 'HL-4471'),
@@ -403,7 +403,7 @@ void main() {
         jobIn(harness.state, 'HL-4471'),
         before: false,
       );
-      harness.state.advance(jobIn(harness.state, 'HL-4471'));
+      await harness.state.advance(jobIn(harness.state, 'HL-4471'));
       await settle(tester);
       expect(find.text('LOAD CLOSED'), findsOneWidget);
 
