@@ -251,6 +251,17 @@ The web build **self-hosts CanvasKit** (`web/flutter_bootstrap.js`). By default
 Flutter fetches it from `gstatic.com` at runtime, which means the app doesn't
 start at all on a network that can't reach it.
 
+It also renders into a **host element** (`#app`) rather than into the page.
+Left to itself the engine sizes the app from the layout viewport, which on a
+phone browser is the tall "toolbar retracted" height — so the bottom tab bar
+gets drawn below the visible edge, behind the browser toolbar, and a driver has
+to fight the page to reach it. No CSS on `<html>` can correct that, because
+`documentElement.clientHeight` reports the tall viewport whatever the stylesheet
+says. Given a host element the engine measures *that box* instead and watches it
+with a `ResizeObserver`, so sizing it in `dvh` units pins the tabs to the bottom
+edge and re-lays-out when the toolbar slides in or out. The smoke test asserts
+it, since no widget test can see a host page getting it wrong.
+
 One third-party request remains: the Flutter engine probes `fonts.gstatic.com`
 for its own Roboto/Noto glyph fallbacks. Every font the app renders with is
 bundled, so blocking it changes nothing visible — the smoke test runs with that
