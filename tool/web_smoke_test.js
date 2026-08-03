@@ -185,6 +185,61 @@ function check(label, ok, detail = '') {
         !n.some((x) => /Bills at/.test(x)),
       );
 
+      // ---- the bottom tabs stay on the bottom edge ----------------------
+      // A phone browser's toolbar makes the page taller than the screen. Left
+      // to itself the engine sizes the app from that taller box and the tab
+      // bar is drawn below the visible edge, behind the toolbar — reachable
+      // only by fighting the page. #app plus a ResizeObserver is what stops
+      // that; see the note in web/index.html. Widget tests cannot see any of
+      // this, because it is the host page getting it wrong, not the widgets.
+      const tabBottom = async () => {
+        const box = await page
+          .getByRole('button', { name: /tab, 1 of/i })
+          .first()
+          .boundingBox();
+        return box ? Math.round(box.y + box.height) : null;
+      };
+      const appBottom = () =>
+        page.evaluate(() =>
+          Math.round(
+            document.querySelector('#app').getBoundingClientRect().bottom,
+          ),
+        );
+      const setAppHeight = (css) =>
+        page.evaluate((h) => {
+          document.querySelector('#app').style.height = h;
+        }, css);
+
+      const resting = await tabBottom();
+      check(
+        'the bottom tabs sit on the bottom edge',
+        resting !== null && Math.abs(resting - (await appBottom())) <= 1,
+        `tabs end at ${resting}, app ends at ${await appBottom()}`,
+      );
+      check(
+        'the page itself never scrolls',
+        await page.evaluate(
+          () => document.documentElement.scrollHeight <= window.innerHeight + 1,
+        ),
+      );
+
+      // Slide a browser toolbar in: the visible area shrinks, and the tabs
+      // have to come with it rather than sail off the bottom.
+      await setAppHeight('calc(100dvh - 96px)');
+      await page.waitForTimeout(1200);
+      const shrunk = await tabBottom();
+      check(
+        'the tabs follow when browser chrome takes space',
+        shrunk !== null &&
+          shrunk < resting &&
+          Math.abs(shrunk - (await appBottom())) <= 1,
+        `tabs end at ${shrunk}, app ends at ${await appBottom()}`,
+      );
+
+      await setAppHeight('');
+      await page.waitForTimeout(1200);
+      check('and go back when it slides away', (await tabBottom()) === resting);
+
       // Location must resolve one way or the other; a permanent "getting a
       // fix…" is a dead strip.
       await page.waitForTimeout(14000);

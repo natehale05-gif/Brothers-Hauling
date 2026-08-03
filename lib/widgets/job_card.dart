@@ -37,6 +37,7 @@ class JobCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
     final state = AppScope.of(context);
     final runnable = state.canRun(job);
     final worker = crewById(job.assignedTo);
@@ -45,17 +46,17 @@ class JobCard extends StatelessWidget {
     final lockedOut = mode == JobCardMode.board && !runnable;
 
     final border = selected
-        ? HaulColors.brand
+        ? hc.brand
         : isMineActive
-        ? HaulColors.go
+        ? hc.go
         : job.status == JobStatus.assigned
-        ? HaulColors.violet
-        : HaulColors.line;
+        ? hc.violet
+        : hc.line;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: HaulColors.surface,
+        color: hc.surface,
         border: Border.all(color: border, width: selected ? 2 : 1),
         borderRadius: BorderRadius.circular(HaulSpace.radius),
       ),
@@ -109,7 +110,7 @@ class JobCard extends StatelessWidget {
                       label: worker.name,
                     ),
                   if (job.status == JobStatus.assigned)
-                    const Pill.violet(label: 'Awaiting accept'),
+                    Pill.violet(label: 'Awaiting accept'),
                   if (state.unsyncedJobIds.contains(job.id))
                     const UnsyncedChip(),
                 ],
@@ -176,6 +177,7 @@ class _Headline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ht = HaulText.of(context);
     // Money is one idea; read it as one phrase rather than a number followed by
     // an orphaned caption.
     final moneyLabel = showBilled
@@ -192,15 +194,12 @@ class _Headline extends StatelessWidget {
               children: [
                 Semantics(
                   header: true,
-                  child: Text(job.type.toUpperCase(), style: HaulText.heading),
+                  child: Text(job.type.toUpperCase(), style: ht.heading),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  '${job.customer} · ${job.city}',
-                  style: HaulText.secondary,
-                ),
+                Text('${job.customer} · ${job.city}', style: ht.secondary),
                 const SizedBox(height: 6),
-                Text(job.id, style: HaulText.mono),
+                Text(job.id, style: ht.mono),
               ],
             ),
           ),
@@ -215,7 +214,7 @@ class _Headline extends StatelessWidget {
             children: [
               Text(
                 '\$${showBilled ? job.billed : job.payout}',
-                style: HaulText.money,
+                style: ht.money,
               ),
               const SizedBox(height: 3),
               ConstrainedBox(
@@ -223,7 +222,7 @@ class _Headline extends StatelessWidget {
                 child: Text(
                   showBilled ? 'billed · pays \$${job.payout}' : 'your cut',
                   textAlign: TextAlign.end,
-                  style: HaulText.small.copyWith(fontSize: 11),
+                  style: ht.small.copyWith(fontSize: 11),
                 ),
               ),
             ],

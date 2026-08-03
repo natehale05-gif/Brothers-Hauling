@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../theme/haul_theme.dart';
 
+/// Which meaning a [Pill] carries. Resolved to colours at build time rather
+/// than baked into the constructor, because the two palettes do not agree on
+/// what "alert" looks like.
+enum PillTone { neutral, go, alert, violet, brand }
+
 /// Small status chip. Purely decorative next to text that already says the same
 /// thing, so it is hidden from screen readers unless [semanticLabel] is given.
 class Pill extends StatelessWidget {
@@ -9,47 +14,52 @@ class Pill extends StatelessWidget {
     super.key,
     required this.label,
     this.icon,
-    this.foreground = HaulColors.grey,
-    this.background = HaulColors.raised,
     this.semanticLabel,
+    this.tone = PillTone.neutral,
   });
 
   const Pill.go({super.key, required this.label, this.icon, this.semanticLabel})
-    : foreground = HaulColors.go,
-      background = HaulColors.goWash;
+    : tone = PillTone.go;
 
   const Pill.alert({
     super.key,
     required this.label,
     this.icon,
     this.semanticLabel,
-  }) : foreground = HaulColors.alert,
-       background = HaulColors.alertWash;
+  }) : tone = PillTone.alert;
 
   const Pill.violet({
     super.key,
     required this.label,
     this.icon,
     this.semanticLabel,
-  }) : foreground = HaulColors.violet,
-       background = HaulColors.violetWash;
+  }) : tone = PillTone.violet;
 
   const Pill.brand({
     super.key,
     required this.label,
     this.icon,
     this.semanticLabel,
-  }) : foreground = HaulColors.brand,
-       background = HaulColors.brandWash;
+  }) : tone = PillTone.brand;
 
   final String label;
   final IconData? icon;
-  final Color foreground;
-  final Color background;
+  final PillTone tone;
   final String? semanticLabel;
+
+  ({Color foreground, Color background}) _colours(HaulPalette hc) =>
+      switch (tone) {
+        PillTone.neutral => (foreground: hc.inkSoft, background: hc.raised),
+        PillTone.go => (foreground: hc.go, background: hc.goWash),
+        PillTone.alert => (foreground: hc.alert, background: hc.alertWash),
+        PillTone.violet => (foreground: hc.violet, background: hc.violetWash),
+        PillTone.brand => (foreground: hc.brand, background: hc.brandWash),
+      };
 
   @override
   Widget build(BuildContext context) {
+    final ht = HaulText.of(context);
+    final (:foreground, :background) = _colours(HaulColors.of(context));
     return Semantics(
       label: semanticLabel,
       excludeSemantics: semanticLabel == null,
@@ -74,7 +84,7 @@ class Pill extends StatelessWidget {
                 label.toUpperCase(),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: HaulText.pill.copyWith(color: foreground),
+                style: ht.pill.copyWith(color: foreground),
               ),
             ),
           ],
@@ -87,25 +97,23 @@ class Pill extends StatelessWidget {
 /// Driver initials. Never the only way a person is identified — their name is
 /// always adjacent — so it is excluded from the semantics tree.
 class CrewAvatar extends StatelessWidget {
-  const CrewAvatar({
-    super.key,
-    required this.initials,
-    this.size = 38,
-    this.background = HaulColors.brand,
-    this.foreground = HaulColors.asphalt,
-  });
+  const CrewAvatar({super.key, required this.initials, this.size = 38})
+    : muted = false;
 
+  /// For crew who are not the subject of the screen — greyed rather than brand.
   const CrewAvatar.muted({super.key, required this.initials, this.size = 38})
-    : background = HaulColors.raised,
-      foreground = HaulColors.white;
+    : muted = true;
 
   final String initials;
   final double size;
-  final Color background;
-  final Color foreground;
+  final bool muted;
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final background = muted ? hc.raised : hc.brand;
+    final foreground = muted ? hc.ink : hc.onBrand;
+
     return ExcludeSemantics(
       child: Container(
         width: size,
@@ -148,12 +156,14 @@ class HaulBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     return Container(
       margin: margin,
       padding: padding,
       decoration: BoxDecoration(
-        color: HaulColors.surface,
-        border: Border.all(color: borderColor ?? HaulColors.line),
+        color: hc.surface,
+        border: Border.all(color: borderColor ?? hc.line),
         borderRadius: BorderRadius.circular(HaulSpace.radius),
       ),
       child: Column(
@@ -162,7 +172,7 @@ class HaulBlock extends StatelessWidget {
           if (title != null) ...[
             Semantics(
               header: true,
-              child: Text(title!.toUpperCase(), style: HaulText.blockTitle),
+              child: Text(title!.toUpperCase(), style: ht.blockTitle),
             ),
             const SizedBox(height: 12),
           ],
@@ -190,23 +200,25 @@ class KeyValueRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 9),
       decoration: divider
-          ? const BoxDecoration(
-              border: Border(bottom: BorderSide(color: HaulColors.line)),
+          ? BoxDecoration(
+              border: Border(bottom: BorderSide(color: hc.line)),
             )
           : null,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Text(label, style: HaulText.secondary)),
+          Expanded(child: Text(label, style: ht.secondary)),
           const SizedBox(width: 14),
           Flexible(
             child: Text(
               value,
               textAlign: TextAlign.end,
-              style: valueStyle ?? HaulText.bodyStrong,
+              style: valueStyle ?? ht.bodyStrong,
             ),
           ),
         ],
@@ -231,6 +243,7 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ht = HaulText.of(context);
     return Padding(
       padding: EdgeInsets.only(top: topPadding, bottom: 10, left: 2, right: 2),
       child: Row(
@@ -238,7 +251,7 @@ class SectionHeader extends StatelessWidget {
           Expanded(
             child: Semantics(
               header: true,
-              child: Text(title.toUpperCase(), style: HaulText.sectionTitle),
+              child: Text(title.toUpperCase(), style: ht.sectionTitle),
             ),
           ),
           if (trailing != null) ...[
@@ -260,13 +273,15 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     return Semantics(
       container: true,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 30),
         decoration: BoxDecoration(
-          border: Border.all(color: HaulColors.line, width: 2),
+          border: Border.all(color: hc.line, width: 2),
           borderRadius: BorderRadius.circular(HaulSpace.radius),
         ),
         child: Column(
@@ -275,15 +290,11 @@ class EmptyState extends StatelessWidget {
               Text(
                 title!.toUpperCase(),
                 textAlign: TextAlign.center,
-                style: HaulText.sectionTitle,
+                style: ht.sectionTitle,
               ),
               const SizedBox(height: 6),
             ],
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: HaulText.secondary,
-            ),
+            Text(message, textAlign: TextAlign.center, style: ht.secondary),
           ],
         ),
       ),
@@ -309,6 +320,8 @@ class StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     // One flat sentence beats "395 … BILLED TODAY" read as two fragments.
     return Semantics(
       label: '$label: $value',
@@ -317,8 +330,8 @@ class StatTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: hero ? HaulColors.brand : HaulColors.surface,
-          border: Border.all(color: hero ? HaulColors.brand : HaulColors.line),
+          color: hero ? hc.brand : hc.surface,
+          border: Border.all(color: hero ? hc.brand : hc.line),
           borderRadius: BorderRadius.circular(HaulSpace.radius),
         ),
         child: Column(
@@ -331,19 +344,15 @@ class StatTile extends StatelessWidget {
                 fontFamily: HaulFonts.black,
                 fontSize: hero ? 34 : 24,
                 height: 1.05,
-                color: hero
-                    ? HaulColors.asphalt
-                    : (valueColor ?? HaulColors.white),
+                color: hero ? hc.bg : (valueColor ?? hc.ink),
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
             const SizedBox(height: 4),
             Text(
               label.toUpperCase(),
-              style: HaulText.eyebrow.copyWith(
-                color: hero
-                    ? HaulColors.asphalt.withValues(alpha: 0.72)
-                    : HaulColors.grey,
+              style: ht.eyebrow.copyWith(
+                color: hero ? hc.bg.withValues(alpha: 0.72) : hc.inkSoft,
               ),
             ),
           ],
@@ -363,11 +372,13 @@ class FactChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = bad ? HaulColors.alert : HaulColors.grey;
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
+    final fg = bad ? hc.alert : hc.inkSoft;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
-        color: bad ? HaulColors.alertWash : HaulColors.raised,
+        color: bad ? hc.alertWash : hc.raised,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -378,7 +389,7 @@ class FactChip extends StatelessWidget {
             const SizedBox(width: 6),
           ],
           Flexible(
-            child: Text(label, style: HaulText.small.copyWith(color: fg)),
+            child: Text(label, style: ht.small.copyWith(color: fg)),
           ),
         ],
       ),
@@ -394,6 +405,8 @@ class HazardNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     return Semantics(
       liveRegion: false,
       label: 'Hazard: $text',
@@ -403,28 +416,25 @@ class HazardNote extends StatelessWidget {
         margin: const EdgeInsets.only(top: 8),
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
         decoration: BoxDecoration(
-          color: HaulColors.alertWash,
+          color: hc.alertWash,
           borderRadius: BorderRadius.circular(HaulSpace.radiusSm),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 1),
               child: Icon(
                 Icons.warning_amber_rounded,
                 size: 17,
-                color: HaulColors.alert,
+                color: hc.alert,
               ),
             ),
             const SizedBox(width: 9),
             Expanded(
               child: Text(
                 text,
-                style: HaulText.small.copyWith(
-                  color: HaulColors.alert,
-                  fontSize: 13,
-                ),
+                style: ht.small.copyWith(color: hc.alert, fontSize: 13),
               ),
             ),
           ],
@@ -457,19 +467,21 @@ class ActionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final enabled = onPressed != null;
     final bg = ghost
         ? Colors.transparent
         : solid
-        ? HaulColors.brand
-        : HaulColors.raised;
+        ? hc.brand
+        : hc.raised;
     final fg = !enabled
-        ? HaulColors.grey
+        ? hc.inkSoft
         : solid
-        ? HaulColors.asphalt
+        ? hc.bg
         : ghost
-        ? HaulColors.grey
-        : HaulColors.white;
+        ? hc.inkSoft
+        : hc.ink;
 
     return Semantics(
       button: true,
@@ -483,8 +495,8 @@ class ActionBar extends StatelessWidget {
           style: TextButton.styleFrom(
             backgroundColor: bg,
             foregroundColor: fg,
-            disabledBackgroundColor: HaulColors.raised,
-            disabledForegroundColor: HaulColors.grey,
+            disabledBackgroundColor: hc.raised,
+            disabledForegroundColor: hc.inkSoft,
             minimumSize: const Size.fromHeight(HaulSpace.tap),
             padding: const EdgeInsets.symmetric(horizontal: 14),
             shape: const RoundedRectangleBorder(
@@ -504,7 +516,7 @@ class ActionBar extends StatelessWidget {
                 child: Text(
                   label.toUpperCase(),
                   textAlign: TextAlign.center,
-                  style: HaulText.action.copyWith(color: fg),
+                  style: ht.action.copyWith(color: fg),
                 ),
               ),
               if (trailingIcon != null) ...[
@@ -537,23 +549,38 @@ class HaulIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // IconButton's own `tooltip` both shows the hover text and names the
-    // button. Wrapping in a Tooltip instead would hang the label on a parent
-    // node and leave the tappable node itself unnamed.
-    return IconButton(
-      onPressed: onPressed,
-      tooltip: tooltip,
-      icon: Icon(icon, size: 19),
-      color: active ? HaulColors.brand : HaulColors.grey,
-      constraints: const BoxConstraints(
-        minWidth: HaulSpace.tap,
-        minHeight: HaulSpace.tap,
-      ),
-      style: IconButton.styleFrom(
-        backgroundColor: HaulColors.raised,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(HaulSpace.radiusSm),
-          side: BorderSide(color: active ? HaulColors.brand : HaulColors.line),
+    final hc = HaulColors.of(context);
+    // The label has to be stated here, on the node that is also the button.
+    //
+    // Passing `tooltip:` to IconButton and leaving it at that looks like it
+    // should be enough — it is the documented way — but the label lands on the
+    // Tooltip's own wrapper node, and the tappable node underneath comes out
+    // with an empty name. A screen reader then reads these as an unnamed
+    // button, which is how the sign-out control went unlabelled. `onTap` is
+    // passed explicitly because `excludeSemantics` drops the child's actions
+    // along with its nodes, and a named button nobody can activate is no
+    // better than an unnamed one.
+    return Semantics(
+      button: true,
+      enabled: true,
+      label: tooltip,
+      onTap: onPressed,
+      excludeSemantics: true,
+      child: IconButton(
+        onPressed: onPressed,
+        tooltip: tooltip,
+        icon: Icon(icon, size: 19),
+        color: active ? hc.brand : hc.inkSoft,
+        constraints: const BoxConstraints(
+          minWidth: HaulSpace.tap,
+          minHeight: HaulSpace.tap,
+        ),
+        style: IconButton.styleFrom(
+          backgroundColor: hc.raised,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(HaulSpace.radiusSm),
+            side: BorderSide(color: active ? hc.brand : hc.line),
+          ),
         ),
       ),
     );

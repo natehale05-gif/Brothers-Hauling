@@ -14,6 +14,7 @@ class EmployeeBoardTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ht = HaulText.of(context);
     final state = AppScope.of(context);
     final pushed = state.myJobs
         .where((j) => j.status == JobStatus.assigned)
@@ -24,7 +25,7 @@ class EmployeeBoardTab extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (pushed.isNotEmpty) ...[
-          const SectionHeader(
+          SectionHeader(
             title: 'Assigned to you',
             trailing: Pill.violet(label: 'Needs your yes'),
           ),
@@ -38,7 +39,7 @@ class EmployeeBoardTab extends StatelessWidget {
         ],
         SectionHeader(
           title: 'Up for grabs',
-          trailing: Text('${board.length} OPEN', style: HaulText.eyebrow),
+          trailing: Text('${board.length} OPEN', style: ht.eyebrow),
         ),
         if (board.isEmpty)
           const EmptyState(
@@ -65,6 +66,8 @@ class EmployeeMineTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final state = AppScope.of(context);
     final mine = state.myJobs;
     final done = state.myDone;
@@ -74,7 +77,7 @@ class EmployeeMineTab extends StatelessWidget {
       children: [
         SectionHeader(
           title: 'My jobs',
-          trailing: Text('${mine.length} ACTIVE', style: HaulText.eyebrow),
+          trailing: Text('${mine.length} ACTIVE', style: ht.eyebrow),
         ),
         if (mine.isEmpty)
           const EmptyState(
@@ -98,14 +101,14 @@ class EmployeeMineTab extends StatelessWidget {
               excludeSemantics: true,
               child: Text(
                 '\$${state.myEarned}',
-                style: HaulText.money.copyWith(fontSize: 16),
+                style: ht.money.copyWith(fontSize: 16),
               ),
             ),
           ),
           Container(
             decoration: BoxDecoration(
-              color: HaulColors.surface,
-              border: Border.all(color: HaulColors.line),
+              color: hc.surface,
+              border: Border.all(color: hc.line),
               borderRadius: BorderRadius.circular(HaulSpace.radius),
             ),
             child: Column(
@@ -119,14 +122,14 @@ class EmployeeMineTab extends StatelessWidget {
                       ),
                       decoration: i == done.length - 1
                           ? null
-                          : const BoxDecoration(
+                          : BoxDecoration(
                               border: Border(
-                                bottom: BorderSide(color: HaulColors.line),
+                                bottom: BorderSide(color: hc.line),
                               ),
                             ),
                       child: Row(
                         children: [
-                          const Flexible(
+                          Flexible(
                             child: Pill.go(
                               label: 'Done',
                               icon: Icons.check_rounded,
@@ -137,14 +140,14 @@ class EmployeeMineTab extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(done[i].type, style: HaulText.bodyStrong),
-                                Text(done[i].id, style: HaulText.mono),
+                                Text(done[i].type, style: ht.bodyStrong),
+                                Text(done[i].id, style: ht.mono),
                               ],
                             ),
                           ),
                           Text(
                             '\$${done[i].payout}',
-                            style: HaulText.money.copyWith(fontSize: 16),
+                            style: ht.money.copyWith(fontSize: 16),
                           ),
                         ],
                       ),

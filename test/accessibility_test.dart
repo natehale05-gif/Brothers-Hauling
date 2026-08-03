@@ -42,167 +42,243 @@ Color _over(Color top, Color bottom) {
 }
 
 void main() {
-  group('colour contrast clears WCAG AA', () {
-    // 4.5:1 is the AA threshold for body text. Everything in this app that
-    // carries meaning as text has to clear it — a board read through a dusty
-    // windscreen has no margin for a low-contrast grey.
-    const pairs = <String, (Color, Color)>{
-      'body text on asphalt': (HaulColors.white, HaulColors.asphalt),
-      'body text on surface': (HaulColors.white, HaulColors.surface),
-      'body text on raised': (HaulColors.white, HaulColors.raised),
-      'secondary text on asphalt': (HaulColors.grey, HaulColors.asphalt),
-      'secondary text on surface': (HaulColors.grey, HaulColors.surface),
-      'secondary text on raised': (HaulColors.grey, HaulColors.raised),
-      'brand accent on surface': (HaulColors.brand, HaulColors.surface),
-      'brand accent on raised': (HaulColors.brand, HaulColors.raised),
-      'brand accent on asphalt': (HaulColors.brand, HaulColors.asphalt),
-      'stage label on surface': (HaulColors.go, HaulColors.surface),
-      'hazard text on surface': (HaulColors.alert, HaulColors.surface),
-      'role accent on surface': (HaulColors.violet, HaulColors.surface),
-      'asphalt on the brand orange (the hero tile)': (
-        HaulColors.asphalt,
-        HaulColors.brand,
-      ),
-      'asphalt on go (the done badge)': (HaulColors.asphalt, HaulColors.go),
-    };
+  // Both palettes, the same bar. Light mode is not a cosmetic reskin — the
+  // icon's orange manages 3.3:1 on white, so a light palette that reuses the
+  // dark accents is unreadable. Running the identical table over both is what
+  // stops that being discovered by a driver in a yard.
+  for (final (mode, hc) in <(String, HaulPalette)>[
+    ('dark', HaulPalette.dark),
+    ('light', HaulPalette.light),
+  ]) {
+    group('$mode: colour contrast clears WCAG AA', () {
+      // 4.5:1 is the AA threshold for body text. Everything in this app that
+      // carries meaning as text has to clear it — a board read through a dusty
+      // windscreen has no margin for a low-contrast grey.
+      final pairs = <String, (Color, Color)>{
+        'body text on the page': (hc.ink, hc.bg),
+        'body text on surface': (hc.ink, hc.surface),
+        'body text on raised': (hc.ink, hc.raised),
+        'secondary text on the page': (hc.inkSoft, hc.bg),
+        'secondary text on surface': (hc.inkSoft, hc.surface),
+        'secondary text on raised': (hc.inkSoft, hc.raised),
+        'brand accent on the page': (hc.brand, hc.bg),
+        'brand accent on surface': (hc.brand, hc.surface),
+        'brand accent on raised': (hc.brand, hc.raised),
+        'stage label on surface': (hc.go, hc.surface),
+        'hazard text on surface': (hc.alert, hc.surface),
+        'role accent on surface': (hc.violet, hc.surface),
+        'ink on the brand orange (the hero tile)': (hc.onBrand, hc.brand),
+        'ink on go (the done badge)': (hc.onBrand, hc.go),
+      };
 
-    pairs.forEach((name, colors) {
-      test(name, () {
-        final ratio = _contrast(colors.$1, colors.$2);
-        expect(
-          ratio,
-          greaterThanOrEqualTo(4.5),
-          reason: '$name is only ${ratio.toStringAsFixed(2)}:1',
-        );
+      pairs.forEach((name, colors) {
+        test(name, () {
+          final ratio = _contrast(colors.$1, colors.$2);
+          expect(
+            ratio,
+            greaterThanOrEqualTo(4.5),
+            reason: '$mode: $name is only ${ratio.toStringAsFixed(2)}:1',
+          );
+        });
+      });
+
+      // Pills are tinted washes over a card, so the effective background is
+      // the blend, not the token. This is where the two palettes genuinely
+      // differ: on dark a wash hands the label headroom, on light it takes it
+      // away, which is why the light wash is much thinner.
+      final washes = <String, (Color, Color)>{
+        'go pill': (hc.go, hc.goWash),
+        'alert pill': (hc.alert, hc.alertWash),
+        'violet pill': (hc.violet, hc.violetWash),
+        'brand pill': (hc.brand, hc.brandWash),
+      };
+
+      washes.forEach((name, colors) {
+        // Over every surface a pill can land on, not just the friendliest one.
+        //
+        // `raised` is deliberately absent, and it is the one case worth
+        // spelling out. Nothing draws a tinted pill on a raised block — that
+        // token backs avatars, buttons, the photo slot and the ping dot, none
+        // of which contain a pill — and on dark, a wash over `raised` cannot
+        // clear 4.5:1 at any alpha without collapsing `raised` into `surface`
+        // and losing the elevation step. If a pill ever does land on one, this
+        // list is what needs to grow, not the exception that needs writing.
+        for (final (where, under) in [
+          ('a card', hc.surface),
+          ('the page', hc.bg),
+        ]) {
+          test('$name over $where', () {
+            final ratio = _contrast(colors.$1, _over(colors.$2, under));
+            expect(
+              ratio,
+              greaterThanOrEqualTo(4.5),
+              reason:
+                  '$mode: $name over $where is only '
+                  '${ratio.toStringAsFixed(2)}:1',
+            );
+          });
+        }
+      });
+
+      test('hairlines are visible against what they separate', () {
+        // A border is not text, so AA asks 3:1 of it, not 4.5:1.
+        for (final (where, under) in [
+          ('surface', hc.surface),
+          ('the page', hc.bg),
+        ]) {
+          final ratio = _contrast(hc.line, under);
+          expect(
+            ratio,
+            greaterThanOrEqualTo(1.2),
+            reason:
+                '$mode: the hairline on $where is only '
+                '${ratio.toStringAsFixed(2)}:1',
+          );
+        }
       });
     });
+  }
 
-    // Pills are tinted washes over a card, so the effective background is the
-    // blend, not the token.
-    const washes = <String, (Color, Color, Color)>{
-      'go pill': (HaulColors.go, HaulColors.goWash, HaulColors.surface),
-      'alert pill': (
-        HaulColors.alert,
-        HaulColors.alertWash,
-        HaulColors.surface,
-      ),
-      'violet pill': (
-        HaulColors.violet,
-        HaulColors.violetWash,
-        HaulColors.surface,
-      ),
-      'hi-vis pill': (
-        HaulColors.brand,
-        HaulColors.brandWash,
-        HaulColors.surface,
-      ),
-    };
+  group('the two palettes are actually different', () {
+    test('light is light and dark is dark', () {
+      expect(_luminance(HaulPalette.dark.bg), lessThan(0.1));
+      expect(_luminance(HaulPalette.light.bg), greaterThan(0.7));
+    });
 
-    washes.forEach((name, colors) {
-      test('$name over its card', () {
-        final ratio = _contrast(colors.$1, _over(colors.$2, colors.$3));
-        expect(
-          ratio,
-          greaterThanOrEqualTo(4.5),
-          reason: '$name is only ${ratio.toStringAsFixed(2)}:1',
-        );
-      });
+    test('light does not simply reuse the dark accents', () {
+      // The seed orange is 3.3:1 on white. Shipping it as light-mode text
+      // would be the single easiest way to undo all of the above.
+      expect(HaulPalette.light.brand, isNot(HaulPalette.dark.brand));
+      expect(
+        _contrast(HaulPalette.dark.brand, HaulPalette.light.surface),
+        lessThan(4.5),
+        reason: 'the premise of the light palette, stated as a test',
+      );
     });
   });
 
-  group("Flutter's own accessibility guidelines", () {
-    // These four cover the mechanical half of accessibility: everything you can
-    // tap is big enough to hit and says what it does, and text is legible.
-    Future<void> checkAll(WidgetTester tester) async {
-      final handle = tester.ensureSemantics();
-      await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
-      await expectLater(tester, meetsGuideline(iOSTapTargetGuideline));
-      await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
-      await expectLater(tester, meetsGuideline(textContrastGuideline));
-      handle.dispose();
-    }
-
-    testWidgets('the role gate', (tester) async {
-      await pumpApp(tester);
-      await checkAll(tester);
-    });
-
-    testWidgets("the driver's board", (tester) async {
-      await pumpApp(tester, role: Role.employee);
-      await checkAll(tester);
-    });
-
-    testWidgets("the driver's own jobs", (tester) async {
-      final harness = await pumpApp(tester, role: Role.employee);
-      harness.state.setTab(HaulTab.mine);
-      await settle(tester);
-      await checkAll(tester);
-    });
-
-    testWidgets('a job card', (tester) async {
-      final harness = await pumpApp(tester, role: Role.employee);
-      await harness.state.claim(jobIn(harness.state, 'HL-4471'));
-      harness.state.openJobCard(jobIn(harness.state, 'HL-4471'));
-      await settle(tester);
-      await checkAll(tester);
-    });
-
-    testWidgets('the dispatch job list', (tester) async {
-      final harness = await pumpApp(tester, role: Role.manager);
-      harness.state.setTab(HaulTab.jobs);
-      await settle(tester);
-      await checkAll(tester);
-    });
-
-    testWidgets('the crew roster', (tester) async {
-      final harness = await pumpApp(tester, role: Role.manager);
-      harness.state.setTab(HaulTab.crew);
-      await settle(tester);
-      await checkAll(tester);
-    });
-
-    testWidgets('live tracking', (tester) async {
-      final harness = await pumpApp(tester, role: Role.admin);
-      harness.state.setTab(HaulTab.tracking);
-      await settle(tester);
-      await checkAll(tester);
-    });
-
-    testWidgets('the owner overview', (tester) async {
-      await pumpApp(tester, role: Role.admin);
-      await checkAll(tester);
-    });
-
-    testWidgets('the closed-job screen', (tester) async {
-      final harness = await pumpApp(tester, role: Role.employee);
-      await harness.state.claim(jobIn(harness.state, 'HL-4471'));
-      for (var i = 0; i < 4; i++) {
-        await harness.state.advance(jobIn(harness.state, 'HL-4471'));
+  // Every screen, in both palettes. The contrast guideline reads the pixels
+  // that actually got painted, so this is what catches a colour that was only
+  // ever checked against the dark background it was chosen on.
+  for (final mode in [ThemeMode.dark, ThemeMode.light]) {
+    group("Flutter's own accessibility guidelines (${mode.name})", () {
+      // These four cover the mechanical half of accessibility: everything you can
+      // tap is big enough to hit and says what it does, and text is legible.
+      Future<void> checkAll(WidgetTester tester) async {
+        final handle = tester.ensureSemantics();
+        await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+        await expectLater(tester, meetsGuideline(iOSTapTargetGuideline));
+        await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+        await expectLater(tester, meetsGuideline(textContrastGuideline));
+        handle.dispose();
       }
-      await harness.state.addPhoto(
-        jobIn(harness.state, 'HL-4471'),
-        before: true,
-      );
-      await harness.state.addPhoto(
-        jobIn(harness.state, 'HL-4471'),
-        before: false,
-      );
-      await harness.state.advance(jobIn(harness.state, 'HL-4471'));
-      await settle(tester);
-      await checkAll(tester);
-    });
 
-    testWidgets('the tablet layout with a job card open', (tester) async {
-      final harness = await pumpApp(
-        tester,
-        role: Role.admin,
-        size: const Size(1194, 834),
-      );
-      harness.state.openJobCard(jobIn(harness.state, 'HL-4471'));
-      await settle(tester);
-      await checkAll(tester);
+      testWidgets('the role gate', (tester) async {
+        await pumpApp(tester, themeMode: mode);
+        await checkAll(tester);
+      });
+
+      testWidgets("the driver's board", (tester) async {
+        await pumpApp(tester, role: Role.employee, themeMode: mode);
+        await checkAll(tester);
+      });
+
+      testWidgets("the driver's own jobs", (tester) async {
+        final harness = await pumpApp(
+          tester,
+          role: Role.employee,
+          themeMode: mode,
+        );
+        harness.state.setTab(HaulTab.mine);
+        await settle(tester);
+        await checkAll(tester);
+      });
+
+      testWidgets('a job card', (tester) async {
+        final harness = await pumpApp(
+          tester,
+          role: Role.employee,
+          themeMode: mode,
+        );
+        await harness.state.claim(jobIn(harness.state, 'HL-4471'));
+        harness.state.openJobCard(jobIn(harness.state, 'HL-4471'));
+        await settle(tester);
+        await checkAll(tester);
+      });
+
+      testWidgets('the dispatch job list', (tester) async {
+        final harness = await pumpApp(
+          tester,
+          role: Role.manager,
+          themeMode: mode,
+        );
+        harness.state.setTab(HaulTab.jobs);
+        await settle(tester);
+        await checkAll(tester);
+      });
+
+      testWidgets('the crew roster', (tester) async {
+        final harness = await pumpApp(
+          tester,
+          role: Role.manager,
+          themeMode: mode,
+        );
+        harness.state.setTab(HaulTab.crew);
+        await settle(tester);
+        await checkAll(tester);
+      });
+
+      testWidgets('live tracking', (tester) async {
+        final harness = await pumpApp(
+          tester,
+          role: Role.admin,
+          themeMode: mode,
+        );
+        harness.state.setTab(HaulTab.tracking);
+        await settle(tester);
+        await checkAll(tester);
+      });
+
+      testWidgets('the owner overview', (tester) async {
+        await pumpApp(tester, role: Role.admin, themeMode: mode);
+        await checkAll(tester);
+      });
+
+      testWidgets('the closed-job screen', (tester) async {
+        final harness = await pumpApp(
+          tester,
+          role: Role.employee,
+          themeMode: mode,
+        );
+        await harness.state.claim(jobIn(harness.state, 'HL-4471'));
+        for (var i = 0; i < 4; i++) {
+          await harness.state.advance(jobIn(harness.state, 'HL-4471'));
+        }
+        await harness.state.addPhoto(
+          jobIn(harness.state, 'HL-4471'),
+          before: true,
+        );
+        await harness.state.addPhoto(
+          jobIn(harness.state, 'HL-4471'),
+          before: false,
+        );
+        await harness.state.advance(jobIn(harness.state, 'HL-4471'));
+        await settle(tester);
+        await checkAll(tester);
+      });
+
+      testWidgets('the tablet layout with a job card open', (tester) async {
+        final harness = await pumpApp(
+          tester,
+          role: Role.admin,
+          size: const Size(1194, 834),
+        );
+        harness.state.openJobCard(jobIn(harness.state, 'HL-4471'));
+        await settle(tester);
+        await checkAll(tester);
+      });
     });
-  });
+  }
 
   group('screen reader labels', () {
     testWidgets('icon-only controls are all named', (tester) async {

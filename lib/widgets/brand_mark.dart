@@ -42,6 +42,7 @@ class _Monogram extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
     final size = 62.0 * scale;
 
     return Container(
@@ -50,18 +51,18 @@ class _Monogram extends StatelessWidget {
         vertical: 9 * scale,
       ),
       decoration: BoxDecoration(
-        border: Border.all(color: HaulColors.brand, width: 3 * scale),
+        border: Border.all(color: hc.brand, width: 3 * scale),
       ),
       child: Text.rich(
         TextSpan(
-          children: const [
+          children: [
             TextSpan(
               text: 'B',
-              style: TextStyle(color: HaulColors.grey),
+              style: TextStyle(color: hc.inkSoft),
             ),
             TextSpan(
               text: 'H',
-              style: TextStyle(color: HaulColors.brand),
+              style: TextStyle(color: hc.brand),
             ),
           ],
         ),
@@ -87,6 +88,7 @@ class _Wordmark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
     final style = TextStyle(
       fontFamily: HaulFonts.black,
       fontSize: 27 * scale,
@@ -99,11 +101,11 @@ class _Wordmark extends StatelessWidget {
         children: [
           TextSpan(
             text: 'BROTHERS\n',
-            style: style.copyWith(color: HaulColors.white),
+            style: style.copyWith(color: hc.ink),
           ),
           TextSpan(
             text: 'HAULING',
-            style: style.copyWith(color: HaulColors.brand),
+            style: style.copyWith(color: hc.brand),
           ),
         ],
       ),

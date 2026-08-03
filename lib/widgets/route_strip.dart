@@ -27,6 +27,8 @@ class RouteStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final pct = progress.clamp(0.0, 1.0);
     const rigSize = 30.0;
@@ -63,7 +65,7 @@ class RouteStrip extends StatelessWidget {
                       child: Container(
                         height: 4,
                         decoration: BoxDecoration(
-                          color: HaulColors.line,
+                          color: hc.line,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -80,13 +82,13 @@ class RouteStrip extends StatelessWidget {
                         height: 4,
                         width: x,
                         decoration: BoxDecoration(
-                          color: HaulColors.brand,
+                          color: hc.brand,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
-                    _cap(left: 0, hit: true),
-                    _cap(right: 0, hit: pct >= 0.99),
+                    _cap(hc, left: 0, hit: true),
+                    _cap(hc, right: 0, hit: pct >= 0.99),
                     AnimatedPositioned(
                       duration: reduceMotion
                           ? Duration.zero
@@ -98,7 +100,7 @@ class RouteStrip extends StatelessWidget {
                         width: rigSize,
                         height: rigSize,
                         decoration: BoxDecoration(
-                          color: HaulColors.brand,
+                          color: hc.brand,
                           borderRadius: BorderRadius.circular(9),
                           boxShadow: const [
                             BoxShadow(
@@ -108,10 +110,10 @@ class RouteStrip extends StatelessWidget {
                             ),
                           ],
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.local_shipping_rounded,
                           size: 17,
-                          color: HaulColors.asphalt,
+                          color: hc.onBrand,
                         ),
                       ),
                     ),
@@ -124,22 +126,18 @@ class RouteStrip extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: Text(from, style: HaulText.small)),
+              Expanded(child: Text(from, style: ht.small)),
               if (middle != null && middle!.isNotEmpty)
                 Expanded(
                   flex: 2,
                   child: Text(
                     middle!,
                     textAlign: TextAlign.center,
-                    style: HaulText.small,
+                    style: ht.small,
                   ),
                 ),
               Expanded(
-                child: Text(
-                  to,
-                  textAlign: TextAlign.end,
-                  style: HaulText.small,
-                ),
+                child: Text(to, textAlign: TextAlign.end, style: ht.small),
               ),
             ],
           ),
@@ -148,7 +146,12 @@ class RouteStrip extends StatelessWidget {
     );
   }
 
-  Widget _cap({double? left, double? right, required bool hit}) {
+  Widget _cap(
+    HaulPalette hc, {
+    double? left,
+    double? right,
+    required bool hit,
+  }) {
     return Positioned(
       left: left == null ? null : left + 9,
       right: right == null ? null : right + 9,
@@ -157,12 +160,9 @@ class RouteStrip extends StatelessWidget {
         width: 12,
         height: 12,
         decoration: BoxDecoration(
-          color: hit ? HaulColors.brand : HaulColors.raised,
+          color: hit ? hc.brand : hc.raised,
           shape: BoxShape.circle,
-          border: Border.all(
-            color: hit ? HaulColors.brand : HaulColors.line,
-            width: 2,
-          ),
+          border: Border.all(color: hit ? hc.brand : hc.line, width: 2),
         ),
       ),
     );
@@ -213,7 +213,8 @@ class _PingDotState extends State<PingDot> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.live ? HaulColors.go : HaulColors.grey;
+    final hc = HaulColors.of(context);
+    final color = widget.live ? hc.go : hc.inkSoft;
     return ExcludeSemantics(
       child: SizedBox(
         width: widget.size + 10,

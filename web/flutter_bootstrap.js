@@ -19,5 +19,13 @@
 _flutter.loader.load({
   config: {
     canvasKitBaseUrl: 'canvaskit/',
+
+    // Render into #app rather than the page. Without a host element the engine
+    // sizes the app from the layout viewport, which on a phone browser is
+    // taller than what is on screen — enough to push the bottom tab bar behind
+    // the browser toolbar. #app is sized in dynamic viewport units and the
+    // engine tracks it with a ResizeObserver, so the tabs stay on the bottom
+    // edge as the toolbar comes and goes. See the note in index.html.
+    hostElement: document.querySelector('#app'),
   },
 });

@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Playwright, installed locally to run the browser smoke test (see README).
+/node_modules/
+/package-lock.json

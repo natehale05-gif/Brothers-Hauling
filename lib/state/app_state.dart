@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter/widgets.dart';
 
 import '../data/board_repository.dart';
@@ -41,9 +42,11 @@ class AppState extends ChangeNotifier {
     this.autoAdvance = true,
     this.toastDuration = const Duration(milliseconds: 3800),
     this.storageIsDurable = true,
+    Store? store,
     DateTime Function()? now,
     IdGenerator? idGenerator,
-  }) : _location = location ?? const GeolocatorLocationService(),
+  }) : _prefs = store ?? MemoryStore(),
+       _location = location ?? const GeolocatorLocationService(),
        photos = photos ?? ImagePickerPhotoService(),
        _now = now ?? DateTime.now,
        _ids = idGenerator ?? ids,
@@ -66,7 +69,61 @@ class AppState extends ChangeNotifier {
   void _onBoardChanged() => notifyListeners();
 
   /// Reads whatever this device already had. Call once at startup.
-  Future<void> restore() => _board.load();
+  Future<void> restore() async {
+    await _board.load();
+    await _restoreThemeMode();
+  }
+
+  // ------------------------------------------------------------ appearance
+
+  /// Where UI preferences live. Separate from the board on purpose: this is a
+  /// setting on *this device*, not a fact about the business, so it is never
+  /// queued for dispatch.
+  final Store _prefs;
+
+  static const _themeKey = 'theme.v1';
+
+  ThemeMode _themeMode = ThemeMode.system;
+
+  /// Dark, light, or whatever the device is set to.
+  ///
+  /// The default follows the device rather than forcing dark. A driver who has
+  /// already told their phone they want light text on dark — or the reverse —
+  /// has said everything they intend to say about it.
+  ThemeMode get themeMode => _themeMode;
+
+  Future<void> _restoreThemeMode() async {
+    final stored = await _prefs.readString(_themeKey);
+    final mode = switch (stored) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      'system' => ThemeMode.system,
+      // Anything else — absent, or written by a build that knew more modes
+      // than this one — falls back rather than throwing on launch.
+      _ => null,
+    };
+    if (mode == null || mode == _themeMode) return;
+    _themeMode = mode;
+    notifyListeners();
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    if (mode == _themeMode) return;
+    _themeMode = mode;
+    notifyListeners();
+    // Applied first, written second. A phone that refuses the write still
+    // changes the screen; it just forgets by morning.
+    await _prefs.writeString(_themeKey, mode.name);
+  }
+
+  /// Steps through the three modes. Deliberately a cycle rather than a switch:
+  /// "follow the device" is a real answer and has to be reachable again after
+  /// someone has overridden it.
+  Future<void> cycleThemeMode() => setThemeMode(switch (_themeMode) {
+    ThemeMode.system => ThemeMode.light,
+    ThemeMode.light => ThemeMode.dark,
+    ThemeMode.dark => ThemeMode.system,
+  });
 
   final LocationService _location;
   final PhotoService photos;

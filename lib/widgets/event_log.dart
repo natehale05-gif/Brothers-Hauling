@@ -15,6 +15,8 @@ class EventLog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final shown = limit != null && events.length > limit!
         ? events.sublist(events.length - limit!)
         : events;
@@ -29,20 +31,21 @@ class EventLog extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: 62,
-                    child: Text(e.time, style: HaulText.mono),
-                  ),
+                  SizedBox(width: 62, child: Text(e.time, style: ht.mono)),
                   Padding(
                     padding: const EdgeInsets.only(top: 1, right: 9),
-                    child: Icon(_icon(e.kind), size: 13, color: _color(e.kind)),
+                    child: Icon(
+                      _icon(e.kind),
+                      size: 13,
+                      color: _color(e.kind, hc),
+                    ),
                   ),
                   Expanded(
                     child: Text(
                       e.label,
-                      style: HaulText.small.copyWith(
+                      style: ht.small.copyWith(
                         fontSize: 13,
-                        color: _color(e.kind),
+                        color: _color(e.kind, hc),
                       ),
                     ),
                   ),
@@ -60,9 +63,9 @@ class EventLog extends StatelessWidget {
     EventKind.flat => Icons.check_rounded,
   };
 
-  static Color _color(EventKind kind) => switch (kind) {
-    EventKind.depart => HaulColors.brand,
-    EventKind.arrive => HaulColors.go,
-    EventKind.flat => HaulColors.white,
+  static Color _color(EventKind kind, HaulPalette hc) => switch (kind) {
+    EventKind.depart => hc.brand,
+    EventKind.arrive => hc.go,
+    EventKind.flat => hc.ink,
   };
 }

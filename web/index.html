@@ -26,7 +26,41 @@
   <link rel="manifest" href="manifest.json">
 
   <style>
-    html, body { margin: 0; padding: 0; height: 100%; background: #111112; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #111112;
+      /* The app is a fixed board, never a scrolling document. Without this a
+         phone browser will happily rubber-band or pull-to-refresh the whole
+         page, which drags the bottom tabs up off the bottom edge. */
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+
+    /*
+      Flutter renders into this element rather than into the page.
+
+      It matters on phones. Left to itself the engine sizes the app from the
+      *layout* viewport, which on iOS Safari is the tall "toolbar retracted"
+      height — so the bottom tab bar gets drawn below the visible edge, hidden
+      behind the browser toolbar, and the driver has to fight the page to reach
+      it. `documentElement.clientHeight` reports that tall viewport no matter
+      what CSS says, so no rule on <html> can correct it.
+
+      Given a host element, the engine measures *this box* instead and watches
+      it with a ResizeObserver. `100dvh` is the dynamic viewport — the height
+      actually on screen — so the tabs sit on the bottom edge, and when the
+      toolbar slides in or out the app re-lays-out to match instead of hanging
+      off the end.
+    */
+    #app {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+    }
 
     /*
       Shown until Flutter paints its first frame. The web bundle is a couple of
@@ -85,6 +119,8 @@
   </style>
 </head>
 <body>
+  <div id="app"></div>
+
   <div id="boot" role="status" aria-live="polite">
     <h1>Brothers<br><span>Hauling</span></h1>
     <div class="bar" aria-hidden="true"><i></i></div>
