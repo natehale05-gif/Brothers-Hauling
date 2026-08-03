@@ -43,6 +43,7 @@ void main() async {
     BrothersHaulingApp(
       state: AppState(
         board: board,
+        store: store,
         storageIsDurable: durable,
         location: const GeolocatorLocationService(),
         photos: ImagePickerPhotoService(),
@@ -93,27 +94,33 @@ class _BrothersHaulingAppState extends State<BrothersHaulingApp> {
   Widget build(BuildContext context) {
     return AppScope(
       state: _state,
-      child: MaterialApp(
-        title: 'Brothers Hauling',
-        debugShowCheckedModeBanner: false,
-        theme: buildHaulTheme(),
-        darkTheme: buildHaulTheme(),
-        // The board is dark by design — it gets read in a cab. Opting out of a
-        // light theme keeps it consistent rather than half-legible under a
-        // system light setting.
-        themeMode: ThemeMode.dark,
-        builder: (context, child) {
-          // Honour the OS text size, but stop runaway scaling — desktop lets
-          // users push it far past anything the layout can absorb.
-          final scaler = MediaQuery.textScalerOf(
-            context,
-          ).clamp(minScaleFactor: 1.0, maxScaleFactor: 1.6);
-          return MediaQuery(
-            data: MediaQuery.of(context).copyWith(textScaler: scaler),
-            child: child!,
-          );
-        },
-        home: HomeShell(links: widget.links),
+      // The MaterialApp is the scope's child, so it does not rebuild when the
+      // state changes — and the theme choice lives on the state. Listening
+      // here is what makes flipping to light take effect immediately.
+      child: ListenableBuilder(
+        listenable: _state,
+        builder: (context, _) => MaterialApp(
+          title: 'Brothers Hauling',
+          debugShowCheckedModeBanner: false,
+          // Two full palettes, not one with a switch in it. Dark is what a cab
+          // at 5 AM needs; light is what a yard at noon needs, where a dark
+          // screen is a mirror. Both clear WCAG AA on every pairing.
+          theme: buildHaulTheme(HaulPalette.light),
+          darkTheme: buildHaulTheme(HaulPalette.dark),
+          themeMode: _state.themeMode,
+          builder: (context, child) {
+            // Honour the OS text size, but stop runaway scaling — desktop lets
+            // users push it far past anything the layout can absorb.
+            final scaler = MediaQuery.textScalerOf(
+              context,
+            ).clamp(minScaleFactor: 1.0, maxScaleFactor: 1.6);
+            return MediaQuery(
+              data: MediaQuery.of(context).copyWith(textScaler: scaler),
+              child: child!,
+            );
+          },
+          home: HomeShell(links: widget.links),
+        ),
       ),
     );
   }

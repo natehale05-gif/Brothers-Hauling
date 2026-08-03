@@ -86,6 +86,8 @@ class _HoldButtonState extends State<HoldButton>
   /// The no-gesture path: confirm in a dialog instead of sustaining a press.
   Future<void> _confirmViaDialog() async {
     if (!widget.enabled) return;
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     if (_justFired) {
       // This is the release of a hold that already committed.
       _justFired = false;
@@ -94,8 +96,8 @@ class _HoldButtonState extends State<HoldButton>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(widget.confirmTitle, style: HaulText.heading),
-        content: Text(widget.confirmMessage, style: HaulText.body),
+        title: Text(widget.confirmTitle, style: ht.heading),
+        content: Text(widget.confirmMessage, style: ht.body),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -104,8 +106,8 @@ class _HoldButtonState extends State<HoldButton>
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(
-              backgroundColor: HaulColors.brand,
-              foregroundColor: HaulColors.asphalt,
+              backgroundColor: hc.brand,
+              foregroundColor: hc.onBrand,
             ),
             child: const Text('Yes, take it'),
           ),
@@ -140,6 +142,8 @@ class _HoldButtonState extends State<HoldButton>
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     // Screen readers and switch control can't express "keep holding", and
     // reduced-motion users shouldn't have to watch a bar fill. Both get the
     // dialog.
@@ -186,10 +190,10 @@ class _HoldButtonState extends State<HoldButton>
                     return Container(
                       height: HaulSpace.tap + 4,
                       decoration: BoxDecoration(
-                        color: HaulColors.raised,
+                        color: hc.raised,
                         border: Border(
                           top: BorderSide(
-                            color: focused ? HaulColors.brand : HaulColors.line,
+                            color: focused ? hc.brand : hc.line,
                             width: focused ? 3 : 1,
                           ),
                         ),
@@ -207,13 +211,10 @@ class _HoldButtonState extends State<HoldButton>
                             alignment: Alignment.centerLeft,
                             child: FractionallySizedBox(
                               widthFactor: pct,
-                              child: const DecoratedBox(
+                              child: DecoratedBox(
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
-                                    colors: [
-                                      HaulColors.brand,
-                                      Color(0xFFC9A800),
-                                    ],
+                                    colors: [hc.brand, Color(0xFFC9A800)],
                                   ),
                                 ),
                               ),
@@ -232,9 +233,7 @@ class _HoldButtonState extends State<HoldButton>
                                         ? Icons.bolt_rounded
                                         : Icons.lock_outline_rounded,
                                     size: 17,
-                                    color: armed
-                                        ? HaulColors.asphalt
-                                        : HaulColors.white,
+                                    color: armed ? hc.bg : hc.ink,
                                   ),
                                   const SizedBox(width: 8),
                                   Flexible(
@@ -244,12 +243,12 @@ class _HoldButtonState extends State<HoldButton>
                                               : label)
                                           .toUpperCase(),
                                       textAlign: TextAlign.center,
-                                      style: HaulText.action.copyWith(
+                                      style: ht.action.copyWith(
                                         color: armed
-                                            ? HaulColors.asphalt
+                                            ? hc.bg
                                             : widget.enabled
-                                            ? HaulColors.white
-                                            : HaulColors.grey,
+                                            ? hc.ink
+                                            : hc.inkSoft,
                                       ),
                                     ),
                                   ),

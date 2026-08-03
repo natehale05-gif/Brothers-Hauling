@@ -18,6 +18,7 @@ class JobsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
     final state = AppScope.of(context);
     final open = state.openBoard;
     final active = state.activeAll;
@@ -32,7 +33,7 @@ class JobsTab extends StatelessWidget {
               child: StatTile(
                 value: '${open.length}',
                 label: 'Unclaimed',
-                valueColor: open.isEmpty ? HaulColors.white : HaulColors.alert,
+                valueColor: open.isEmpty ? hc.ink : hc.alert,
               ),
             ),
             const SizedBox(width: 10),
@@ -40,14 +41,14 @@ class JobsTab extends StatelessWidget {
               child: StatTile(
                 value: '${active.length}',
                 label: 'In motion',
-                valueColor: HaulColors.go,
+                valueColor: hc.go,
               ),
             ),
           ],
         ),
         const SizedBox(height: 16),
         if (open.isNotEmpty) ...[
-          const SectionHeader(
+          SectionHeader(
             title: "Nobody's taken these",
             trailing: Pill.alert(label: 'Act'),
           ),
@@ -91,6 +92,8 @@ class TrackingTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final state = AppScope.of(context);
     final running = state.jobs
         .where((j) => j.status == JobStatus.active && j.assignedTo != null)
@@ -107,7 +110,7 @@ class TrackingTab extends StatelessWidget {
       children: [
         SectionHeader(
           title: 'Live crew',
-          trailing: Text('$appsOpen APPS OPEN', style: HaulText.eyebrow),
+          trailing: Text('$appsOpen APPS OPEN', style: ht.eyebrow),
         ),
         if (running.isEmpty)
           const EmptyState(
@@ -121,8 +124,8 @@ class TrackingTab extends StatelessWidget {
         const SectionHeader(title: 'Not tracking', topPadding: 18),
         Container(
           decoration: BoxDecoration(
-            color: HaulColors.surface,
-            border: Border.all(color: HaulColors.line),
+            color: hc.surface,
+            border: Border.all(color: hc.line),
             borderRadius: BorderRadius.circular(HaulSpace.radius),
           ),
           child: Column(
@@ -133,10 +136,8 @@ class TrackingTab extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(8, 12, 14, 12),
                     decoration: i == notTracking.length - 1
                         ? null
-                        : const BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(color: HaulColors.line),
-                            ),
+                        : BoxDecoration(
+                            border: Border(bottom: BorderSide(color: hc.line)),
                           ),
                     child: Row(
                       children: [
@@ -146,10 +147,7 @@ class TrackingTab extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                notTracking[i].name,
-                                style: HaulText.bodyStrong,
-                              ),
+                              Text(notTracking[i].name, style: ht.bodyStrong),
                               const SizedBox(height: 2),
                               Text(
                                 notTracking[i].appOpen
@@ -157,7 +155,7 @@ class TrackingTab extends StatelessWidget {
                                     : 'Last ping '
                                           '${notTracking[i].lastSeen ?? "—"} · '
                                           '${notTracking[i].lastPlace ?? "unknown"}',
-                                style: HaulText.small,
+                                style: ht.small,
                               ),
                             ],
                           ),
@@ -182,7 +180,7 @@ class TrackingTab extends StatelessWidget {
             'Positions only report while a driver has the app open. Closing '
             'the app stops tracking — the last known ping is kept so you know '
             'where someone dropped off.',
-            style: HaulText.small.copyWith(fontSize: 12),
+            style: ht.small.copyWith(fontSize: 12),
           ),
         ),
       ],
@@ -196,6 +194,8 @@ class CrewTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final state = AppScope.of(context);
     final onShift = kCrew.where((c) => c.onShift).length;
 
@@ -204,12 +204,12 @@ class CrewTab extends StatelessWidget {
       children: [
         SectionHeader(
           title: 'Crew',
-          trailing: Text('$onShift ON SHIFT', style: HaulText.eyebrow),
+          trailing: Text('$onShift ON SHIFT', style: ht.eyebrow),
         ),
         Container(
           decoration: BoxDecoration(
-            color: HaulColors.surface,
-            border: Border.all(color: HaulColors.line),
+            color: hc.surface,
+            border: Border.all(color: hc.line),
             borderRadius: BorderRadius.circular(HaulSpace.radius),
           ),
           child: Column(
@@ -240,9 +240,9 @@ class CrewTab extends StatelessWidget {
                         ),
                         decoration: i == kCrew.length - 1
                             ? null
-                            : const BoxDecoration(
+                            : BoxDecoration(
                                 border: Border(
-                                  bottom: BorderSide(color: HaulColors.line),
+                                  bottom: BorderSide(color: hc.line),
                                 ),
                               ),
                         child: Row(
@@ -261,31 +261,26 @@ class CrewTab extends StatelessWidget {
                                         margin: const EdgeInsets.only(right: 7),
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
-                                          color: c.onShift
-                                              ? HaulColors.go
-                                              : HaulColors.line,
+                                          color: c.onShift ? hc.go : hc.line,
                                         ),
                                       ),
                                       Flexible(
                                         child: Text(
                                           c.name,
-                                          style: HaulText.bodyStrong,
+                                          style: ht.bodyStrong,
                                         ),
                                       ),
                                     ],
                                   ),
                                   const SizedBox(height: 3),
-                                  Text(
-                                    '${c.unit} · $detail',
-                                    style: HaulText.small,
-                                  ),
+                                  Text('${c.unit} · $detail', style: ht.small),
                                 ],
                               ),
                             ),
                             const SizedBox(width: 8),
                             Flexible(
                               child: c.appOpen
-                                  ? const Pill.go(label: 'Live')
+                                  ? Pill.go(label: 'Live')
                                   : const Pill(label: 'Dark'),
                             ),
                           ],
@@ -308,6 +303,8 @@ class OverviewTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final state = AppScope.of(context);
     final revenue = state.revenue;
     final cost = state.cost;
@@ -343,7 +340,7 @@ class OverviewTab extends StatelessWidget {
               child: StatTile(
                 value: '\$${_thousands(revenue - cost)}',
                 label: 'Margin',
-                valueColor: HaulColors.go,
+                valueColor: hc.go,
               ),
             ),
             const SizedBox(width: 10),
@@ -362,7 +359,7 @@ class OverviewTab extends StatelessWidget {
               child: StatTile(
                 value: '${open.length}',
                 label: 'Unclaimed jobs',
-                valueColor: open.isEmpty ? HaulColors.white : HaulColors.alert,
+                valueColor: open.isEmpty ? hc.ink : hc.alert,
               ),
             ),
             const SizedBox(width: 10),
@@ -370,13 +367,13 @@ class OverviewTab extends StatelessWidget {
               child: StatTile(
                 value: '${moving.length}',
                 label: 'On the road now',
-                valueColor: HaulColors.brand,
+                valueColor: hc.brand,
               ),
             ),
           ],
         ),
         const SizedBox(height: 18),
-        const SectionHeader(
+        SectionHeader(
           title: 'Moving right now',
           trailing: Pill.brand(label: 'Live'),
         ),
@@ -413,9 +410,7 @@ class OverviewTab extends StatelessWidget {
                           Container(
                             height: (week[i] / max * 88).clamp(3.0, 88.0),
                             decoration: BoxDecoration(
-                              color: week[i] == 0
-                                  ? HaulColors.line
-                                  : HaulColors.brand,
+                              color: week[i] == 0 ? hc.line : hc.brand,
                               borderRadius: const BorderRadius.vertical(
                                 top: Radius.circular(4),
                               ),
@@ -424,7 +419,7 @@ class OverviewTab extends StatelessWidget {
                           const SizedBox(height: 6),
                           Text(
                             dayLetters[i],
-                            style: HaulText.eyebrow.copyWith(letterSpacing: 0),
+                            style: ht.eyebrow.copyWith(letterSpacing: 0),
                           ),
                         ],
                       ),
@@ -446,8 +441,8 @@ class OverviewTab extends StatelessWidget {
             Container(
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: HaulColors.surface,
-                border: Border.all(color: HaulColors.line),
+                color: hc.surface,
+                border: Border.all(color: hc.line),
                 borderRadius: BorderRadius.circular(HaulSpace.radius),
               ),
               clipBehavior: Clip.antiAlias,
@@ -464,14 +459,11 @@ class OverviewTab extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  j.type.toUpperCase(),
-                                  style: HaulText.heading,
-                                ),
+                                Text(j.type.toUpperCase(), style: ht.heading),
                                 const SizedBox(height: 4),
                                 Text(
                                   'Unclaimed · window ${j.window}',
-                                  style: HaulText.secondary,
+                                  style: ht.secondary,
                                 ),
                               ],
                             ),
@@ -481,7 +473,7 @@ class OverviewTab extends StatelessWidget {
                         Semantics(
                           label: 'Bills at ${j.billed} dollars',
                           excludeSemantics: true,
-                          child: Text('\$${j.billed}', style: HaulText.money),
+                          child: Text('\$${j.billed}', style: ht.money),
                         ),
                       ],
                     ),

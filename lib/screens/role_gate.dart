@@ -4,37 +4,49 @@ import '../models/role.dart';
 import '../state/app_state.dart';
 import '../theme/haul_theme.dart';
 import '../widgets/brand_mark.dart';
+import '../widgets/primitives.dart';
+import '../widgets/theme_toggle.dart';
 
 /// Sign-in. Pick an access level; everything downstream keys off it.
 class RoleGate extends StatelessWidget {
   const RoleGate({super.key});
 
-  static ({Color background, Color foreground, IconData icon}) styleFor(
-    Role role,
-  ) => switch (role) {
+  /// Takes the palette rather than reading it, so it stays a pure function and
+  /// callers that already have one don't pay for a second lookup.
+  ///
+  /// [tone] is the same distinction expressed for a [Pill], which is how the
+  /// top bar's role chip stays the same colour as the role's card here without
+  /// the two agreeing by coincidence.
+  static ({Color background, Color foreground, IconData icon, PillTone tone})
+  styleFor(Role role, HaulPalette hc) => switch (role) {
     Role.admin => (
-      background: HaulColors.violetWash,
-      foreground: HaulColors.violet,
+      background: hc.violetWash,
+      foreground: hc.violet,
       icon: Icons.shield_outlined,
+      tone: PillTone.violet,
     ),
     Role.manager => (
-      background: HaulColors.brandWash,
-      foreground: HaulColors.brand,
+      background: hc.brandWash,
+      foreground: hc.brand,
       icon: Icons.assignment_outlined,
+      tone: PillTone.brand,
     ),
     Role.employee => (
-      background: HaulColors.goWash,
-      foreground: HaulColors.go,
+      background: hc.goWash,
+      foreground: hc.go,
       icon: Icons.local_shipping_outlined,
+      tone: PillTone.go,
     ),
   };
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final state = AppScope.of(context);
 
     return Scaffold(
-      backgroundColor: HaulColors.asphalt,
+      backgroundColor: hc.bg,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -49,15 +61,17 @@ class RoleGate extends StatelessWidget {
                 children: [
                   // The parent Column stretches its children; the lockup keeps
                   // its own width.
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: BrandMark(),
+                  Row(
+                    children: [
+                      const Expanded(child: BrandMark()),
+                      // Reachable before signing in: someone squinting at a
+                      // white screen in a yard should not have to pick a role
+                      // first to be able to turn it down.
+                      const ThemeToggle(),
+                    ],
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    'Pick an access level to sign in.',
-                    style: HaulText.secondary,
-                  ),
+                  Text('Pick an access level to sign in.', style: ht.secondary),
                   const SizedBox(height: 20),
                   for (final role in Role.values) ...[
                     _RoleCard(role: role, onPick: () => state.enter(role)),
@@ -67,7 +81,7 @@ class RoleGate extends StatelessWidget {
                   Text(
                     'Location is shared with dispatch only while the app is '
                     'open. Close it and reporting stops.',
-                    style: HaulText.small,
+                    style: ht.small,
                   ),
                 ],
               ),
@@ -87,7 +101,9 @@ class _RoleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final s = RoleGate.styleFor(role);
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
+    final s = RoleGate.styleFor(role, hc);
 
     return Semantics(
       button: true,
@@ -95,17 +111,17 @@ class _RoleCard extends StatelessWidget {
       hint: role.blurb,
       excludeSemantics: true,
       child: Material(
-        color: HaulColors.surface,
+        color: hc.surface,
         borderRadius: BorderRadius.circular(HaulSpace.radius),
         child: InkWell(
           onTap: onPick,
           borderRadius: BorderRadius.circular(HaulSpace.radius),
-          focusColor: HaulColors.brand.withValues(alpha: 0.16),
+          focusColor: hc.brand.withValues(alpha: 0.16),
           child: Container(
             constraints: const BoxConstraints(minHeight: 76),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              border: Border.all(color: HaulColors.line),
+              border: Border.all(color: hc.line),
               borderRadius: BorderRadius.circular(HaulSpace.radius),
             ),
             child: Row(
@@ -125,14 +141,14 @@ class _RoleCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(role.label.toUpperCase(), style: HaulText.heading),
+                      Text(role.label.toUpperCase(), style: ht.heading),
                       const SizedBox(height: 4),
-                      Text(role.blurb, style: HaulText.small),
+                      Text(role.blurb, style: ht.small),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Icon(Icons.chevron_right_rounded, color: HaulColors.grey),
+                Icon(Icons.chevron_right_rounded, color: hc.inkSoft),
               ],
             ),
           ),

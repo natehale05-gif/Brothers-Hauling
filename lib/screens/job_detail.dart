@@ -28,6 +28,8 @@ class JobDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final state = AppScope.of(context);
     final mineActive =
         job.assignedTo == kMeId && job.status == JobStatus.active;
@@ -62,8 +64,8 @@ class JobDetail extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(job.address, style: HaulText.bodyStrong),
-                          Text('${job.city}, OR', style: HaulText.body),
+                          Text(job.address, style: ht.bodyStrong),
+                          Text('${job.city}, OR', style: ht.body),
                         ],
                       ),
                     ),
@@ -72,10 +74,7 @@ class JobDetail extends StatelessWidget {
                     KeyValueRow(
                       label: 'Phone',
                       value: job.phone,
-                      valueStyle: HaulText.mono.copyWith(
-                        color: HaulColors.white,
-                        fontSize: 14,
-                      ),
+                      valueStyle: ht.mono.copyWith(color: hc.ink, fontSize: 14),
                     ),
                     KeyValueRow(
                       label: 'Window',
@@ -90,7 +89,7 @@ class JobDetail extends StatelessWidget {
                         child: Text(
                           "You're loaded — this routes to ${job.disposal}, "
                           'not back to the customer.',
-                          style: HaulText.small.copyWith(fontSize: 12),
+                          style: ht.small.copyWith(fontSize: 12),
                         ),
                       ),
                   ],
@@ -102,7 +101,7 @@ class JobDetail extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(job.access, style: HaulText.body),
+                    Text(job.access, style: ht.body),
                     for (final h in job.hazards) HazardNote(text: h),
                   ],
                 ),
@@ -165,11 +164,13 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 10, 14, 10),
-      decoration: const BoxDecoration(
-        color: HaulColors.surface,
-        border: Border(bottom: BorderSide(color: HaulColors.line)),
+      decoration: BoxDecoration(
+        color: hc.surface,
+        border: Border(bottom: BorderSide(color: hc.line)),
       ),
       child: Row(
         children: [
@@ -192,11 +193,11 @@ class _Header extends StatelessWidget {
                     header: true,
                     child: Text(
                       job.type.toUpperCase(),
-                      style: HaulText.heading.copyWith(fontSize: 15),
+                      style: ht.heading.copyWith(fontSize: 15),
                     ),
                   ),
                   const SizedBox(height: 3),
-                  Text('${job.id} · ${job.customer}', style: HaulText.mono),
+                  Text('${job.id} · ${job.customer}', style: ht.mono),
                 ],
               ),
             ),
@@ -214,11 +215,11 @@ class _Header extends StatelessWidget {
               children: [
                 Text(
                   '\$${showMoney ? job.billed : job.payout}',
-                  style: HaulText.money.copyWith(fontSize: 18),
+                  style: ht.money.copyWith(fontSize: 18),
                 ),
                 Text(
                   showMoney ? 'billed' : 'your cut',
-                  style: HaulText.small.copyWith(fontSize: 11),
+                  style: ht.small.copyWith(fontSize: 11),
                 ),
               ],
             ),
@@ -247,6 +248,8 @@ class _NavRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final target = job.legTarget;
     final toDisposal = job.stage >= 3 && job.hasDisposalStop;
 
@@ -258,12 +261,12 @@ class _NavRow extends StatelessWidget {
             icon: const Icon(Icons.place_rounded, size: 17),
             label: Text(
               toDisposal ? 'TO DISPOSAL' : 'DIRECTIONS',
-              style: HaulText.action.copyWith(color: HaulColors.asphalt),
+              style: ht.action.copyWith(color: hc.onBrand),
               overflow: TextOverflow.ellipsis,
             ),
             style: FilledButton.styleFrom(
-              backgroundColor: HaulColors.brand,
-              foregroundColor: HaulColors.asphalt,
+              backgroundColor: hc.brand,
+              foregroundColor: hc.onBrand,
               minimumSize: const Size(0, HaulSpace.tap),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(HaulSpace.radiusSm),
@@ -278,12 +281,12 @@ class _NavRow extends StatelessWidget {
             icon: const Icon(Icons.phone_rounded, size: 17),
             label: Text(
               'CALL',
-              style: HaulText.action,
+              style: ht.action,
               overflow: TextOverflow.ellipsis,
             ),
             style: FilledButton.styleFrom(
-              backgroundColor: HaulColors.raised,
-              foregroundColor: HaulColors.white,
+              backgroundColor: hc.raised,
+              foregroundColor: hc.ink,
               minimumSize: const Size(0, HaulSpace.tap),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(HaulSpace.radiusSm),
@@ -304,6 +307,8 @@ class _MoneyAndStaffing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final state = AppScope.of(context);
 
     return HaulBlock(
@@ -317,7 +322,7 @@ class _MoneyAndStaffing extends StatelessWidget {
           KeyValueRow(
             label: 'Margin',
             value: '\$${job.margin}',
-            valueStyle: HaulText.bodyStrong.copyWith(color: HaulColors.go),
+            valueStyle: ht.bodyStrong.copyWith(color: hc.go),
           ),
           KeyValueRow(
             label: 'Assigned to',
@@ -328,7 +333,7 @@ class _MoneyAndStaffing extends StatelessWidget {
             const SizedBox(height: 16),
             Semantics(
               header: true,
-              child: Text('PUSH TO A DRIVER', style: HaulText.blockTitle),
+              child: Text('PUSH TO A DRIVER', style: ht.blockTitle),
             ),
             const SizedBox(height: 6),
             for (final c in kCrew.where((c) => c.onShift))
@@ -343,13 +348,13 @@ class _MoneyAndStaffing extends StatelessWidget {
                   style: TextButton.styleFrom(
                     minimumSize: const Size.fromHeight(HaulSpace.tap),
                     padding: const EdgeInsets.symmetric(horizontal: 4),
-                    foregroundColor: HaulColors.white,
+                    foregroundColor: hc.ink,
                   ),
                   child: Row(
                     children: [
                       CrewAvatar.muted(initials: c.initials, size: 30),
                       const SizedBox(width: 10),
-                      Expanded(child: Text(c.name, style: HaulText.bodyStrong)),
+                      Expanded(child: Text(c.name, style: ht.bodyStrong)),
                       const SizedBox(width: 8),
                       Flexible(
                         child: Pill(label: c.appOpen ? 'Assign' : 'Offline'),
@@ -373,6 +378,8 @@ class _PhotoBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final state = AppScope.of(context);
 
     return HaulBlock(
@@ -408,9 +415,9 @@ class _PhotoBlock extends StatelessWidget {
               job.photosComplete
                   ? 'Both photos in — you can close this job.'
                   : 'Both photos are required before this job can close.',
-              style: HaulText.small.copyWith(
+              style: ht.small.copyWith(
                 fontSize: 12,
-                color: job.photosComplete ? HaulColors.go : HaulColors.grey,
+                color: job.photosComplete ? hc.go : hc.inkSoft,
               ),
             ),
           ],
@@ -435,6 +442,8 @@ class _PhotoSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final filled = photo != null;
 
     return Semantics(
@@ -449,17 +458,14 @@ class _PhotoSlot extends StatelessWidget {
       child: AspectRatio(
         aspectRatio: 1,
         child: Material(
-          color: HaulColors.raised,
+          color: hc.raised,
           borderRadius: BorderRadius.circular(12),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: enabled ? onPick : null,
             child: Container(
               decoration: BoxDecoration(
-                border: Border.all(
-                  color: filled ? HaulColors.go : HaulColors.line,
-                  width: 2,
-                ),
+                border: Border.all(color: filled ? hc.go : hc.line, width: 2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: filled
@@ -471,11 +477,11 @@ class _PhotoSlot extends StatelessWidget {
                           fit: BoxFit.cover,
                           // Described by the Semantics wrapper above.
                           excludeFromSemantics: true,
-                          errorBuilder: (_, _, _) => const ColoredBox(
-                            color: HaulColors.raised,
+                          errorBuilder: (_, _, _) => ColoredBox(
+                            color: hc.raised,
                             child: Icon(
                               Icons.image_not_supported_outlined,
-                              color: HaulColors.grey,
+                              color: hc.inkSoft,
                             ),
                           ),
                         ),
@@ -488,28 +494,28 @@ class _PhotoSlot extends StatelessWidget {
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: HaulColors.asphalt.withValues(alpha: 0.85),
+                              color: hc.bg.withValues(alpha: 0.85),
                               borderRadius: BorderRadius.circular(5),
                             ),
                             child: Text(
                               slot.toUpperCase(),
-                              style: HaulText.eyebrow.copyWith(
-                                color: HaulColors.white,
+                              style: ht.eyebrow.copyWith(
+                                color: hc.ink,
                                 fontSize: 10,
                               ),
                             ),
                           ),
                         ),
-                        const Positioned(
+                        Positioned(
                           right: 7,
                           top: 7,
                           child: CircleAvatar(
                             radius: 11,
-                            backgroundColor: HaulColors.go,
+                            backgroundColor: hc.go,
                             child: Icon(
                               Icons.check_rounded,
                               size: 14,
-                              color: HaulColors.asphalt,
+                              color: hc.bg,
                             ),
                           ),
                         ),
@@ -521,14 +527,14 @@ class _PhotoSlot extends StatelessWidget {
                         Icon(
                           Icons.photo_camera_outlined,
                           size: 24,
-                          color: enabled ? HaulColors.white : HaulColors.grey,
+                          color: enabled ? hc.ink : hc.inkSoft,
                         ),
                         const SizedBox(height: 8),
                         Text(
                           slot.toUpperCase(),
-                          style: HaulText.action.copyWith(
+                          style: ht.action.copyWith(
                             fontSize: 12,
-                            color: enabled ? HaulColors.white : HaulColors.grey,
+                            color: enabled ? hc.ink : hc.inkSoft,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -537,7 +543,7 @@ class _PhotoSlot extends StatelessWidget {
                           child: Text(
                             enabled ? 'Tap to shoot' : 'Not on this job',
                             textAlign: TextAlign.center,
-                            style: HaulText.small.copyWith(fontSize: 11),
+                            style: ht.small.copyWith(fontSize: 11),
                           ),
                         ),
                       ],
@@ -559,14 +565,16 @@ class _AdvanceBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final state = AppScope.of(context);
     final blocked = job.stage >= 4 && !job.photosComplete;
     final label = blocked ? 'Photos needed to close' : kStageActions[job.stage];
 
     return Container(
-      decoration: const BoxDecoration(
-        color: HaulColors.surface,
-        border: Border(top: BorderSide(color: HaulColors.line)),
+      decoration: BoxDecoration(
+        color: hc.surface,
+        border: Border(top: BorderSide(color: hc.line)),
       ),
       child: SafeArea(
         top: false,
@@ -589,23 +597,21 @@ class _AdvanceBar extends StatelessWidget {
               ),
               label: Text(
                 label.toUpperCase(),
-                style: HaulText.action.copyWith(
+                style: ht.action.copyWith(
                   color: blocked
-                      ? HaulColors.grey
+                      ? hc.inkSoft
                       : job.stage >= 4
-                      ? HaulColors.asphalt
-                      : HaulColors.white,
+                      ? hc.bg
+                      : hc.ink,
                 ),
               ),
               style: FilledButton.styleFrom(
                 backgroundColor: job.stage >= 4 && !blocked
-                    ? HaulColors.brand
-                    : HaulColors.raised,
-                foregroundColor: job.stage >= 4 && !blocked
-                    ? HaulColors.asphalt
-                    : HaulColors.white,
-                disabledBackgroundColor: HaulColors.raised,
-                disabledForegroundColor: HaulColors.grey,
+                    ? hc.brand
+                    : hc.raised,
+                foregroundColor: job.stage >= 4 && !blocked ? hc.bg : hc.ink,
+                disabledBackgroundColor: hc.raised,
+                disabledForegroundColor: hc.inkSoft,
                 minimumSize: const Size.fromHeight(HaulSpace.tap),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(HaulSpace.radiusSm),

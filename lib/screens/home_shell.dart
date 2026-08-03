@@ -11,6 +11,7 @@ import '../theme/haul_theme.dart';
 import '../widgets/primitives.dart';
 import '../widgets/route_strip.dart';
 import '../widgets/sync_strip.dart';
+import '../widgets/theme_toggle.dart';
 import 'job_detail.dart';
 import 'role_gate.dart';
 import 'tabs/dispatch_tabs.dart';
@@ -29,6 +30,7 @@ class HomeShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
     final state = AppScope.of(context);
     if (state.role == null) return const RoleGate();
 
@@ -54,7 +56,7 @@ class HomeShell extends StatelessWidget {
         child: Focus(
           autofocus: true,
           child: Scaffold(
-            backgroundColor: HaulColors.asphalt,
+            backgroundColor: hc.bg,
             body: SafeArea(
               bottom: false,
               child: Stack(
@@ -118,6 +120,7 @@ class _WideBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
     final state = AppScope.of(context);
     final job = state.openJob;
 
@@ -125,10 +128,10 @@ class _WideBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const _NavRail(),
-        const VerticalDivider(width: 1, color: HaulColors.line),
+        VerticalDivider(width: 1, color: hc.line),
         Expanded(flex: 3, child: _TabBody(selectedJobId: job?.id)),
         if (job != null) ...[
-          const VerticalDivider(width: 1, color: HaulColors.line),
+          VerticalDivider(width: 1, color: hc.line),
           Expanded(
             flex: 4,
             child: JobDetail(job: job, links: links, showCloseButton: false),
@@ -178,15 +181,17 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final state = AppScope.of(context);
     final role = state.role!;
-    final s = RoleGate.styleFor(role);
+    final s = RoleGate.styleFor(role, hc);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-      decoration: const BoxDecoration(
-        color: HaulColors.surface,
-        border: Border(bottom: BorderSide(color: HaulColors.line)),
+      decoration: BoxDecoration(
+        color: hc.surface,
+        border: Border(bottom: BorderSide(color: hc.line)),
       ),
       child: Row(
         children: [
@@ -198,7 +203,7 @@ class _TopBar extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(state.me.name, style: HaulText.bodyStrong),
+                  Text(state.me.name, style: ht.bodyStrong),
                   const SizedBox(height: 3),
                   Row(
                     children: [
@@ -208,8 +213,7 @@ class _TopBar extends StatelessWidget {
                               ? '${role.label} · employee view'
                               : role.label,
                           icon: s.icon,
-                          foreground: s.foreground,
-                          background: s.background,
+                          tone: s.tone,
                           semanticLabel: state.asEmployee
                               ? 'Signed in as ${role.label}, currently in the '
                                     'employee view'
@@ -233,6 +237,8 @@ class _TopBar extends StatelessWidget {
               onPressed: state.toggleEmployeeView,
             ),
           const SizedBox(width: 7),
+          const ThemeToggle(),
+          const SizedBox(width: 7),
           HaulIconButton(
             icon: Icons.logout_rounded,
             tooltip: 'Sign out and change access level',
@@ -251,6 +257,8 @@ class _LocationStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final state = AppScope.of(context);
     final gps = state.gps;
     final live = gps.state == GpsState.live || gps.state == GpsState.simulated;
@@ -277,8 +285,8 @@ class _LocationStrip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
         decoration: BoxDecoration(
-          color: live ? HaulColors.surface : const Color(0xFF23202A),
-          border: const Border(bottom: BorderSide(color: HaulColors.line)),
+          color: live ? hc.surface : hc.raised,
+          border: Border(bottom: BorderSide(color: hc.line)),
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -286,7 +294,7 @@ class _LocationStrip extends StatelessWidget {
             // the status instead of squeezing it into a column of single
             // letters.
             final stacked = constraints.maxWidth < 520;
-            const reminder = Pill(label: 'Stops when you close the app');
+            final reminder = Pill(label: 'Stops when you close the app');
 
             final status = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,13 +302,13 @@ class _LocationStrip extends StatelessWidget {
               children: [
                 Text(
                   'Sharing location with dispatch',
-                  style: HaulText.bodyStrong.copyWith(fontSize: 13),
+                  style: ht.bodyStrong.copyWith(fontSize: 13),
                 ),
                 const SizedBox(height: 1),
-                Text(detail, style: HaulText.small.copyWith(fontSize: 12)),
+                Text(detail, style: ht.small.copyWith(fontSize: 12)),
                 if (stacked) ...[
                   const SizedBox(height: 6),
-                  const Align(alignment: Alignment.centerLeft, child: reminder),
+                  Align(alignment: Alignment.centerLeft, child: reminder),
                 ],
               ],
             );
@@ -312,7 +320,7 @@ class _LocationStrip extends StatelessWidget {
                 Expanded(child: status),
                 if (!stacked) ...[
                   const SizedBox(width: 8),
-                  const Flexible(child: reminder),
+                  Flexible(child: reminder),
                 ],
               ],
             );
@@ -350,14 +358,15 @@ class HaulBottomTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
     final state = AppScope.of(context);
     final tabs = state.navTabs;
     final current = tabs.indexOf(state.tab).clamp(0, tabs.length - 1);
 
     return Container(
-      decoration: const BoxDecoration(
-        color: HaulColors.surface,
-        border: Border(top: BorderSide(color: HaulColors.line)),
+      decoration: BoxDecoration(
+        color: hc.surface,
+        border: Border(top: BorderSide(color: hc.line)),
       ),
       child: SafeArea(
         top: false,
@@ -401,7 +410,9 @@ class _Tab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? HaulColors.brand : HaulColors.grey;
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
+    final color = selected ? hc.brand : hc.inkSoft;
 
     return Semantics(
       button: true,
@@ -419,7 +430,7 @@ class _Tab extends StatelessWidget {
             // doesn't rest on colour alone.
             border: Border(
               top: BorderSide(
-                color: selected ? HaulColors.brand : Colors.transparent,
+                color: selected ? hc.brand : Colors.transparent,
                 width: 3,
               ),
             ),
@@ -435,7 +446,7 @@ class _Tab extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: HaulText.eyebrow.copyWith(
+                style: ht.eyebrow.copyWith(
                   color: color,
                   letterSpacing: 0.5,
                   fontSize: 10.5,
@@ -454,6 +465,8 @@ class _NavRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final state = AppScope.of(context);
     final tabs = state.navTabs;
     final index = tabs.indexOf(state.tab).clamp(0, tabs.length - 1);
@@ -461,18 +474,16 @@ class _NavRail extends StatelessWidget {
     return NavigationRail(
       selectedIndex: index,
       onDestinationSelected: (i) => state.setTab(tabs[i]),
-      backgroundColor: HaulColors.surface,
-      indicatorColor: HaulColors.brandWash,
+      backgroundColor: hc.surface,
+      indicatorColor: hc.brandWash,
       labelType: NavigationRailLabelType.all,
-      selectedLabelTextStyle: HaulText.eyebrow.copyWith(
-        color: HaulColors.white,
-      ),
-      unselectedLabelTextStyle: HaulText.eyebrow,
+      selectedLabelTextStyle: ht.eyebrow.copyWith(color: hc.ink),
+      unselectedLabelTextStyle: ht.eyebrow,
       destinations: [
         for (final t in tabs)
           NavigationRailDestination(
-            icon: Icon(_tabIcon(t), color: HaulColors.grey),
-            selectedIcon: Icon(_tabIcon(t), color: HaulColors.brand),
+            icon: Icon(_tabIcon(t), color: hc.inkSoft),
+            selectedIcon: Icon(_tabIcon(t), color: hc.brand),
             label: Text(t.label),
           ),
       ],
@@ -524,6 +535,8 @@ class _ToastState extends State<_Toast> {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     return Positioned(
       left: 14,
       right: 14,
@@ -537,14 +550,12 @@ class _ToastState extends State<_Toast> {
           liveRegion: true,
           container: true,
           child: Material(
-            color: HaulColors.raised,
+            color: hc.raised,
             borderRadius: BorderRadius.circular(11),
             child: Container(
               padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
               decoration: BoxDecoration(
-                border: const Border(
-                  left: BorderSide(color: HaulColors.brand, width: 4),
-                ),
+                border: Border(left: BorderSide(color: hc.brand, width: 4)),
                 borderRadius: BorderRadius.circular(11),
                 boxShadow: const [
                   BoxShadow(
@@ -554,7 +565,7 @@ class _ToastState extends State<_Toast> {
                   ),
                 ],
               ),
-              child: Text(widget.message, style: HaulText.body),
+              child: Text(widget.message, style: ht.body),
             ),
           ),
         ),
@@ -571,6 +582,8 @@ class _ClosedOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final state = AppScope.of(context);
 
     return Positioned.fill(
@@ -581,7 +594,9 @@ class _ClosedOverlay extends StatelessWidget {
         namesRoute: true,
         label: 'Load closed',
         child: ColoredBox(
-          color: const Color(0xEB0A0B0F),
+          // Derived, not hardcoded: this scrim used to be a fixed near-black,
+          // which put light-mode ink (which is dark) on a black field.
+          color: hc.bg.withValues(alpha: 0.94),
           child: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(30),
@@ -594,13 +609,13 @@ class _ClosedOverlay extends StatelessWidget {
                       width: 92,
                       height: 92,
                       decoration: BoxDecoration(
-                        color: HaulColors.go,
+                        color: hc.go,
                         borderRadius: BorderRadius.circular(26),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.check_rounded,
                         size: 46,
-                        color: HaulColors.asphalt,
+                        color: hc.onBrand,
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -608,7 +623,7 @@ class _ClosedOverlay extends StatelessWidget {
                       header: true,
                       child: Text(
                         'LOAD CLOSED',
-                        style: HaulText.display.copyWith(fontSize: 26),
+                        style: ht.display.copyWith(fontSize: 26),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -616,7 +631,7 @@ class _ClosedOverlay extends StatelessWidget {
                       '${job.type} for ${job.customer} — photos filed, '
                       'movement log sent to dispatch, ticket to billing.',
                       textAlign: TextAlign.center,
-                      style: HaulText.secondary,
+                      style: ht.secondary,
                     ),
                     const SizedBox(height: 20),
                     Semantics(
@@ -624,7 +639,7 @@ class _ClosedOverlay extends StatelessWidget {
                       excludeSemantics: true,
                       child: Text(
                         '+\$${job.payout}',
-                        style: HaulText.money.copyWith(fontSize: 32),
+                        style: ht.money.copyWith(fontSize: 32),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -632,8 +647,8 @@ class _ClosedOverlay extends StatelessWidget {
                       autofocus: true,
                       onPressed: state.dismissClosedJob,
                       style: FilledButton.styleFrom(
-                        backgroundColor: HaulColors.brand,
-                        foregroundColor: HaulColors.asphalt,
+                        backgroundColor: hc.brand,
+                        foregroundColor: hc.onBrand,
                         minimumSize: const Size(240, HaulSpace.tap),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -641,9 +656,7 @@ class _ClosedOverlay extends StatelessWidget {
                       ),
                       child: Text(
                         'BACK TO THE BOARD',
-                        style: HaulText.action.copyWith(
-                          color: HaulColors.asphalt,
-                        ),
+                        style: ht.action.copyWith(color: hc.onBrand),
                       ),
                     ),
                   ],

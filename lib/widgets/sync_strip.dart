@@ -20,6 +20,8 @@ class SyncStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final state = AppScope.of(context);
     final sync = state.syncState;
 
@@ -27,14 +29,14 @@ class SyncStrip extends StatelessWidget {
     if (sync.settled) return const SizedBox.shrink();
 
     final failed = sync.failed > 0;
-    final colour = failed ? HaulColors.alert : HaulColors.brand;
+    final colour = failed ? hc.alert : hc.brand;
     final message = _message(sync);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 9, 10, 9),
       decoration: BoxDecoration(
-        color: failed ? HaulColors.alertWash : HaulColors.brandWash,
-        border: const Border(bottom: BorderSide(color: HaulColors.line)),
+        color: failed ? hc.alertWash : hc.brandWash,
+        border: Border(bottom: BorderSide(color: hc.line)),
       ),
       child: Row(
         children: [
@@ -60,10 +62,7 @@ class SyncStrip extends StatelessWidget {
                   Expanded(
                     child: Text(
                       message,
-                      style: HaulText.small.copyWith(
-                        fontSize: 13,
-                        color: colour,
-                      ),
+                      style: ht.small.copyWith(fontSize: 13, color: colour),
                     ),
                   ),
                 ],
@@ -100,6 +99,8 @@ class _StorageWarning extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     const message =
         'This phone will not let the app save anything. Your work is kept '
         'until you close the app, and then it is gone.';
@@ -111,25 +112,18 @@ class _StorageWarning extends StatelessWidget {
       container: true,
       child: Container(
         padding: const EdgeInsets.fromLTRB(14, 9, 14, 9),
-        decoration: const BoxDecoration(
-          color: HaulColors.alertWash,
-          border: Border(bottom: BorderSide(color: HaulColors.line)),
+        decoration: BoxDecoration(
+          color: hc.alertWash,
+          border: Border(bottom: BorderSide(color: hc.line)),
         ),
         child: Row(
           children: [
-            const Icon(
-              Icons.warning_amber_rounded,
-              size: 18,
-              color: HaulColors.alert,
-            ),
+            Icon(Icons.warning_amber_rounded, size: 18, color: hc.alert),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 message,
-                style: HaulText.small.copyWith(
-                  fontSize: 13,
-                  color: HaulColors.alert,
-                ),
+                style: ht.small.copyWith(fontSize: 13, color: hc.alert),
               ),
             ),
           ],
@@ -146,6 +140,8 @@ class _Action extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final state = AppScope.of(context);
 
     return Semantics(
@@ -159,13 +155,13 @@ class _Action extends StatelessWidget {
         style: TextButton.styleFrom(
           minimumSize: const Size(0, HaulSpace.tap),
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          foregroundColor: failed ? HaulColors.alert : HaulColors.brand,
+          foregroundColor: failed ? hc.alert : hc.brand,
         ),
         child: Text(
           failed ? 'RETRY' : 'SEND NOW',
-          style: HaulText.action.copyWith(
+          style: ht.action.copyWith(
             fontSize: 12,
-            color: failed ? HaulColors.alert : HaulColors.brand,
+            color: failed ? hc.alert : hc.brand,
           ),
         ),
       ),

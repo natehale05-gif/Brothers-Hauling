@@ -49,6 +49,10 @@ Future<Harness> pumpApp(
   RecordingLinkService? links,
   FakePhotoService? photos,
   List<Job>? jobs,
+
+  /// Defaults to dark, which is what the app ships as. Pass light to run a
+  /// check against the other palette.
+  ThemeMode themeMode = ThemeMode.dark,
 }) async {
   tester.view
     ..physicalSize = size
@@ -70,6 +74,7 @@ Future<Harness> pumpApp(
   addTearDown(state.dispose);
 
   if (role != null) state.enter(role);
+  await state.setThemeMode(themeMode);
 
   await tester.pumpWidget(
     MediaQuery(

@@ -102,7 +102,7 @@ flutter analyze
 flutter test
 ```
 
-**289 tests**, in seven files:
+**340 tests**, in nine files:
 
 | File | Covers |
 | --- | --- |
@@ -114,6 +114,7 @@ flutter test
 | `test/outbox_test.dart` | The offline queue — ordering, backoff, giving up, surviving the process dying |
 | `test/board_repository_test.dart` | A shift worked with no signal: applied locally, kept across relaunch, delivered in order when signal returns |
 | `test/sync_ui_test.dart` | That the app never tells a driver their work landed when it has not |
+| `test/theme_test.dart` | The appearance choice — that it cycles, persists, repaints, and says which mode is on |
 
 ### Browser smoke test
 
@@ -146,10 +147,12 @@ Not a pass at the end — it shaped the widgets.
   Monmouth, 42 percent complete, 11 min out". The week chart announces every
   day's figure. A dimmed job card also carries a chip reading "Lowboy 25t — not
   your rig".
-- **Every colour pairing clears WCAG AA (4.5:1)**, including translucent chips
-  measured against the blend they actually sit on — asserted in
-  `accessibility_test.dart`, which is why the alert and violet tokens are a
-  shade brighter than the prototype's.
+- **Every colour pairing clears WCAG AA (4.5:1) in both light and dark**,
+  including translucent chips measured against the blend they actually sit on.
+  Flutter's four guidelines are also run over every screen in *both* palettes,
+  because the contrast guideline reads the pixels that were really painted —
+  which is how a hardcoded near-black scrim behind now-dark light-mode text got
+  caught.
 - **Money reads as a phrase**, not an orphaned number: "Your cut, 168 dollars".
 - **Toasts are announced** to screen readers and are transparent to pointers, so
   a confirmation can never eat a tap meant for the button underneath it.
@@ -220,6 +223,27 @@ blue cast — the icon's black is neutral, so the surfaces are too.
 The role gate draws the icon's lockup in type (`lib/widgets/brand_mark.dart`)
 rather than shipping it as an image: crisp at any size, and nothing added to
 the web payload.
+
+### Light and dark
+
+Dark is what a cab at 5 AM needs. Light is what a yard at noon needs, where a
+dark screen is just a mirror. Both ship; the toggle sits in the top bar and on
+the sign-in screen, and the choice is remembered on the device.
+
+The default follows the phone rather than forcing either one — someone who has
+already set their device has said everything they mean to say about it. The
+control cycles through *follow my device → light → dark* rather than being a
+two-way switch, because "follow my device" is a real answer and has to stay
+reachable after you have overridden it once.
+
+Light is **not** the dark palette on a white card. The icon's orange manages
+3.3:1 on white, which is not a text colour by any reading of AA. Each accent in
+the light palette is the same hue walked down in value until it clears 4.8:1
+both on the darkest surface it can land on and on its own tinted chip; the vivid
+orange survives as a *fill*, where light ink sits on top of it rather than
+beside it. The tinted chips are also much thinner on light, because a tint
+darkens the chip either way — which hands a light label headroom on dark, and
+takes it away from a dark label on light.
 
 ### App icon
 

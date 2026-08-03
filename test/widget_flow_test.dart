@@ -438,11 +438,17 @@ void main() {
     expect(find.byType(MaterialApp), findsOneWidget);
   });
 
-  test('the theme keeps its identity across both slots', () {
-    final theme = buildHaulTheme();
-    expect(theme.scaffoldBackgroundColor, HaulColors.asphalt);
-    expect(theme.colorScheme.primary, HaulColors.brand);
-    expect(theme.textTheme.bodyLarge?.fontFamily, HaulFonts.body);
+  test('each palette builds a theme that carries its own colours', () {
+    for (final hc in [HaulPalette.dark, HaulPalette.light]) {
+      final theme = buildHaulTheme(hc);
+      expect(theme.scaffoldBackgroundColor, hc.bg);
+      expect(theme.colorScheme.primary, hc.brand);
+      expect(theme.brightness, hc.brightness);
+      expect(theme.textTheme.bodyLarge?.fontFamily, HaulFonts.body);
+      // Widgets read the palette back out of the theme, so a theme that
+      // forgot to carry it would leave every one of them on the dark default.
+      expect(theme.extension<HaulPalette>(), same(hc));
+    }
   });
 
   test('the simulated location service reports the yard', () async {

@@ -23,6 +23,8 @@ class StageRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final capped = stage.clamp(0, kStages.length - 1);
     final label = kStages[capped];
     final segments = kStages.length - 1; // "Closed" isn't a segment
@@ -43,7 +45,7 @@ class StageRail extends StatelessWidget {
                 trailing == null
                     ? label.toUpperCase()
                     : '${label.toUpperCase()} · ${trailing!.toUpperCase()}',
-                style: HaulText.eyebrow.copyWith(color: HaulColors.go),
+                style: ht.eyebrow.copyWith(color: hc.go),
               ),
             ),
           Row(
@@ -54,7 +56,7 @@ class StageRail extends StatelessWidget {
                   child: Container(
                     height: 6,
                     decoration: BoxDecoration(
-                      color: i <= capped ? HaulColors.go : HaulColors.line,
+                      color: i <= capped ? hc.go : hc.line,
                       borderRadius: BorderRadius.circular(3),
                     ),
                   ),

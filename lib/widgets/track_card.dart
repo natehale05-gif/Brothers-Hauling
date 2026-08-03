@@ -15,6 +15,8 @@ class TrackCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
     final worker = crewById(job.assignedTo);
     if (worker == null) return const SizedBox.shrink();
 
@@ -49,11 +51,11 @@ class TrackCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(worker.name, style: HaulText.bodyStrong),
+                        Text(worker.name, style: ht.bodyStrong),
                         const SizedBox(height: 2),
                         Text(
                           '${worker.unit} · ${job.id} · ${job.type}',
-                          style: HaulText.small,
+                          style: ht.small,
                         ),
                       ],
                     ),
@@ -85,12 +87,12 @@ class TrackCard extends StatelessWidget {
                 if (online)
                   const PingDot(size: 7)
                 else
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(right: 6, top: 1),
                     child: Icon(
                       Icons.wifi_off_rounded,
                       size: 13,
-                      color: HaulColors.grey,
+                      color: hc.inkSoft,
                     ),
                   ),
                 Expanded(
@@ -99,7 +101,7 @@ class TrackCard extends StatelessWidget {
                         ? 'Pinging now — app is open'
                         : 'App closed. Last ping ${worker.lastSeen ?? "—"} '
                               'near ${worker.lastPlace ?? "unknown"}.',
-                    style: HaulText.small.copyWith(fontSize: 12),
+                    style: ht.small.copyWith(fontSize: 12),
                   ),
                 ),
               ],
