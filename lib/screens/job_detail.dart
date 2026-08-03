@@ -55,6 +55,8 @@ class JobDetail extends StatelessWidget {
                   child: StageRail(stage: job.stage),
                 ),
 
+              if (state.beforePhotoDue(job)) _BeforePhotoPrompt(job: job),
+
               HaulBlock(
                 title: 'Where',
                 child: Column(
@@ -370,6 +372,101 @@ class _MoneyAndStaffing extends StatelessWidget {
   }
 }
 
+/// Asks for the before photo the moment the driver is standing on site.
+///
+/// It sits at the top of the card rather than down beside the photo slots
+/// because by the time anyone scrolls to those, the first load is already on
+/// the truck and the "before" it was meant to capture no longer exists.
+///
+/// Waiving it is deliberately weak — it lasts until the app is next opened,
+/// because the photo is still missing and the load is still there.
+class _BeforePhotoPrompt extends StatelessWidget {
+  const _BeforePhotoPrompt({required this.job});
+
+  final Job job;
+
+  @override
+  Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
+    final state = AppScope.of(context);
+
+    const message =
+        "You're on site. Take the before photo now — once the load moves, "
+        'there is no getting it back.';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+      decoration: BoxDecoration(
+        color: hc.brandWash,
+        border: Border.all(color: hc.brand),
+        borderRadius: BorderRadius.circular(HaulSpace.radius),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            liveRegion: true,
+            container: true,
+            label: message,
+            excludeSemantics: true,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.photo_camera_outlined, size: 19, color: hc.brand),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: ht.bodyStrong.copyWith(color: hc.brand),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 11),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  onPressed: () => state.addPhoto(job, before: true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: hc.brand,
+                    foregroundColor: hc.onBrand,
+                    minimumSize: const Size(0, HaulSpace.tap),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(
+                    'TAKE THE BEFORE PHOTO',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: ht.action.copyWith(fontSize: 12, color: hc.onBrand),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: () => state.waiveBeforePhotoPrompt(job.id),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(0, HaulSpace.tap),
+                  foregroundColor: hc.inkSoft,
+                ),
+                child: Text(
+                  'NOT YET',
+                  style: ht.action.copyWith(fontSize: 12, color: hc.inkSoft),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PhotoBlock extends StatelessWidget {
   const _PhotoBlock({required this.job, required this.enabled});
 
@@ -380,41 +477,22 @@ class _PhotoBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final hc = HaulColors.of(context);
     final ht = HaulText.of(context);
-    final state = AppScope.of(context);
 
     return HaulBlock(
       title: 'Before / after photos',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _PhotoSlot(
-                  slot: 'before',
-                  photo: job.photoBefore,
-                  enabled: enabled,
-                  onPick: () => state.addPhoto(job, before: true),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _PhotoSlot(
-                  slot: 'after',
-                  photo: job.photoAfter,
-                  enabled: enabled,
-                  onPick: () => state.addPhoto(job, before: false),
-                ),
-              ),
-            ],
-          ),
+          _PhotoStrip(job: job, before: true, enabled: enabled),
+          const SizedBox(height: 14),
+          _PhotoStrip(job: job, before: false, enabled: enabled),
           if (enabled) ...[
             const SizedBox(height: 10),
             Text(
               job.photosComplete
-                  ? 'Both photos in — you can close this job.'
-                  : 'Both photos are required before this job can close.',
+                  ? 'Photos in — you can close this job.'
+                  : 'At least one before and one after shot are required '
+                        'before this job can close.',
               style: ht.small.copyWith(
                 fontSize: 12,
                 color: job.photosComplete ? hc.go : hc.inkSoft,
@@ -427,127 +505,195 @@ class _PhotoBlock extends StatelessWidget {
   }
 }
 
-class _PhotoSlot extends StatelessWidget {
-  const _PhotoSlot({
-    required this.slot,
-    required this.photo,
+/// One slot's worth of shots, plus the tile that adds another.
+///
+/// A strip rather than a single square: one photo rarely covers a job. A driver
+/// needs the pile, the access, and the thing the customer will later swear was
+/// already broken. It scrolls sideways so a job with nine before shots cannot
+/// push the rest of the card off the screen.
+class _PhotoStrip extends StatelessWidget {
+  const _PhotoStrip({
+    required this.job,
+    required this.before,
     required this.enabled,
+  });
+
+  final Job job;
+  final bool before;
+  final bool enabled;
+
+  static const double _tile = 84;
+
+  @override
+  Widget build(BuildContext context) {
+    final ht = HaulText.of(context);
+    final state = AppScope.of(context);
+    final slot = before ? 'before' : 'after';
+    final photos = before ? job.photosBefore : job.photosAfter;
+
+    final heading = photos.isEmpty
+        ? '$slot — none yet'
+        : '$slot · ${photos.length} '
+              '${photos.length == 1 ? 'photo' : 'photos'}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Semantics(
+          header: true,
+          child: Text(heading.toUpperCase(), style: ht.eyebrow),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: _tile,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              for (var i = 0; i < photos.length; i++) ...[
+                _PhotoTile(
+                  photo: photos[i],
+                  size: _tile,
+                  label: '$slot photo ${i + 1} of ${photos.length}',
+                ),
+                const SizedBox(width: 8),
+              ],
+              _AddPhotoTile(
+                size: _tile,
+                enabled: enabled,
+                label: enabled
+                    ? (photos.isEmpty
+                          ? 'Add the $slot photo'
+                          : 'Add another $slot photo')
+                    : '$slot photo — you are not on this job',
+                onPick: () => state.addPhoto(job, before: before),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A filed shot. An image, not a button — there is nothing to activate, and
+/// announcing it as one would send a screen reader user hunting for an action
+/// that does not exist.
+class _PhotoTile extends StatelessWidget {
+  const _PhotoTile({
+    required this.photo,
+    required this.size,
+    required this.label,
+  });
+
+  final JobPhoto photo;
+  final double size;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+
+    return Semantics(
+      image: true,
+      label: label,
+      excludeSemantics: true,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Material(
+          color: hc.raised,
+          borderRadius: BorderRadius.circular(12),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.memory(
+                photo.bytes,
+                fit: BoxFit.cover,
+                excludeFromSemantics: true,
+                errorBuilder: (_, _, _) => ColoredBox(
+                  color: hc.raised,
+                  child: Icon(
+                    Icons.image_not_supported_outlined,
+                    color: hc.inkSoft,
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 5,
+                top: 5,
+                child: CircleAvatar(
+                  radius: 9,
+                  backgroundColor: hc.go,
+                  child: Icon(Icons.check_rounded, size: 12, color: hc.onBrand),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddPhotoTile extends StatelessWidget {
+  const _AddPhotoTile({
+    required this.size,
+    required this.enabled,
+    required this.label,
     required this.onPick,
   });
 
-  final String slot;
-  final JobPhoto? photo;
+  final double size;
   final bool enabled;
+  final String label;
   final VoidCallback onPick;
 
   @override
   Widget build(BuildContext context) {
     final hc = HaulColors.of(context);
     final ht = HaulText.of(context);
-    final filled = photo != null;
 
     return Semantics(
       button: true,
       enabled: enabled,
-      label: filled
-          ? '$slot photo, filed. Activate to replace it.'
-          : enabled
-          ? 'Add the $slot photo'
-          : '$slot photo — you are not on this job',
+      label: label,
+      onTap: enabled ? onPick : null,
       excludeSemantics: true,
-      child: AspectRatio(
-        aspectRatio: 1,
+      child: SizedBox(
+        width: size,
+        height: size,
         child: Material(
           color: hc.raised,
           borderRadius: BorderRadius.circular(12),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: enabled ? onPick : null,
-            child: Container(
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                border: Border.all(color: filled ? hc.go : hc.line, width: 2),
+                border: Border.all(color: hc.line),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: filled
-                  ? Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image.memory(
-                          photo!.bytes,
-                          fit: BoxFit.cover,
-                          // Described by the Semantics wrapper above.
-                          excludeFromSemantics: true,
-                          errorBuilder: (_, _, _) => ColoredBox(
-                            color: hc.raised,
-                            child: Icon(
-                              Icons.image_not_supported_outlined,
-                              color: hc.inkSoft,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: 7,
-                          top: 7,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: hc.bg.withValues(alpha: 0.85),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: Text(
-                              slot.toUpperCase(),
-                              style: ht.eyebrow.copyWith(
-                                color: hc.ink,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          right: 7,
-                          top: 7,
-                          child: CircleAvatar(
-                            radius: 11,
-                            backgroundColor: hc.go,
-                            child: Icon(
-                              Icons.check_rounded,
-                              size: 14,
-                              color: hc.bg,
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.photo_camera_outlined,
-                          size: 24,
-                          color: enabled ? hc.ink : hc.inkSoft,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          slot.toUpperCase(),
-                          style: ht.action.copyWith(
-                            fontSize: 12,
-                            color: enabled ? hc.ink : hc.inkSoft,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Text(
-                            enabled ? 'Tap to shoot' : 'Not on this job',
-                            textAlign: TextAlign.center,
-                            style: ht.small.copyWith(fontSize: 11),
-                          ),
-                        ),
-                      ],
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    enabled
+                        ? Icons.add_a_photo_outlined
+                        : Icons.lock_outline_rounded,
+                    size: 20,
+                    color: enabled ? hc.brand : hc.inkSoft,
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    enabled ? 'ADD' : 'LOCKED',
+                    style: ht.eyebrow.copyWith(
+                      fontSize: 9,
+                      color: enabled ? hc.brand : hc.inkSoft,
                     ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

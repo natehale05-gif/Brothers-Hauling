@@ -171,8 +171,10 @@ void main() {
       expect(find.text('PHOTOS NEEDED TO CLOSE'), findsOneWidget);
 
       await scrollTo(tester, find.text('BEFORE / AFTER PHOTOS'));
-      await tapVisible(tester, find.text('BEFORE'));
-      await tapVisible(tester, find.text('AFTER'));
+      // Each slot is a strip of shots now, so the control is the tile that
+      // adds one rather than the slot itself.
+      await tapVisible(tester, find.bySemanticsLabel('Add the before photo'));
+      await tapVisible(tester, find.bySemanticsLabel('Add the after photo'));
 
       expect(find.text('CLOSE IT OUT'), findsOneWidget);
       await tapVisible(tester, find.text('CLOSE IT OUT'));

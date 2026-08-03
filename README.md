@@ -23,7 +23,14 @@ A driver takes a load off the board by **pressing and holding** a card — an
 accidental tap must not sign someone up for a job. From there the job walks
 through six stages (accepted → driving → loading → in transit → at disposal →
 closed), writing a movement log dispatch can read live. **A job cannot close
-without a before and an after photo.**
+without at least one before and one after photo.**
+
+The moment a driver reaches the site the card asks for the before shot, at the
+top of the card rather than down beside the photo strips — by the time anyone
+scrolls that far the first load is already on the truck, and the "before" it was
+meant to capture no longer exists. Each slot takes as many shots as the job
+needs: the pile, the access, and the thing the customer will later swear was
+already broken.
 
 Managers and admins can push a job at a specific driver, but the driver still
 has to accept it. Anyone above employee can flip into the employee view to see
@@ -102,7 +109,7 @@ flutter analyze
 flutter test
 ```
 
-**340 tests**, in nine files:
+**357 tests**, in ten files:
 
 | File | Covers |
 | --- | --- |
@@ -115,6 +122,7 @@ flutter test
 | `test/board_repository_test.dart` | A shift worked with no signal: applied locally, kept across relaunch, delivered in order when signal returns |
 | `test/sync_ui_test.dart` | That the app never tells a driver their work landed when it has not |
 | `test/theme_test.dart` | The appearance choice — that it cycles, persists, repaints, and says which mode is on |
+| `test/photos_test.dart` | Many shots per slot, the on-site prompt, and that a board written by the previous build still loads |
 
 ### Browser smoke test
 

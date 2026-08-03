@@ -169,11 +169,19 @@ class LocalBoardRepository extends BoardRepository {
 
       // Photo pixels live under their own keys; collect the ones this board
       // references so jobs come back whole.
+      // Both shapes: the lists this build writes, and the single slots the
+      // previous one did, so an existing board upgrades instead of losing its
+      // photos.
       final wanted = <String>{
-        for (final job in maps)
+        for (final job in maps) ...[
+          for (final slot in const ['photosBefore', 'photosAfter'])
+            if (job[slot] case final List raw)
+              for (final entry in raw.whereType<Map>())
+                if (entry['id'] case final String id) id,
           for (final slot in const ['photoBefore', 'photoAfter'])
             if (job[slot] case final Map raw)
               if (raw['id'] case final String id) id,
+        ],
       };
       final bytes = <String, Uint8List>{};
       for (final id in wanted) {

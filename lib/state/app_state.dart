@@ -384,6 +384,34 @@ class AppState extends ChangeNotifier {
     return true;
   }
 
+  // -------------------------------------------------- the on-site prompt
+
+  /// Jobs whose before-photo prompt the driver has waved away.
+  ///
+  /// Not persisted: it is a "not this second" for the current sitting, not a
+  /// decision worth remembering. Reopening the app should ask again, because
+  /// the photo is still missing and the load is still there.
+  final Set<String> _waivedPhotoPrompts = {};
+
+  /// True once a driver is standing on site with no before shot filed.
+  ///
+  /// Derived rather than fired on arrival, deliberately. An event would need
+  /// clearing, could be missed while the card was closed, and would go stale
+  /// the moment the job was reopened. This answers the only question that
+  /// matters — *is there still no before photo?* — every time it is asked.
+  bool beforePhotoDue(Job job) =>
+      job.assignedTo == kMeId &&
+      job.status == JobStatus.active &&
+      job.stage >= kOnSiteStage &&
+      job.photosBefore.isEmpty &&
+      !_waivedPhotoPrompts.contains(job.id);
+
+  /// "Not right now." The prompt comes back next time the app opens.
+  void waiveBeforePhotoPrompt(String jobId) {
+    if (!_waivedPhotoPrompts.add(jobId)) return;
+    notifyListeners();
+  }
+
   /// Dispatch pushes a job at a driver. They still have to accept it.
   Future<void> assign(Job job, String crewId) async {
     final ok = await _board.apply(

@@ -119,6 +119,13 @@ const List<String> kStages = [
   'Closed',
 ];
 
+/// The stage at which the driver is standing on the customer's ground.
+///
+/// The before photo has to happen here: once the first load is on the truck,
+/// the state of the site before anyone touched it is gone for good, and with it
+/// the answer to "that was already broken when we got there".
+const int kOnSiteStage = 2;
+
 /// The button label that moves a job out of the stage at the same index.
 const List<String> kStageActions = [
   'Roll out',
@@ -174,8 +181,8 @@ class Job {
     this.status = JobStatus.open,
     this.assignedTo,
     this.stage = 0,
-    this.photoBefore,
-    this.photoAfter,
+    this.photosBefore = const [],
+    this.photosAfter = const [],
     this.events = const [],
     this.progress = 0,
   });
@@ -218,8 +225,15 @@ class Job {
   /// Index into [kStages].
   final int stage;
 
-  final JobPhoto? photoBefore;
-  final JobPhoto? photoAfter;
+  /// Shots taken before the load is touched, in the order they were taken.
+  ///
+  /// A list rather than a single slot because one photo rarely covers a job —
+  /// a driver needs the pile, the access, and the thing the customer will
+  /// later say was already broken.
+  final List<JobPhoto> photosBefore;
+
+  /// Shots taken once the site is clear.
+  final List<JobPhoto> photosAfter;
   final List<JobEvent> events;
 
   /// 0..1 along the current leg.
@@ -229,8 +243,12 @@ class Job {
 
   bool get hasDisposalStop => !disposal.startsWith('N/A');
 
-  /// Both shots are required before a job can close.
-  bool get photosComplete => photoBefore != null && photoAfter != null;
+  /// At least one shot of each is required before a job can close.
+  bool get photosComplete => photosBefore.isNotEmpty && photosAfter.isNotEmpty;
+
+  /// The first before/after shot, for the places that show one thumbnail.
+  JobPhoto? get photoBefore => photosBefore.isEmpty ? null : photosBefore.first;
+  JobPhoto? get photoAfter => photosAfter.isEmpty ? null : photosAfter.first;
 
   int get margin => billed - payout - dumpFee;
 
@@ -302,8 +320,8 @@ class Job {
     'status': status.name,
     'assignedTo': assignedTo,
     'stage': stage,
-    'photoBefore': photoBefore?.toJson(),
-    'photoAfter': photoAfter?.toJson(),
+    'photosBefore': [for (final p in photosBefore) p.toJson()],
+    'photosAfter': [for (final p in photosAfter) p.toJson()],
     'events': events.map((e) => e.toJson()).toList(),
     'progress': progress,
   };
@@ -320,6 +338,17 @@ class Job {
       final bytes = photoBytes[map['id']];
       if (bytes == null) return null;
       return JobPhoto.fromJson(map, bytes);
+    }
+
+    /// Reads the list, falling back to the single-slot key an earlier build
+    /// wrote. A phone that has been running the shipped version has a board on
+    /// it in the old shape, and losing a driver's before shot on upgrade would
+    /// be the exact failure the outbox exists to prevent.
+    List<JobPhoto> photoList(Object? list, Object? legacy) {
+      if (list is List) {
+        return [for (final raw in list) ?photo(raw)];
+      }
+      return [?photo(legacy)];
     }
 
     return Job(
@@ -346,8 +375,8 @@ class Job {
       status: _enumFrom(JobStatus.values, json['status'], JobStatus.open),
       assignedTo: json['assignedTo'] as String?,
       stage: (json['stage'] as num?)?.toInt().clamp(0, kStages.length - 1) ?? 0,
-      photoBefore: photo(json['photoBefore']),
-      photoAfter: photo(json['photoAfter']),
+      photosBefore: photoList(json['photosBefore'], json['photoBefore']),
+      photosAfter: photoList(json['photosAfter'], json['photoAfter']),
       events:
           (json['events'] as List?)
               ?.whereType<Map>()
@@ -358,16 +387,16 @@ class Job {
     );
   }
 
-  /// Every photo this job references, in slot order.
-  List<JobPhoto> get photos => [?photoBefore, ?photoAfter];
+  /// Every photo this job references, before shots first.
+  List<JobPhoto> get photos => [...photosBefore, ...photosAfter];
 
   Job copyWith({
     JobStatus? status,
     String? assignedTo,
     bool clearAssignee = false,
     int? stage,
-    JobPhoto? photoBefore,
-    JobPhoto? photoAfter,
+    List<JobPhoto>? photosBefore,
+    List<JobPhoto>? photosAfter,
     List<JobEvent>? events,
     double? progress,
   }) {
@@ -395,8 +424,8 @@ class Job {
       status: status ?? this.status,
       assignedTo: clearAssignee ? null : (assignedTo ?? this.assignedTo),
       stage: stage ?? this.stage,
-      photoBefore: photoBefore ?? this.photoBefore,
-      photoAfter: photoAfter ?? this.photoAfter,
+      photosBefore: photosBefore ?? this.photosBefore,
+      photosAfter: photosAfter ?? this.photosAfter,
       events: events ?? this.events,
       progress: progress ?? this.progress,
     );

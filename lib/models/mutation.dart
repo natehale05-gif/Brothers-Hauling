@@ -252,8 +252,10 @@ class AttachPhoto extends Mutation {
 
   @override
   Job? apply(Job job, {Map<String, Uint8List> photoBytes = const {}}) {
-    final existing = before ? job.photoBefore : job.photoAfter;
-    if (existing?.id == photoId) return null; // already filed
+    // Idempotent by photo id, not by slot. A driver files as many shots as the
+    // job needs, so "there is already a before photo" is no longer a reason to
+    // drop one — but replaying the same mutation must not file it twice.
+    if (job.photos.any((p) => p.id == photoId)) return null;
 
     final bytes = photoBytes[photoId];
     // The pixels have gone missing — the device was wiped, or the write was
@@ -263,7 +265,7 @@ class AttachPhoto extends Mutation {
 
     final photo = JobPhoto(id: photoId, name: photoName, bytes: bytes);
     return before
-        ? job.copyWith(photoBefore: photo)
-        : job.copyWith(photoAfter: photo);
+        ? job.copyWith(photosBefore: [...job.photosBefore, photo])
+        : job.copyWith(photosAfter: [...job.photosAfter, photo]);
   }
 }
