@@ -248,10 +248,15 @@ class AppState extends ChangeNotifier {
   /// Sorted by the scheduled time rather than by id, because a day view that
   /// does not read top-to-bottom in the order the day happens is a list, not a
   /// schedule.
-  List<Job> jobsOn(DateTime day) {
+  /// [only] narrows it to one view's jobs — a driver's board is the same day,
+  /// filtered to what they can actually do something about.
+  List<Job> jobsOn(DateTime day, {bool Function(Job job)? only}) {
     final target = DateTime(day.year, day.month, day.day);
-    final out = jobs.where((j) => j.scheduledDay == target).toList()
-      ..sort((a, b) => a.scheduledFor!.compareTo(b.scheduledFor!));
+    final out =
+        jobs
+            .where((j) => j.scheduledDay == target && (only?.call(j) ?? true))
+            .toList()
+          ..sort((a, b) => a.scheduledFor!.compareTo(b.scheduledFor!));
     return out;
   }
 

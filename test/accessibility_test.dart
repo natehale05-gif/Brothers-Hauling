@@ -407,11 +407,22 @@ void main() {
       tester,
     ) async {
       final handle = tester.ensureSemantics();
-      await pumpApp(tester, role: Role.employee);
+      final harness = await pumpApp(tester, role: Role.employee);
+      // The Lowboy job runs tomorrow; the board is paged by day.
+      harness.state.showDay(1);
+      await settle(tester);
+      // Semantics only exist for what is on screen, so the card has to be
+      // scrolled to before its label can be read.
+      await tester.ensureVisible(find.text('WRONG RIG FOR THIS LOAD'));
+      await settle(tester);
 
       // The label is the reason, so it isn't a dead control with no
-      // explanation.
-      expect(find.bySemanticsLabel('Wrong rig for this load'), findsOneWidget);
+      // explanation. Matched by containment: the card announces as one node,
+      // and the reason is a phrase inside it rather than a label of its own.
+      expect(
+        find.bySemanticsLabel(RegExp('Wrong rig for this load')),
+        findsWidgets,
+      );
       handle.dispose();
     });
 
@@ -445,7 +456,8 @@ void main() {
       final handle = tester.ensureSemantics();
       await pumpApp(tester, role: Role.employee);
 
-      final node = tester.getSemantics(find.text('UP FOR GRABS'));
+      // The day heading is the board's section title now.
+      final node = tester.getSemantics(find.text('TODAY'));
       expect(node.getSemanticsData().flagsCollection.isHeader, isTrue);
       handle.dispose();
     });

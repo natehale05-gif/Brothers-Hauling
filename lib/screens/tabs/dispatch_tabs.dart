@@ -9,6 +9,7 @@ import '../../theme/haul_theme.dart';
 import '../../widgets/job_card.dart';
 import '../../widgets/add_crew.dart';
 import '../edit_job.dart';
+import 'day_board.dart';
 import '../../widgets/primitives.dart';
 import '../../widgets/route_strip.dart';
 import '../../widgets/track_card.dart';
@@ -26,76 +27,55 @@ class JobsTab extends StatelessWidget {
     final state = AppScope.of(context);
     final open = state.openBoard;
     final active = state.activeAll;
-    final done = state.doneAll;
+    final booked = state.requestedJobs;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: StatTile(
-                value: '${open.length}',
-                label: 'Unclaimed',
-                valueColor: open.isEmpty ? hc.ink : hc.alert,
+    return DayBoard(
+      selectedJobId: selectedJobId,
+      // Everything except the unpriced bookings, which are pinned above
+      // instead — they have no day yet, and putting them on one would be a
+      // guess dressed up as a schedule.
+      only: (j) => j.status != JobStatus.requested,
+      emptyMessage: 'Nothing booked in. Swipe to another day, or add a job.',
+      // The working list keeps its cards — assigning a driver and editing a
+      // job happen from here, and a planning tile has neither.
+      tile: (job, selected) =>
+          JobCard(job: job, mode: JobCardMode.manage, selected: selected),
+      pinned: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: StatTile(
+                  value: '${open.length}',
+                  label: 'Unclaimed',
+                  valueColor: open.isEmpty ? hc.ink : hc.alert,
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: StatTile(
-                value: '${active.length}',
-                label: 'In motion',
-                valueColor: hc.go,
+              const SizedBox(width: 10),
+              Expanded(
+                child: StatTile(
+                  value: '${active.length}',
+                  label: 'In motion',
+                  valueColor: hc.go,
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (booked.isNotEmpty) ...[
+            SectionHeader(
+              title: 'Came in from the website',
+              trailing: Pill.violet(label: 'Needs pricing'),
             ),
+            // Held back from the driver board on purpose: a job with no price
+            // on it is a job somebody can volunteer for at nothing a load.
+            for (final j in booked)
+              _BookingCard(job: j, selected: j.id == selectedJobId),
+            const SizedBox(height: 8),
           ],
-        ),
-        const SizedBox(height: 16),
-        if (state.requestedJobs.isNotEmpty) ...[
-          SectionHeader(
-            title: 'Came in from the website',
-            trailing: Pill.violet(label: 'Needs pricing'),
-          ),
-          // Held back from the driver board on purpose: a job with no cut on
-          // it is a job somebody can volunteer for at nothing a load.
-          for (final j in state.requestedJobs)
-            _BookingCard(job: j, selected: j.id == selectedJobId),
         ],
-        if (open.isNotEmpty) ...[
-          SectionHeader(
-            title: "Nobody's taken these",
-            trailing: Pill.alert(label: 'Act'),
-          ),
-          for (final j in open)
-            JobCard(
-              job: j,
-              mode: JobCardMode.manage,
-              selected: j.id == selectedJobId,
-            ),
-        ],
-        const SectionHeader(title: 'Running now', topPadding: 18),
-        if (active.isEmpty)
-          const EmptyState(
-            title: 'Nothing in motion',
-            message: 'Once a driver accepts, the job shows up here.',
-          )
-        else
-          for (final j in active)
-            JobCard(
-              job: j,
-              mode: JobCardMode.manage,
-              selected: j.id == selectedJobId,
-            ),
-        if (done.isNotEmpty) ...[
-          const SectionHeader(title: 'Closed', topPadding: 18),
-          for (final j in done)
-            JobCard(
-              job: j,
-              mode: JobCardMode.manage,
-              selected: j.id == selectedJobId,
-            ),
-        ],
-      ],
+      ),
     );
   }
 }

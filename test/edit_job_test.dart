@@ -190,7 +190,7 @@ void main() {
     test('the mutation filters again on the way out of the queue', () {
       // The queue survives an upgrade, so a mutation written by a build with a
       // different idea of what is editable still cannot reach past the list.
-      final job = kSeedJobs.first.copyWith(stage: 3);
+      final job = seedJobs(DateTime(2026, 8, 2)).first.copyWith(stage: 3);
       final forged = EditJob(
         id: 'm1',
         jobId: job.id,
@@ -205,7 +205,7 @@ void main() {
 
   group('the mutation', () {
     test('replaying it is a no-op once applied', () {
-      final job = kSeedJobs.first;
+      final job = seedJobs(DateTime(2026, 8, 2)).first;
       final edit = EditJob(
         id: 'm1',
         jobId: job.id,
@@ -220,7 +220,7 @@ void main() {
     });
 
     test('it keeps the photos it says nothing about', () {
-      final job = kSeedJobs.first.copyWith(
+      final job = seedJobs(DateTime(2026, 8, 2)).first.copyWith(
         photosBefore: [
           JobPhoto(
             id: 'p1',

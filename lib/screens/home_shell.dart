@@ -53,7 +53,15 @@ class HomeShell extends StatelessWidget {
         actions: {
           _StepDayIntent: CallbackAction<_StepDayIntent>(
             onInvoke: (intent) {
-              if (state.tab == HaulTab.day) state.stepDay(intent.by);
+              // Every day-paged tab, not just the dispatcher's: a mouse has
+              // nothing to swipe with, and a keyboard user cannot swipe at all.
+              if (const {
+                HaulTab.day,
+                HaulTab.board,
+                HaulTab.jobs,
+              }.contains(state.tab)) {
+                state.stepDay(intent.by);
+              }
               return null;
             },
           ),
@@ -184,11 +192,11 @@ class _TabBody extends StatelessWidget {
       HaulTab.overview => const OverviewTab(),
     };
 
-    // The day view scrolls per day, inside its own pager, so it needs the
+    // A day-paged tab scrolls per day, inside its own pager, so it needs the
     // height rather than being shrink-wrapped by a scroll view that would
     // leave its pages with nothing to fill. Every other tab is a column of
     // content that grows as long as it likes.
-    if (state.tab == HaulTab.day) {
+    if (const {HaulTab.day, HaulTab.board, HaulTab.jobs}.contains(state.tab)) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
         child: Center(

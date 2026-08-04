@@ -32,7 +32,8 @@ void main() {
       await settle(tester);
 
       expect(harness.state.role, Role.employee);
-      expect(find.text('UP FOR GRABS'), findsOneWidget);
+      // The board opens on today, paged by day.
+      expect(find.text('TODAY'), findsOneWidget);
       // The privacy promise is on screen, not buried in a settings page.
       expect(find.text('Sharing location with dispatch'), findsOneWidget);
     });
@@ -42,20 +43,26 @@ void main() {
     testWidgets('open jobs are listed and the wrong rig is called out', (
       tester,
     ) async {
-      await pumpApp(tester, role: Role.employee);
+      final harness = await pumpApp(tester, role: Role.employee);
 
       expect(find.text('DEBRIS HAUL'), findsWidgets);
-      // HL-4488 needs a Lowboy; Nate is not checked out on one.
+
+      // HL-4488 needs a Lowboy; Nate is not checked out on one. It runs
+      // tomorrow, so the board is paged there — the point of a day view.
+      harness.state.showDay(1);
+      await settle(tester);
       expect(find.text('Lowboy 25t — not your rig'), findsOneWidget);
     });
 
     testWidgets('the hold button is blocked for equipment I cannot run', (
       tester,
     ) async {
-      await pumpApp(tester, role: Role.employee);
-
-      expect(find.text('WRONG RIG FOR THIS LOAD'), findsOneWidget);
+      final harness = await pumpApp(tester, role: Role.employee);
       expect(find.text('HOLD TO VOLUNTEER'), findsWidgets);
+
+      harness.state.showDay(1);
+      await settle(tester);
+      expect(find.text('WRONG RIG FOR THIS LOAD'), findsOneWidget);
     });
 
     testWidgets('holding a card volunteers me for the load', (tester) async {
@@ -320,7 +327,8 @@ void main() {
 
       // Both panes are on screen at once — no back button needed.
       expect(find.byType(JobDetail), findsOneWidget);
-      expect(find.text('RUNNING NOW'), findsOneWidget);
+      // The day-paged list is still there beside it.
+      expect(find.text('TODAY'), findsOneWidget);
       expect(find.byTooltip('Back to the list'), findsNothing);
       expect(find.byTooltip('Close job card'), findsOneWidget);
     });
@@ -370,7 +378,7 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
-      expect(find.text('UP FOR GRABS'), findsOneWidget);
+      expect(find.text('TODAY'), findsOneWidget);
     });
 
     testWidgets('the job card holds together at large text', (tester) async {

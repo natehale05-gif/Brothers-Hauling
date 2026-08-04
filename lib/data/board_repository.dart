@@ -7,7 +7,7 @@ import '../models/job.dart';
 import '../models/mutation.dart';
 import 'ids.dart';
 import 'outbox.dart';
-import 'seed_data.dart' show kCrew, kSeedJobs;
+import 'seed_data.dart' show kCrew, seedJobs;
 import 'store.dart';
 
 /// How settled the board is. The UI shows this verbatim; it is never allowed to
@@ -109,7 +109,10 @@ class LocalBoardRepository extends BoardRepository {
     // Seeded synchronously so nothing ever renders an empty board while the
     // read from disk is in flight; [load] replaces this with whatever the
     // device actually had.
-    _jobs = List.of(_seed ?? kSeedJobs);
+    // Dates in the seed are relative to this repository's clock, not the wall
+    // clock — otherwise a test that pins the date gets a board scheduled around
+    // a different day than the one it is looking at.
+    _jobs = List.of(_seed ?? seedJobs(_now()));
     _crew = List.of(kCrew);
     _outbox =
         outbox ??

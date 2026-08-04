@@ -343,4 +343,84 @@ void main() {
       expect(sideBySide(tester), isTrue);
     });
   });
+
+  group('the board and the jobs list are day views too', () {
+    testWidgets("a driver's board pages by day", (tester) async {
+      final harness = await pumpApp(tester, role: Role.employee);
+      expect(harness.state.tab, HaulTab.board);
+
+      expect(find.byType(DayBoard), findsOneWidget);
+      expect(find.text('TODAY'), findsOneWidget);
+    });
+
+    testWidgets('and keeps hold-to-volunteer on the card', (tester) async {
+      await pumpApp(tester, role: Role.employee);
+
+      // A day layout that cost the driver their one action would be a
+      // downgrade wearing a grid.
+      expect(find.text('HOLD TO VOLUNTEER'), findsWidgets);
+    });
+
+    testWidgets('it shows work going spare, not somebody else\'s load', (
+      tester,
+    ) async {
+      final harness = await pumpApp(tester, role: Role.employee);
+      final onScreen = harness.state.jobsOn(
+        harness.state.today,
+        only: (j) => j.status == JobStatus.open,
+      );
+
+      for (final job in onScreen) {
+        expect(job.status, JobStatus.open);
+      }
+    });
+
+    testWidgets('a job pushed at you is pinned, not swiped past', (
+      tester,
+    ) async {
+      final harness = await pumpApp(tester, role: Role.employee);
+      expect(find.text('ASSIGNED TO YOU'), findsOneWidget);
+
+      // Still there three days out: it wants an answer today whatever day the
+      // job itself runs.
+      harness.state.showDay(3);
+      await settle(tester);
+      expect(find.text('ASSIGNED TO YOU'), findsOneWidget);
+    });
+
+    testWidgets("dispatch's job list pages by day as well", (tester) async {
+      final harness = await pumpApp(tester, role: Role.admin);
+      harness.state.setTab(HaulTab.jobs);
+      await settle(tester);
+
+      expect(find.byType(DayBoard), findsOneWidget);
+      expect(find.text('TODAY'), findsOneWidget);
+    });
+
+    testWidgets('an empty day says how much is waiting elsewhere', (
+      tester,
+    ) async {
+      final harness = await pumpApp(tester, role: Role.employee);
+
+      // Far enough out that nothing in the seed lands there.
+      harness.state.showDay(60);
+      await settle(tester);
+
+      // An empty screen and "there is nothing for you" look identical, and
+      // only one of them is true.
+      expect(find.textContaining('on other days'), findsOneWidget);
+    });
+
+    testWidgets('the arrow keys step the board, not just the day tab', (
+      tester,
+    ) async {
+      final harness = await pumpApp(tester, role: Role.employee);
+      expect(harness.state.dayOffset, 0);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await settle(tester);
+
+      expect(harness.state.dayOffset, 1);
+    });
+  });
 }

@@ -25,7 +25,7 @@ void main() {
 
   group('job round trip', () {
     test('every field of a seeded job survives', () {
-      for (final original in kSeedJobs) {
+      for (final original in seedJobs(DateTime(2026, 8, 2))) {
         final copy = roundTrip(original);
 
         expect(copy.id, original.id);
@@ -55,7 +55,9 @@ void main() {
     });
 
     test('the movement log keeps its order, wording and moments', () {
-      final original = kSeedJobs.firstWhere((j) => j.events.length > 3);
+      final original = seedJobs(
+        DateTime(2026, 8, 2),
+      ).firstWhere((j) => j.events.length > 3);
       final copy = roundTrip(original);
 
       expect(copy.events.length, original.events.length);
@@ -93,7 +95,9 @@ void main() {
     );
 
     test('the board JSON carries the record but never the pixels', () {
-      final job = kSeedJobs.first.copyWith(photosBefore: [photo]);
+      final job = seedJobs(
+        DateTime(2026, 8, 2),
+      ).first.copyWith(photosBefore: [photo]);
       final text = jsonEncode(job.toJson());
 
       expect(text, contains('photo-1'));
@@ -104,7 +108,9 @@ void main() {
     });
 
     test('pixels are reattached by id on the way back', () {
-      final job = kSeedJobs.first.copyWith(photosBefore: [photo]);
+      final job = seedJobs(
+        DateTime(2026, 8, 2),
+      ).first.copyWith(photosBefore: [photo]);
       final copy = roundTrip(job, photos: {'photo-1': bytes('the pixels')});
 
       expect(copy.photoBefore, isNotNull);
@@ -114,7 +120,9 @@ void main() {
     });
 
     test('a photo whose pixels are missing is dropped, not faked', () {
-      final job = kSeedJobs.first.copyWith(photosBefore: [photo]);
+      final job = seedJobs(
+        DateTime(2026, 8, 2),
+      ).first.copyWith(photosBefore: [photo]);
       final copy = roundTrip(job); // no bytes supplied
 
       // Better to show the driver an empty slot they can refill than a
@@ -128,7 +136,7 @@ void main() {
       expect(uploaded.uploaded, isTrue);
 
       final copy = roundTrip(
-        kSeedJobs.first.copyWith(photosAfter: [uploaded]),
+        seedJobs(DateTime(2026, 8, 2)).first.copyWith(photosAfter: [uploaded]),
         photos: {'photo-1': bytes('the pixels')},
       );
       expect(copy.photoAfter!.remoteUrl, 'https://example.test/p1.jpg');

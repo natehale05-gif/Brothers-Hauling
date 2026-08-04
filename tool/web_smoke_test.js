@@ -151,6 +151,25 @@ async function axNames(page) {
   );
 }
 
+/**
+ * True when any semantics node's announced text matches [re].
+ *
+ * Unlike [axNames] this does not restrict itself to leaves: Flutter merges a
+ * whole job card into one node, so a phrase like the reason a control is
+ * blocked lives inside a parent's text rather than on a node of its own.
+ * Containment is the right question for those.
+ */
+async function axContains(page, re) {
+  const texts = await page.locator('flt-semantics').evaluateAll((nodes) =>
+    nodes.map((node) =>
+      (node.getAttribute('aria-label') || node.textContent || '')
+        .replace(/\s+/g, ' ')
+        .trim(),
+    ),
+  );
+  return texts.some((t) => re.test(t));
+}
+
 async function press(page, name) {
   await page.getByRole('button', { name, exact: false }).first().click({
     timeout: 15000,
@@ -186,9 +205,20 @@ function check(label, ok, detail = '') {
 
       check('the hold control is reachable', n.some((x) => /Hold to volunteer/.test(x)));
       check(
-        'a blocked control says why',
-        n.some((x) => /Wrong rig for this load/.test(x)),
+        'the board is paged by day',
+        n.some((x) => /Show Tomorrow/.test(x)),
       );
+
+      // The Lowboy job runs tomorrow, and the board is paged by day — so
+      // stepping a day also checks that the arrow really moves it.
+      await press(page, 'Show Tomorrow');
+      await page.waitForTimeout(600);
+      check(
+        'a blocked control says why',
+        await axContains(page, /Wrong rig for this load/),
+      );
+      await press(page, 'Back to today');
+      await page.waitForTimeout(600);
       check(
         'a driver is shown no money at all',
         // Pay is hourly, so there is no per-job figure that would be true, and

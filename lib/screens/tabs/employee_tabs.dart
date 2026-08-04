@@ -5,6 +5,7 @@ import '../../models/time_entry.dart';
 import '../../state/app_state.dart';
 import '../../theme/haul_theme.dart';
 import '../../widgets/job_card.dart';
+import 'day_board.dart';
 import '../../widgets/primitives.dart';
 
 /// What a driver sees first: anything pushed at them, then the open board.
@@ -15,46 +16,44 @@ class EmployeeBoardTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ht = HaulText.of(context);
     final state = AppScope.of(context);
     final pushed = state.myJobs
         .where((j) => j.status == JobStatus.assigned)
         .toList();
-    final board = state.openBoard;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (pushed.isNotEmpty) ...[
-          SectionHeader(
-            title: 'Assigned to you',
-            trailing: Pill.violet(label: 'Needs your yes'),
-          ),
-          for (final j in pushed)
-            JobCard(
-              job: j,
-              mode: JobCardMode.mine,
-              selected: j.id == selectedJobId,
+    return DayBoard(
+      selectedJobId: selectedJobId,
+      // Work going spare, and nothing else. A job already taken is on "My
+      // jobs"; somebody else's running load is not this driver's business.
+      only: (j) => j.status == JobStatus.open,
+      emptyMessage: 'Swipe or use the arrows to look at another day.',
+      // The full card, not a planning tile: hold-to-volunteer is the whole
+      // reason a driver opens this screen, and a day layout must not cost it.
+      tile: (job, selected) =>
+          JobCard(job: job, mode: JobCardMode.board, selected: selected),
+      // A job pushed to you wants an answer today, whatever day it runs. It
+      // sits above the pager rather than behind a swipe nobody thought to make.
+      pinned: pushed.isEmpty
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SectionHeader(
+                    title: 'Assigned to you',
+                    trailing: Pill.violet(label: 'Needs your yes'),
+                  ),
+                  for (final j in pushed)
+                    JobCard(
+                      job: j,
+                      mode: JobCardMode.mine,
+                      selected: j.id == selectedJobId,
+                    ),
+                  const SizedBox(height: 8),
+                ],
+              ),
             ),
-          const SizedBox(height: 8),
-        ],
-        SectionHeader(
-          title: 'Up for grabs',
-          trailing: Text('${board.length} OPEN', style: ht.eyebrow),
-        ),
-        if (board.isEmpty)
-          const EmptyState(
-            title: "Board's clear",
-            message: 'Every load has a driver. New work posts through the day.',
-          )
-        else
-          for (final j in board)
-            JobCard(
-              job: j,
-              mode: JobCardMode.board,
-              selected: j.id == selectedJobId,
-            ),
-      ],
     );
   }
 }

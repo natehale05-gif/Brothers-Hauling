@@ -11,7 +11,6 @@ import 'package:haul_board/services/photo_service.dart';
 import 'package:haul_board/state/app_state.dart';
 import 'package:haul_board/widgets/day_picker.dart';
 
-
 void main() {
   final now = DateTime(2026, 8, 2, 9);
 
@@ -143,7 +142,10 @@ void main() {
 
     setUp(() => clock = DateTime(2026, 8, 2, 9));
 
-    Future<AppState> pumpDetail(WidgetTester tester, Job job) async {
+    /// The state first, so the job comes from the same seeded board the
+    /// widget reads — a job picked off a differently-clocked AppState is
+    /// scheduled on a different day than the one under test.
+    AppState boot() {
       final store = MemoryStore();
       final state = AppState(
         board: LocalBoardRepository(store: store, now: () => clock),
@@ -156,7 +158,14 @@ void main() {
       );
       addTearDown(state.dispose);
       state.enter(Role.admin);
+      return state;
+    }
 
+    Future<void> pumpDetail(
+      WidgetTester tester,
+      AppState state,
+      Job job,
+    ) async {
       await tester.pumpWidget(
         AppScope(
           state: state,
@@ -168,15 +177,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      return state;
     }
 
     testWidgets('the day is a button on the job itself', (tester) async {
-      final state = await pumpDetail(
-        tester,
-        AppState().jobs.firstWhere((j) => j.scheduledFor != null),
-      );
+      final state = boot();
       final job = state.jobs.firstWhere((j) => j.scheduledFor != null);
+      await pumpDetail(tester, state, job);
 
       expect(
         find.text(sayDay(job.scheduledDay, state.today).toUpperCase()),
@@ -187,9 +193,9 @@ void main() {
     testWidgets('tapping it opens the mover, not the whole form', (
       tester,
     ) async {
-      final seed = AppState();
-      final job = seed.jobs.firstWhere((j) => j.scheduledFor != null);
-      final state = await pumpDetail(tester, job);
+      final state = boot();
+      final job = state.jobs.firstWhere((j) => j.scheduledFor != null);
+      await pumpDetail(tester, state, job);
 
       await tester.tap(
         find.text(sayDay(job.scheduledDay, state.today).toUpperCase()),
@@ -202,9 +208,9 @@ void main() {
     });
 
     testWidgets('two taps put a job on tomorrow', (tester) async {
-      final seed = AppState();
-      final job = seed.jobs.firstWhere((j) => j.scheduledFor != null);
-      final state = await pumpDetail(tester, job);
+      final state = boot();
+      final job = state.jobs.firstWhere((j) => j.scheduledFor != null);
+      await pumpDetail(tester, state, job);
 
       await tester.tap(
         find.text(sayDay(job.scheduledDay, state.today).toUpperCase()),

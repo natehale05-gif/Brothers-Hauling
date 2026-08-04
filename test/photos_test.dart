@@ -78,7 +78,7 @@ void main() {
     });
 
     test('replaying a filed photo does not duplicate it', () {
-      final job = kSeedJobs.first.copyWith(
+      final job = seedJobs(DateTime(2026, 8, 2)).first.copyWith(
         photosBefore: [JobPhoto(id: 'p1', name: 'a.jpg', bytes: bytes('one'))],
       );
       final again = AttachPhoto(
@@ -97,7 +97,7 @@ void main() {
     });
 
     test('a second distinct photo is not mistaken for a replay', () {
-      final job = kSeedJobs.first.copyWith(
+      final job = seedJobs(DateTime(2026, 8, 2)).first.copyWith(
         photosBefore: [JobPhoto(id: 'p1', name: 'a.jpg', bytes: bytes('one'))],
       );
       final second = AttachPhoto(
@@ -152,7 +152,7 @@ void main() {
     });
 
     test('a board saved by this build round-trips its lists', () {
-      final job = kSeedJobs.first.copyWith(
+      final job = seedJobs(DateTime(2026, 8, 2)).first.copyWith(
         photosBefore: [
           JobPhoto(id: 'p1', name: 'a.jpg', bytes: bytes('1')),
           JobPhoto(id: 'p2', name: 'b.jpg', bytes: bytes('2')),
