@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:haul_board/data/board_repository.dart';
+import 'package:haul_board/data/seed_data.dart';
 import 'package:haul_board/data/store.dart';
 import 'package:haul_board/models/crew_member.dart';
 import 'package:haul_board/models/mutation.dart';
@@ -330,6 +331,165 @@ void main() {
 
       expect(find.textContaining('A name is the one thing'), findsOneWidget);
       expect(harness.state.crew, hasLength(before));
+    });
+  });
+
+  group('promoting and demoting', () {
+    /// Everyone but the signed-in user, so tests never trip the self guard.
+    CrewMember other(AppState state) =>
+        state.crew.firstWhere((c) => c.id != kMeId);
+
+    test('an owner may move people between levels', () {
+      expect(boot(role: Role.admin).canSetRoles, isTrue);
+    });
+
+    test('a manager may not', () {
+      // A manager can take a driver on; letting them promote one is the same
+      // escalation by a slower route.
+      expect(boot(role: Role.manager).canSetRoles, isFalse);
+    });
+
+    test('a driver may not', () {
+      expect(boot(role: Role.employee).canSetRoles, isFalse);
+    });
+
+    test('nor may an owner standing in the crew view', () {
+      final state = boot(role: Role.admin)..toggleEmployeeView();
+      expect(state.canSetRoles, isFalse);
+    });
+
+    test('a promotion sticks', () async {
+      final state = boot(role: Role.admin);
+      final who = other(state);
+      expect(who.role, isNot(Role.manager));
+
+      final ok = await state.setCrewRole(who, Role.manager);
+
+      expect(ok, isTrue);
+      expect(state.crew.firstWhere((c) => c.id == who.id).role, Role.manager);
+    });
+
+    test('and so does a demotion', () async {
+      final state = boot(role: Role.admin);
+      final who = other(state);
+      await state.setCrewRole(who, Role.admin);
+
+      await state.setCrewRole(
+        state.crew.firstWhere((c) => c.id == who.id),
+        Role.employee,
+      );
+
+      expect(state.crew.firstWhere((c) => c.id == who.id).role, Role.employee);
+    });
+
+    test('it changes the role and nothing else about them', () async {
+      final state = boot(role: Role.admin);
+      final before = other(state);
+
+      await state.setCrewRole(before, Role.manager);
+      final after = state.crew.firstWhere((c) => c.id == before.id);
+
+      // A promotion is a change of level, not a chance to rewrite a record.
+      expect(after.name, before.name);
+      expect(after.unit, before.unit);
+      expect(after.rig, before.rig);
+      expect(after.hourlyRate, before.hourlyRate);
+      expect(after.onShift, before.onShift);
+    });
+
+    test('a manager is refused', () async {
+      final state = boot(role: Role.manager);
+      final who = other(state);
+
+      final ok = await state.setCrewRole(who, Role.admin);
+
+      expect(ok, isFalse);
+      expect(state.crew.firstWhere((c) => c.id == who.id).role, who.role);
+    });
+
+    test('nobody demotes themselves', () async {
+      final state = boot(role: Role.admin);
+      final me = state.crew.firstWhere((c) => c.id == kMeId);
+
+      final ok = await state.setCrewRole(me, Role.employee);
+
+      // Otherwise a one-owner company locks the owner screens behind a door
+      // it has just thrown the key over.
+      expect(ok, isFalse);
+      expect(state.crew.firstWhere((c) => c.id == kMeId).role, me.role);
+    });
+
+    test('setting the level somebody already has is not a change', () async {
+      final state = boot(role: Role.admin);
+      final who = other(state);
+      expect(await state.setCrewRole(who, who.role), isFalse);
+    });
+
+    test('it survives a relaunch', () async {
+      final store = MemoryStore();
+      final first = boot(store: store, role: Role.admin);
+      await first.restore();
+      final who = other(first);
+      await first.setCrewRole(who, Role.manager);
+
+      final second = boot(store: store, role: Role.admin);
+      await second.restore();
+
+      expect(second.crew.firstWhere((c) => c.id == who.id).role, Role.manager);
+    });
+  });
+
+  group('the role mutation itself', () {
+    const roster = [
+      CrewMember(
+        id: 'c9',
+        name: 'Dale Whitlow',
+        initials: 'DW',
+        unit: 'Truck 12',
+        onShift: true,
+        appOpen: true,
+        rig: [],
+      ),
+    ];
+
+    SetCrewRole make(String crewId, Role role) => SetCrewRole(
+      id: 'm1',
+      actorId: kMeId,
+      at: DateTime(2026, 8, 2),
+      crewId: crewId,
+      role: role,
+    );
+
+    test('it moves the person it names', () {
+      expect(make('c9', Role.manager).apply(roster)!.single.role, Role.manager);
+    });
+
+    test('replaying it is not a second promotion', () {
+      final once = make('c9', Role.manager).apply(roster)!;
+      // Null means "no longer applies" — which is what keeps a replayed queue
+      // from dragging a later decision back to this one.
+      expect(make('c9', Role.manager).apply(once), isNull);
+    });
+
+    test('somebody who is not there is left alone', () {
+      expect(make('nobody', Role.admin).apply(roster), isNull);
+    });
+
+    test('it survives the round trip through the outbox', () {
+      final sent = make('c9', Role.admin);
+      final back = Mutation.fromJson(sent.toJson()) as SetCrewRole;
+
+      expect(back.crewId, 'c9');
+      expect(back.role, Role.admin);
+    });
+
+    test('an unreadable level is dropped, not guessed', () {
+      final json = make('c9', Role.admin).toJson();
+      json['role'] = 'supervisor';
+
+      // Defaulting down would silently demote on a typo. Defaulting up is
+      // worse. Neither is a guess worth making.
+      expect(Mutation.fromJson(json), isNull);
     });
   });
 }

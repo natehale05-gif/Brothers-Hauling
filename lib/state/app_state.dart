@@ -415,6 +415,50 @@ class AppState extends ChangeNotifier {
 
   bool get canHire => hirableRoles.isNotEmpty;
 
+  /// Only an owner moves somebody between levels.
+  ///
+  /// Deliberately narrower than [canHire]: a manager may take on a driver, but
+  /// letting them promote one is the same escalation by a slower route.
+  bool get canSetRoles => _role == Role.admin && !_asEmployee;
+
+  /// Promotes or demotes [member].
+  ///
+  /// Refuses to touch the signed-in user's own level. Demoting yourself locks
+  /// the owner screens behind a door you have just thrown the key over, and on
+  /// a one-owner company it leaves nobody able to open it again. Since the
+  /// actor must already be an owner, that guard alone keeps at least one owner
+  /// standing.
+  Future<bool> setCrewRole(CrewMember member, Role role) async {
+    if (!canSetRoles) {
+      showToast('Only an owner can change what someone can see.');
+      notifyListeners();
+      return false;
+    }
+    if (member.id == kMeId) {
+      showToast('You cannot change your own access.');
+      notifyListeners();
+      return false;
+    }
+    if (member.role == role) return false;
+
+    final ok = await _board.apply(
+      _stamp(
+        (id, at) => SetCrewRole(
+          id: id,
+          actorId: kMeId,
+          at: at,
+          crewId: member.id,
+          role: role,
+        ),
+      ),
+    );
+    if (!ok) return false;
+
+    showToast('${member.name} is now ${role.label.toLowerCase()}.');
+    notifyListeners();
+    return true;
+  }
+
   /// Puts someone on the books.
   ///
   /// Refuses a role the signed-in user is not allowed to hire, rather than

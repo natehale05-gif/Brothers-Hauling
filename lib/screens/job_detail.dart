@@ -6,6 +6,7 @@ import '../models/time_entry.dart';
 import '../services/link_service.dart';
 import '../state/app_state.dart';
 import '../theme/haul_theme.dart';
+import '../widgets/day_picker.dart';
 import '../widgets/event_log.dart';
 import '../widgets/primitives.dart';
 import '../widgets/stage_rail.dart';
@@ -62,35 +63,36 @@ class JobDetail extends StatelessWidget {
               if (state.canEditJobs)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: Semantics(
-                    button: true,
-                    label: 'Edit every detail of ${job.id}',
-                    onTap: () => showEditJobSheet(context, job),
-                    excludeSemantics: true,
-                    child: OutlinedButton.icon(
-                      onPressed: () => showEditJobSheet(context, job),
-                      icon: Icon(
-                        Icons.edit_outlined,
-                        size: 18,
-                        color: hc.brand,
-                      ),
-                      label: Text(
-                        'EDIT JOB DETAILS',
-                        style: ht.action.copyWith(
-                          fontSize: 12,
-                          color: hc.brand,
+                  child: Row(
+                    children: [
+                      // The day gets its own button. Rescheduling is the
+                      // commonest correction a board takes by a wide margin,
+                      // and putting it behind twenty other fields is what
+                      // turns a ten-second change into a chore.
+                      Expanded(
+                        child: _JobAction(
+                          icon: Icons.event_outlined,
+                          label: sayDay(
+                            job.scheduledDay,
+                            state.today,
+                          ).toUpperCase(),
+                          semanticLabel:
+                              '${job.id} is set for '
+                              '${describeDay(job.scheduledDay, state.today)}. '
+                              'Move it to another day.',
+                          onPressed: () => showMoveDaySheet(context, job),
                         ),
                       ),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, HaulSpace.tap),
-                        side: BorderSide(color: hc.brand),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            HaulSpace.radiusSm,
-                          ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _JobAction(
+                          icon: Icons.edit_outlined,
+                          label: 'EDIT',
+                          semanticLabel: 'Edit every detail of ${job.id}',
+                          onPressed: () => showEditJobSheet(context, job),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
 
@@ -804,6 +806,51 @@ class _AdvanceBar extends StatelessWidget {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One of the two things dispatch does to a job from here: move it, or open it
+/// up. Both are the same shape so neither reads as the afterthought.
+class _JobAction extends StatelessWidget {
+  const _JobAction({
+    required this.icon,
+    required this.label,
+    required this.semanticLabel,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final String semanticLabel;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
+
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      onTap: onPressed,
+      excludeSemantics: true,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18, color: hc.brand),
+        label: Text(
+          label,
+          overflow: TextOverflow.ellipsis,
+          style: ht.action.copyWith(fontSize: 12, color: hc.brand),
+        ),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, HaulSpace.tap),
+          side: BorderSide(color: hc.brand),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(HaulSpace.radiusSm),
           ),
         ),
       ),

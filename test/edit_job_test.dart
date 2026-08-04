@@ -266,14 +266,14 @@ void main() {
       final harness = await pumpApp(tester, role: Role.admin);
       harness.state.openJobCard(jobIn(harness.state, 'HL-4471'));
       await settle(tester);
-      expect(find.text('EDIT JOB DETAILS'), findsOneWidget);
+      expect(find.text('EDIT'), findsOneWidget);
     });
 
     testWidgets('a manager is not', (tester) async {
       final harness = await pumpApp(tester, role: Role.manager);
       harness.state.openJobCard(jobIn(harness.state, 'HL-4471'));
       await settle(tester);
-      expect(find.text('EDIT JOB DETAILS'), findsNothing);
+      expect(find.text('EDIT'), findsNothing);
     });
 
     testWidgets('it opens filled in with what the job already says', (
@@ -284,7 +284,7 @@ void main() {
       harness.state.openJobCard(job);
       await settle(tester);
 
-      await tester.tap(find.text('EDIT JOB DETAILS'));
+      await tester.tap(find.text('EDIT'));
       await settle(tester);
 
       expect(find.byType(EditJobForm), findsOneWidget);
@@ -296,7 +296,7 @@ void main() {
       final harness = await pumpApp(tester, role: Role.admin);
       harness.state.openJobCard(jobIn(harness.state, 'HL-4471'));
       await settle(tester);
-      await tester.tap(find.text('EDIT JOB DETAILS'));
+      await tester.tap(find.text('EDIT'));
       await settle(tester);
 
       final customer = find.ancestor(
@@ -314,7 +314,7 @@ void main() {
       final harness = await pumpApp(tester, role: Role.admin);
       harness.state.openJobCard(jobIn(harness.state, 'HL-4471'));
       await settle(tester);
-      await tester.tap(find.text('EDIT JOB DETAILS'));
+      await tester.tap(find.text('EDIT'));
       await settle(tester);
 
       final billed = find.ancestor(

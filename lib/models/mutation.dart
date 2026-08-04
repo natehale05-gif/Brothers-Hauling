@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../models/crew_member.dart';
 import '../models/job.dart';
+import '../models/role.dart';
 
 /// A change to the board, as a thing rather than a method call.
 ///
@@ -74,6 +75,21 @@ sealed class Mutation {
         );
       }
       return null;
+    }
+
+    if (json['kind'] == 'crew.role') {
+      final crewId = json['crewId'] as String?;
+      final named = Role.values.where((r) => r.name == json['role']);
+      // An unrecognised level is dropped rather than defaulted. Defaulting
+      // down would silently demote on a typo; defaulting up is worse.
+      if (crewId == null || named.isEmpty) return null;
+      return SetCrewRole(
+        id: id,
+        actorId: actorId,
+        at: at,
+        crewId: crewId,
+        role: named.first,
+      );
     }
 
     if (jobId == null) return null;
@@ -237,6 +253,43 @@ class AddCrewMember extends CrewMutation {
     // Idempotent: a replay must not hire the same person twice.
     if (crew.any((c) => c.id == member.id)) return null;
     return [...crew, member];
+  }
+}
+
+/// Somebody moves up or down.
+///
+/// Carries the id and the new level rather than the whole member, for the same
+/// reason [EditJob] carries fields rather than a whole job: a promotion queued
+/// offline must not, on replay, undo a unit change or a rig someone was checked
+/// out on in the meantime. It moves the role and touches nothing else.
+class SetCrewRole extends CrewMutation {
+  const SetCrewRole({
+    required super.id,
+    required super.actorId,
+    required super.at,
+    required this.crewId,
+    required this.role,
+  });
+
+  final String crewId;
+  final Role role;
+
+  @override
+  String get kind => 'crew.role';
+
+  @override
+  Map<String, Object?> get payload => {'crewId': crewId, 'role': role.name};
+
+  @override
+  List<CrewMember>? apply(List<CrewMember> crew) {
+    final at = crew.indexWhere((c) => c.id == crewId);
+    // Nobody by that id — or it has already landed, in which case replaying it
+    // would drag a later decision back to this one.
+    if (at < 0 || crew[at].role == role) return null;
+    return [
+      for (final c in crew)
+        if (c.id == crewId) c.withRole(role) else c,
+    ];
   }
 }
 

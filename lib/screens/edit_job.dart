@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../models/job.dart';
 import '../state/app_state.dart';
 import '../theme/haul_theme.dart';
+import '../widgets/day_picker.dart';
 import '../widgets/primitives.dart';
 
 /// One editable field, described once so the form, the diff and the tests all
@@ -85,11 +86,10 @@ const _sections = <String, List<_Field>>{
     _Field(
       'scheduledFor',
       'Day',
-      hint: '2026-08-05',
       date: true,
       helper:
-          'YYYY-MM-DD. Leave it blank if no day is agreed yet — the day '
-          'view keeps it in its own bucket rather than guessing.',
+          'Leave it on "No day" if nothing is agreed yet — the day view '
+          'keeps it in its own bucket rather than guessing.',
     ),
     _Field('window', 'Time window', hint: '7:00 – 9:00 AM'),
     _Field('miles', 'Loaded miles', number: true),
@@ -210,6 +210,7 @@ class _EditJobFormState extends State<EditJobForm> {
   Widget build(BuildContext context) {
     final hc = HaulColors.of(context);
     final ht = HaulText.of(context);
+    final state = AppScope.of(context);
 
     return AlertDialog(
       backgroundColor: hc.surface,
@@ -237,41 +238,51 @@ class _EditJobFormState extends State<EditJobForm> {
                   for (final field in section.value)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 14),
-                      child: HaulTextField(
-                        controller: _controllers[field.key]!,
-                        label: field.label,
-                        hint: field.hint,
-                        helper: field.helper,
-                        maxLines: field.lines,
-                        prefix: field.money ? r'$' : null,
-                        keyboardType: field.number
-                            ? TextInputType.number
-                            : (field.lines > 1
-                                  ? TextInputType.multiline
-                                  : TextInputType.text),
-                        inputFormatters: field.number
-                            ? [FilteringTextInputFormatter.digitsOnly]
-                            : null,
-                        validator: switch (field) {
-                          _Field(number: true) => (v) {
-                            final text = (v ?? '').trim();
-                            if (text.isEmpty) return 'Enter a number, or 0.';
-                            return int.tryParse(text) == null
-                                ? 'Whole numbers only.'
-                                : null;
-                          },
-                          _Field(date: true) => (v) {
-                            final text = (v ?? '').trim();
-                            // Blank is a real answer — no day agreed yet.
-                            if (text.isEmpty) return null;
-                            return DateTime.tryParse(text) == null
-                                ? 'Write the day as YYYY-MM-DD, or leave it '
-                                      'blank.'
-                                : null;
-                          },
-                          _ => null,
-                        },
-                      ),
+                      // A day is picked, never typed. The controller stays the
+                      // one source of truth so the diff below is unchanged by
+                      // which editor put the value there.
+                      child: field.date
+                          ? DayField(
+                              label: field.label,
+                              helper: field.helper,
+                              now: state.today,
+                              value: DateTime.tryParse(
+                                _controllers[field.key]!.text,
+                              ),
+                              onChanged: (day) => setState(() {
+                                _controllers[field.key]!.text = day == null
+                                    ? ''
+                                    : _asDate(day);
+                              }),
+                            )
+                          : HaulTextField(
+                              controller: _controllers[field.key]!,
+                              label: field.label,
+                              hint: field.hint,
+                              helper: field.helper,
+                              maxLines: field.lines,
+                              prefix: field.money ? r'$' : null,
+                              keyboardType: field.number
+                                  ? TextInputType.number
+                                  : (field.lines > 1
+                                        ? TextInputType.multiline
+                                        : TextInputType.text),
+                              inputFormatters: field.number
+                                  ? [FilteringTextInputFormatter.digitsOnly]
+                                  : null,
+                              validator: switch (field) {
+                                _Field(number: true) => (v) {
+                                  final text = (v ?? '').trim();
+                                  if (text.isEmpty) {
+                                    return 'Enter a number, or 0.';
+                                  }
+                                  return int.tryParse(text) == null
+                                      ? 'Whole numbers only.'
+                                      : null;
+                                },
+                                _ => null,
+                              },
+                            ),
                     ),
                 ],
               ],

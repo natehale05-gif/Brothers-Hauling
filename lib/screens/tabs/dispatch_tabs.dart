@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../data/seed_data.dart';
+import '../../models/crew_member.dart';
 import '../../models/job.dart';
+import '../../models/role.dart';
 import '../../state/app_state.dart';
 import '../../theme/haul_theme.dart';
 import '../../widgets/job_card.dart';
@@ -247,59 +249,85 @@ class CrewTab extends StatelessWidget {
                         ? 'Idle — no load'
                         : 'Off shift';
 
-                    return MergeSemantics(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        decoration: i == kCrew.length - 1
-                            ? null
-                            : BoxDecoration(
-                                border: Border(
-                                  bottom: BorderSide(color: hc.line),
-                                ),
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: i == crew.length - 1
+                          ? null
+                          : BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(color: hc.line),
                               ),
-                        child: Row(
-                          children: [
-                            CrewAvatar.muted(initials: c.initials, size: 36),
-                            const SizedBox(width: 11),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                            ),
+                      child: Row(
+                        children: [
+                          // The person reads as one thing; the control that
+                          // changes their access is its own, so a screen
+                          // reader does not fold a button into a sentence.
+                          Expanded(
+                            child: MergeSemantics(
+                              child: Row(
                                 children: [
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 8,
-                                        height: 8,
-                                        margin: const EdgeInsets.only(right: 7),
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: c.onShift ? hc.go : hc.line,
-                                        ),
-                                      ),
-                                      Flexible(
-                                        child: Text(
-                                          c.name,
-                                          style: ht.bodyStrong,
-                                        ),
-                                      ),
-                                    ],
+                                  CrewAvatar.muted(
+                                    initials: c.initials,
+                                    size: 36,
                                   ),
-                                  const SizedBox(height: 3),
-                                  Text('${c.unit} · $detail', style: ht.small),
+                                  const SizedBox(width: 11),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Container(
+                                              width: 8,
+                                              height: 8,
+                                              margin: const EdgeInsets.only(
+                                                right: 7,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: c.onShift
+                                                    ? hc.go
+                                                    : hc.line,
+                                              ),
+                                            ),
+                                            Flexible(
+                                              child: Text(
+                                                c.name,
+                                                style: ht.bodyStrong,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          // The level rides in the text rather
+                                          // than as another chip: it is worth
+                                          // seeing, not worth a column.
+                                          '${c.role.label} · ${c.unit} · '
+                                          '$detail',
+                                          style: ht.small,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: c.appOpen
+                                        ? Pill.go(label: 'Live')
+                                        : const Pill(label: 'Dark'),
+                                  ),
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: c.appOpen
-                                  ? Pill.go(label: 'Live')
-                                  : const Pill(label: 'Dark'),
-                            ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 8),
+                          RoleControl(member: c),
+                        ],
                       ),
                     );
                   },
@@ -308,6 +336,68 @@ class CrewTab extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// What somebody is allowed to see, and — for an owner — a way to change it.
+///
+/// The level is shown to everyone who can see the roster at all, because "who
+/// is a manager here" is not a secret. It only becomes a control for an owner,
+/// and never on their own row.
+class RoleControl extends StatelessWidget {
+  const RoleControl({super.key, required this.member});
+
+  final CrewMember member;
+
+  @override
+  Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
+    final state = AppScope.of(context);
+
+    // The level is already on the row, in the line under the name. This is
+    // only the control that changes it, so it stays an icon — on a small phone
+    // at large text there is no room to print the word twice.
+    if (!state.canSetRoles || member.id == kMeId) {
+      return const SizedBox.shrink();
+    }
+
+    return Semantics(
+      button: true,
+      label:
+          'Change what ${member.name} can see. Currently '
+          '${member.role.label.toLowerCase()}.',
+      excludeSemantics: true,
+      child: PopupMenuButton<Role>(
+        tooltip: 'Change access',
+        initialValue: member.role,
+        color: hc.surface,
+        onSelected: (role) => state.setCrewRole(member, role),
+        itemBuilder: (context) => [
+          for (final role in Role.values)
+            PopupMenuItem<Role>(
+              value: role,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(role.label, style: ht.bodyStrong),
+                  Text(role.blurb, style: ht.small),
+                ],
+              ),
+            ),
+        ],
+        child: SizedBox(
+          width: 40,
+          height: HaulSpace.tap,
+          child: Icon(
+            Icons.manage_accounts_outlined,
+            size: 22,
+            color: hc.inkSoft,
+          ),
+        ),
+      ),
     );
   }
 }

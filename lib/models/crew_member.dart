@@ -96,6 +96,24 @@ class CrewMember {
     lastPlace: json['lastPlace'] as String?,
   );
 
+  /// The same person at a different access level.
+  ///
+  /// Everything else is carried across deliberately: a promotion is a change of
+  /// role, not a chance to rewrite somebody's record.
+  CrewMember withRole(Role role) => CrewMember(
+    id: id,
+    name: name,
+    initials: initials,
+    unit: unit,
+    onShift: onShift,
+    appOpen: appOpen,
+    rig: rig,
+    role: role,
+    hourlyRate: hourlyRate,
+    lastSeen: lastSeen,
+    lastPlace: lastPlace,
+  );
+
   /// Equipment strings are compared with whitespace stripped so
   /// "Dump trailer 14k" and "Dump trailer14k" are the same rig.
   bool canRun(String equipment) {
