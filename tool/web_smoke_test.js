@@ -290,8 +290,12 @@ function check(label, ok, detail = '') {
         (n.find((x) => /Route from/.test(x)) || '').slice(0, 110),
       );
       check(
-        'the wide layout offers all four destinations',
-        n.filter((x) => /^button:.*tab,? \d of 4$/i.test(x)).length === 4,
+        'the wide layout offers every destination',
+        n.filter((x) => /^button:.*tab,? \d of 5$/i.test(x)).length === 5,
+      );
+      check(
+        'the day view is one of them',
+        n.some((x) => /^button:.*Day tab,? \d of 5$/i.test(x)),
       );
 
       await press(page, 'Tracking tab');

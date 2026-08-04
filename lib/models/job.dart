@@ -193,6 +193,7 @@ class Job {
     this.events = const [],
     this.progress = 0,
     this.bookingId,
+    this.scheduledFor,
   });
 
   final String id;
@@ -246,6 +247,20 @@ class Job {
 
   /// 0..1 along the current leg.
   final double progress;
+
+  /// The day this job is meant to happen.
+  ///
+  /// Null means nobody has committed to a day yet — a website booking that
+  /// said "weekday mornings" has not been scheduled just because it arrived.
+  /// The day view keeps those visible in their own bucket rather than
+  /// inventing a date for them, because a job silently parked on today is a
+  /// job that gets missed tomorrow.
+  final DateTime? scheduledFor;
+
+  /// The date part alone, for grouping. Time of day lives in [window].
+  DateTime? get scheduledDay => scheduledFor == null
+      ? null
+      : DateTime(scheduledFor!.year, scheduledFor!.month, scheduledFor!.day);
 
   /// The website booking this came from, if it did.
   ///
@@ -345,6 +360,7 @@ class Job {
     'events': events.map((e) => e.toJson()).toList(),
     'progress': progress,
     'bookingId': bookingId,
+    'scheduledFor': scheduledFor?.toUtc().toIso8601String(),
   };
 
   /// [photoBytes] supplies the pixels for any photo id the job references;
@@ -406,6 +422,9 @@ class Job {
           const [],
       progress: (json['progress'] as num?)?.toDouble().clamp(0.0, 1.0) ?? 0,
       bookingId: json['bookingId'] as String?,
+      scheduledFor: DateTime.tryParse(
+        json['scheduledFor'] as String? ?? '',
+      )?.toLocal(),
     );
   }
 
@@ -422,6 +441,8 @@ class Job {
     List<JobEvent>? events,
     double? progress,
     String? bookingId,
+    DateTime? scheduledFor,
+    bool clearSchedule = false,
   }) {
     return Job(
       id: id,
@@ -452,6 +473,7 @@ class Job {
       events: events ?? this.events,
       progress: progress ?? this.progress,
       bookingId: bookingId ?? this.bookingId,
+      scheduledFor: clearSchedule ? null : (scheduledFor ?? this.scheduledFor),
     );
   }
 }

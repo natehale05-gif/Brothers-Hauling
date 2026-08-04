@@ -14,6 +14,7 @@ import '../widgets/sync_strip.dart';
 import '../widgets/theme_toggle.dart';
 import 'job_detail.dart';
 import 'role_gate.dart';
+import 'tabs/day_board.dart';
 import 'tabs/dispatch_tabs.dart';
 import 'tabs/employee_tabs.dart';
 
@@ -39,9 +40,21 @@ class HomeShell extends StatelessWidget {
     return Shortcuts(
       shortcuts: const {
         SingleActivator(LogicalKeyboardKey.escape): _DismissIntent(),
+        // Left/right step the day view. Bound here rather than inside it
+        // because this is the focus node that actually has focus; a nested
+        // one never gets a look at the key. Guarded by the tab so arrow keys
+        // still scroll everywhere else.
+        SingleActivator(LogicalKeyboardKey.arrowLeft): _StepDayIntent(-1),
+        SingleActivator(LogicalKeyboardKey.arrowRight): _StepDayIntent(1),
       },
       child: Actions(
         actions: {
+          _StepDayIntent: CallbackAction<_StepDayIntent>(
+            onInvoke: (intent) {
+              if (state.tab == HaulTab.day) state.stepDay(intent.by);
+              return null;
+            },
+          ),
           _DismissIntent: CallbackAction<_DismissIntent>(
             onInvoke: (_) {
               if (state.closedJob != null) {
@@ -92,6 +105,13 @@ class HomeShell extends StatelessWidget {
 
 class _DismissIntent extends Intent {
   const _DismissIntent();
+}
+
+class _StepDayIntent extends Intent {
+  const _StepDayIntent(this.by);
+
+  /// Days to move, signed.
+  final int by;
 }
 
 /// Phone/handheld: the job card replaces the list.
@@ -153,12 +173,32 @@ class _TabBody extends StatelessWidget {
 
     final Widget body = switch (state.tab) {
       HaulTab.board => EmployeeBoardTab(selectedJobId: selectedJobId),
+      HaulTab.day => DayBoard(selectedJobId: selectedJobId),
       HaulTab.mine => EmployeeMineTab(selectedJobId: selectedJobId),
       HaulTab.jobs => JobsTab(selectedJobId: selectedJobId),
       HaulTab.crew => const CrewTab(),
       HaulTab.tracking => const TrackingTab(),
       HaulTab.overview => const OverviewTab(),
     };
+
+    // The day view scrolls per day, inside its own pager, so it needs the
+    // height rather than being shrink-wrapped by a scroll view that would
+    // leave its pages with nothing to fill. Every other tab is a column of
+    // content that grows as long as it likes.
+    if (state.tab == HaulTab.day) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              // Wider than the reading column: a grid wants the window.
+              maxWidth: HaulSpace.maxContentWidth * 1.9,
+            ),
+            child: body,
+          ),
+        ),
+      );
+    }
 
     return Scrollbar(
       child: SingleChildScrollView(
@@ -341,6 +381,7 @@ class _LocationStrip extends StatelessWidget {
 IconData _tabIcon(HaulTab tab) => switch (tab) {
   HaulTab.board => Icons.grid_view_rounded,
   HaulTab.mine => Icons.local_shipping_rounded,
+  HaulTab.day => Icons.calendar_today_rounded,
   HaulTab.jobs => Icons.assignment_outlined,
   HaulTab.crew => Icons.people_alt_outlined,
   HaulTab.tracking => Icons.navigation_rounded,

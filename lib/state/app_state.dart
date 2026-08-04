@@ -17,12 +17,13 @@ import '../services/photo_service.dart';
 
 /// Tabs, per role. Kept as an enum so a stale tab can never survive a role
 /// switch — [AppState.enter] always lands on one this role owns.
-enum HaulTab { board, mine, jobs, crew, tracking, overview }
+enum HaulTab { board, mine, day, jobs, crew, tracking, overview }
 
 extension HaulTabLabel on HaulTab {
   String get label => switch (this) {
     HaulTab.board => 'Board',
     HaulTab.mine => 'My jobs',
+    HaulTab.day => 'Day',
     HaulTab.jobs => 'Jobs',
     HaulTab.crew => 'Crew',
     HaulTab.tracking => 'Tracking',
@@ -200,6 +201,65 @@ class AppState extends ChangeNotifier {
     // been removed should not take the app down on the next frame.
     orElse: () => kCrew.firstWhere((c) => c.id == kMeId),
   );
+
+  // ------------------------------------------------------------ the day view
+
+  /// How far the day view has been moved from today, in days.
+  ///
+  /// An offset rather than a stored date, so a board left open overnight
+  /// follows the calendar instead of insisting it is still yesterday.
+  int _dayOffset = 0;
+
+  int get dayOffset => _dayOffset;
+
+  /// Midnight today, by the clock this state was given.
+  DateTime get today {
+    final now = _now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  /// The day currently on screen.
+  DateTime get selectedDay => dayFor(_dayOffset);
+
+  DateTime dayFor(int offset) {
+    final base = today;
+    return DateTime(base.year, base.month, base.day + offset);
+  }
+
+  /// Jumps the day view. [offset] is relative to today, not to where it is.
+  void showDay(int offset) {
+    if (offset == _dayOffset) return;
+    _dayOffset = offset;
+    notifyListeners();
+  }
+
+  /// One day forwards or back — the arrows, and the keyboard.
+  void stepDay(int by) => showDay(_dayOffset + by);
+
+  void showToday() => showDay(0);
+
+  /// Everything happening on [day], earliest first.
+  ///
+  /// Every job, not just this user's — which is why the day view is a dispatch
+  /// screen. A driver's board deliberately shows them their own work.
+  ///
+  /// Sorted by the scheduled time rather than by id, because a day view that
+  /// does not read top-to-bottom in the order the day happens is a list, not a
+  /// schedule.
+  List<Job> jobsOn(DateTime day) {
+    final target = DateTime(day.year, day.month, day.day);
+    final out = jobs.where((j) => j.scheduledDay == target).toList()
+      ..sort((a, b) => a.scheduledFor!.compareTo(b.scheduledFor!));
+    return out;
+  }
+
+  /// Jobs nobody has committed to a day yet.
+  ///
+  /// Kept visible rather than hidden: a job with no date is not a job that has
+  /// gone away, and parking it silently on today is how it gets missed
+  /// tomorrow.
+  List<Job> get unscheduledJobs =>
+      jobs.where((j) => j.scheduledFor == null).toList();
 
   // ------------------------------------------------- bookings from the web
 
@@ -449,11 +509,17 @@ class AppState extends ChangeNotifier {
   List<HaulTab> get navTabs {
     if (employeeView) return const [HaulTab.board, HaulTab.mine];
     return switch (_role) {
-      Role.manager => const [HaulTab.jobs, HaulTab.crew, HaulTab.board],
+      Role.manager => const [
+        HaulTab.day,
+        HaulTab.jobs,
+        HaulTab.crew,
+        HaulTab.board,
+      ],
       Role.admin => const [
         HaulTab.overview,
-        HaulTab.tracking,
+        HaulTab.day,
         HaulTab.jobs,
+        HaulTab.tracking,
         HaulTab.crew,
       ],
       _ => const [HaulTab.board, HaulTab.mine],

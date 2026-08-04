@@ -16,6 +16,7 @@ class _Field {
     this.helper,
     this.number = false,
     this.money = false,
+    this.date = false,
     this.lines = 1,
   });
 
@@ -25,7 +26,24 @@ class _Field {
   final String? helper;
   final bool number;
   final bool money;
+
+  /// A calendar day, written as YYYY-MM-DD. Blank means no day set — which is
+  /// a real answer for a booking nobody has committed to yet, not an error.
+  final bool date;
   final int lines;
+}
+
+/// The date half of a timestamp, as the form writes it.
+///
+/// Compared date-to-date rather than string-to-string, because the stored value
+/// is a full ISO timestamp — comparing that against "2026-08-05" would report a
+/// change every time the form was opened and closed.
+String _asDate(Object? value) {
+  final parsed = DateTime.tryParse('${value ?? ''}')?.toLocal();
+  if (parsed == null) return '';
+  final m = parsed.month.toString().padLeft(2, '0');
+  final d = parsed.day.toString().padLeft(2, '0');
+  return '${parsed.year}-$m-$d';
 }
 
 const _sections = <String, List<_Field>>{
@@ -64,6 +82,15 @@ const _sections = <String, List<_Field>>{
     ),
   ],
   'Timing and distance': [
+    _Field(
+      'scheduledFor',
+      'Day',
+      hint: '2026-08-05',
+      date: true,
+      helper:
+          'YYYY-MM-DD. Leave it blank if no day is agreed yet — the day '
+          'view keeps it in its own bucket rather than guessing.',
+    ),
     _Field('window', 'Time window', hint: '7:00 – 9:00 AM'),
     _Field('miles', 'Loaded miles', number: true),
     _Field('deadhead', 'Deadhead miles', number: true),
@@ -112,6 +139,7 @@ class _EditJobFormState extends State<EditJobForm> {
     if (field.key == 'hazards') {
       return (value as List?)?.cast<String>().join('\n') ?? '';
     }
+    if (field.date) return _asDate(value);
     return '${value ?? ''}';
   }
 
@@ -140,11 +168,17 @@ class _EditJobFormState extends State<EditJobForm> {
         ];
       } else if (field.number) {
         value = int.tryParse(text) ?? 0;
+      } else if (field.date) {
+        // Blank clears the day. Anything unparseable never gets this far —
+        // the validator stops it.
+        value = DateTime.tryParse(text)?.toIso8601String();
       } else {
         value = text;
       }
 
-      if (field.key == 'hazards') {
+      if (field.date) {
+        if (_asDate(before[field.key]) != text) out[field.key] = value;
+      } else if (field.key == 'hazards') {
         final was = (before[field.key] as List?)?.cast<String>() ?? const [];
         final now = value as List<String>;
         if (was.length != now.length ||
@@ -218,17 +252,25 @@ class _EditJobFormState extends State<EditJobForm> {
                         inputFormatters: field.number
                             ? [FilteringTextInputFormatter.digitsOnly]
                             : null,
-                        validator: field.number
-                            ? (v) {
-                                final text = (v ?? '').trim();
-                                if (text.isEmpty) {
-                                  return 'Enter a number, or 0.';
-                                }
-                                return int.tryParse(text) == null
-                                    ? 'Whole numbers only.'
-                                    : null;
-                              }
-                            : null,
+                        validator: switch (field) {
+                          _Field(number: true) => (v) {
+                            final text = (v ?? '').trim();
+                            if (text.isEmpty) return 'Enter a number, or 0.';
+                            return int.tryParse(text) == null
+                                ? 'Whole numbers only.'
+                                : null;
+                          },
+                          _Field(date: true) => (v) {
+                            final text = (v ?? '').trim();
+                            // Blank is a real answer — no day agreed yet.
+                            if (text.isEmpty) return null;
+                            return DateTime.tryParse(text) == null
+                                ? 'Write the day as YYYY-MM-DD, or leave it '
+                                      'blank.'
+                                : null;
+                          },
+                          _ => null,
+                        },
                       ),
                     ),
                 ],

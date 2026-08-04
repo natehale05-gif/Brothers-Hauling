@@ -73,6 +73,22 @@ from the same origin as the app, so the booking lands in the storage the board
 reads — no server, but a real round trip rather than a mocked one. Pointing at a
 live backend is `HttpIntakeSource` in `main.dart` and nothing else in the app.
 
+### The day
+
+Dispatch gets a **Day** tab: every job for one day on a grid, sorted the way the
+day actually happens. Swipe left and right on a phone; on a desktop there are
+arrows either side of the date and the **left/right keys** do the same thing —
+a mouse has nothing to swipe with, and a keyboard user cannot swipe at all.
+"Today" is always one tap away.
+
+The grid is sized by tile width rather than a breakpoint, so it is one column on
+a phone and three or four across a desktop window on its own.
+
+A job with no day is not parked on today. It sits in its own **No day set**
+bucket, because a job quietly filed under today is a job that gets missed
+tomorrow. An owner sets the day from the edit form, and leaving it blank is a
+real answer for a booking nobody has committed to yet.
+
 ### Correcting a job
 
 An owner can edit every detail of a job — customer, address, access notes,
@@ -165,7 +181,7 @@ flutter analyze
 flutter test
 ```
 
-**433 tests**, in thirteen files:
+**480 tests**, in fourteen files:
 
 | File | Covers |
 | --- | --- |
@@ -181,6 +197,7 @@ flutter test
 | `test/photos_test.dart` | Many shots per slot, the on-site prompt, and that a board written by the previous build still loads |
 | `test/crew_test.dart` | Who may hire whom, that the rule is enforced in the state rather than the form, and that a new hire survives a relaunch |
 | `test/edit_job_test.dart` | That an owner can correct every detail, that nobody else can, and that an edit cannot rewrite what the driver did |
+| `test/day_board_test.dart` | The day grid — which day is showing, what lands on it, the arrows, the keys, the swipe, and that the grid widens with the window |
 | `test/intake_test.dart` | The booking contract, that the same booking never lands twice, that a dead website doesn't take the board down, and that nothing reaches a driver unpriced |
 
 ### Browser smoke test

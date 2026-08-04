@@ -62,6 +62,13 @@ DateTime _today(int hour, int minute) {
   return DateTime(now.year, now.month, now.day, hour, minute);
 }
 
+/// A day relative to today, at a given hour. The seed spreads across a few
+/// days so the day view has something to swipe through on a fresh install.
+DateTime _day(int offset, [int hour = 8]) {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day + offset, hour);
+}
+
 /// Today's board.
 ///
 /// No longer `const`: events carry real [DateTime]s now, and Dart has no const
@@ -69,6 +76,7 @@ DateTime _today(int hour, int minute) {
 final List<Job> kSeedJobs = [
   Job(
     id: 'HL-4471',
+    scheduledFor: _day(0, 7),
     type: 'Debris haul',
     customer: 'Sunset Ridge Builders',
     address: '3820 NW Sunset Ridge Dr',
@@ -93,6 +101,7 @@ final List<Job> kSeedJobs = [
   ),
   Job(
     id: 'HL-4482',
+    scheduledFor: _day(0, 11),
     type: 'Gravel delivery',
     customer: 'Decker Rd residence',
     address: '18775 Decker Rd',
@@ -117,6 +126,7 @@ final List<Job> kSeedJobs = [
   ),
   Job(
     id: 'HL-4488',
+    scheduledFor: _day(1, 13),
     type: 'Equipment move',
     customer: 'Ash Creek Farm',
     address: '9040 Airlie Rd',
@@ -141,6 +151,7 @@ final List<Job> kSeedJobs = [
   ),
   Job(
     id: 'HL-4491',
+    scheduledFor: _day(0, 9),
     type: 'Junk removal',
     customer: 'Harrison St rental',
     address: '1420 NW Harrison Blvd',
@@ -167,6 +178,7 @@ final List<Job> kSeedJobs = [
   ),
   Job(
     id: 'HL-4495',
+    scheduledFor: _day(2, 8),
     type: 'Bark & soil',
     customer: 'Airlie Rd residence',
     address: '22110 Airlie Rd',
@@ -204,6 +216,7 @@ final List<Job> kSeedJobs = [
   ),
   Job(
     id: 'HL-4468',
+    scheduledFor: _day(-1, 8),
     type: 'Debris haul',
     customer: 'Timberhill remodel',
     address: '2955 NW Timberhill Pl',

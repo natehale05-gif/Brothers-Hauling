@@ -283,6 +283,7 @@ class EditJob extends JobMutation {
     'payout',
     'billed',
     'hazards',
+    'scheduledFor',
   };
 
   @override
@@ -343,6 +344,7 @@ class EditJob extends JobMutation {
     'payout' => "the driver's cut",
     'billed' => 'what it bills at',
     'window' => 'the time window',
+    'scheduledFor' => 'the day it happens',
     'access' => 'the access notes',
     'hazards' => 'the hazards',
     _ => 'the $field',
