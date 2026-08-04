@@ -191,6 +191,50 @@ class AppState extends ChangeNotifier {
     orElse: () => kCrew.firstWhere((c) => c.id == kMeId),
   );
 
+  // -------------------------------------------------------- editing a job
+
+  /// Only an owner corrects a job, and not while standing in the crew's view.
+  bool get canEditJobs => _role == Role.admin && !_asEmployee;
+
+  /// Applies dispatch's corrections to [job].
+  ///
+  /// [fields] is the changed values keyed by the same names the job serialises
+  /// under. Anything outside [EditJob.editable] is dropped rather than trusted:
+  /// the record of what a driver actually did is not dispatch's to rewrite.
+  Future<bool> editJob(Job job, Map<String, Object?> fields) async {
+    if (!canEditJobs) {
+      showToast('Only an owner can change job details.');
+      notifyListeners();
+      return false;
+    }
+
+    final allowed = {
+      for (final e in fields.entries)
+        if (EditJob.editable.contains(e.key)) e.key: e.value,
+    };
+    if (allowed.isEmpty) return false;
+
+    final ok = await _board.apply(
+      _stamp(
+        (id, at) => EditJob(
+          id: id,
+          jobId: job.id,
+          actorId: kMeId,
+          at: at,
+          fields: allowed,
+        ),
+      ),
+    );
+    if (!ok) {
+      // Nothing actually differed, so there is nothing to announce.
+      return false;
+    }
+
+    showToast('${job.id} updated.');
+    notifyListeners();
+    return true;
+  }
+
   // ------------------------------------------------------------ hiring
 
   /// What the signed-in role is allowed to take on.

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/haul_theme.dart';
 
@@ -604,6 +605,7 @@ class HaulTextField extends StatelessWidget {
     this.autofocus = false,
     this.validator,
     this.prefix,
+    this.inputFormatters,
   });
 
   final TextEditingController controller;
@@ -615,6 +617,7 @@ class HaulTextField extends StatelessWidget {
   final bool autofocus;
   final String? Function(String?)? validator;
   final String? prefix;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -633,6 +636,7 @@ class HaulTextField extends StatelessWidget {
       maxLines: maxLines,
       autofocus: autofocus,
       validator: validator,
+      inputFormatters: inputFormatters,
       style: ht.body,
       cursorColor: hc.brand,
       decoration: InputDecoration(

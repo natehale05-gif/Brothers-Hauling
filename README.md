@@ -48,6 +48,25 @@ what their crew gets: no hiring at all.
 A new hire starts off shift with the app closed, so nobody appears on the
 tracking board before they have installed the thing.
 
+### Correcting a job
+
+An owner can edit every detail of a job — customer, address, access notes,
+hazards, the load, the window, the mileage and all three money figures — from
+the job card. Managers and drivers cannot, and neither can an owner standing in
+the employee view.
+
+The edit carries **only the fields that changed**, not the whole job. Sending
+the whole thing would mean an edit made offline quietly reverting whatever the
+driver did to the same job in the meantime — the stage they reached, the photos
+they filed — the moment it replayed.
+
+Status, stage, the assignee, the photos and the movement log are missing from
+the editable set on purpose: they are the record of what happened in the field,
+and an edit form is not the place to rewrite it. That list is enforced in the
+mutation as well as at the call site, because the queue outlives an app upgrade.
+Every edit writes itself into the movement log, so dispatch changing what a job
+pays is something the driver can see afterwards.
+
 ### Working with no signal
 
 The board lives on the device, not in memory. Every change — claiming a load,
@@ -121,7 +140,7 @@ flutter analyze
 flutter test
 ```
 
-**382 tests**, in eleven files:
+**402 tests**, in twelve files:
 
 | File | Covers |
 | --- | --- |
@@ -136,6 +155,7 @@ flutter test
 | `test/theme_test.dart` | The appearance choice — that it cycles, persists, repaints, and says which mode is on |
 | `test/photos_test.dart` | Many shots per slot, the on-site prompt, and that a board written by the previous build still loads |
 | `test/crew_test.dart` | Who may hire whom, that the rule is enforced in the state rather than the form, and that a new hire survives a relaunch |
+| `test/edit_job_test.dart` | That an owner can correct every detail, that nobody else can, and that an edit cannot rewrite what the driver did |
 
 ### Browser smoke test
 

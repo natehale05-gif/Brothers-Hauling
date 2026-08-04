@@ -81,6 +81,16 @@ sealed class Mutation {
         at: at,
         toStage: (json['toStage'] as num?)?.toInt() ?? 0,
       ),
+      'edit' => EditJob(
+        id: id,
+        jobId: jobId,
+        actorId: actorId,
+        at: at,
+        fields: switch (json['fields']) {
+          final Map raw => raw.cast<String, Object?>(),
+          _ => const {},
+        },
+      ),
       'photo' => AttachPhoto(
         id: id,
         jobId: jobId,
@@ -165,6 +175,115 @@ class AddCrewMember extends CrewMutation {
     if (crew.any((c) => c.id == member.id)) return null;
     return [...crew, member];
   }
+}
+
+/// Dispatch corrects the details of a job.
+///
+/// Carries only the fields that changed, not the whole job. Sending the whole
+/// thing would mean an edit made offline quietly reverting whatever a driver
+/// did to the same job in the meantime — the stage they reached, the photos
+/// they filed — the moment it replayed. A field-level change can only clobber
+/// the field it names.
+class EditJob extends JobMutation {
+  const EditJob({
+    required super.id,
+    required super.jobId,
+    required super.actorId,
+    required super.at,
+    required this.fields,
+  });
+
+  final Map<String, Object?> fields;
+
+  /// What dispatch is allowed to correct.
+  ///
+  /// Everything the *driver* owns is missing on purpose: status, stage, the
+  /// assignee, the photos and the movement log are the record of what happened
+  /// in the field, and an edit form is not the place to rewrite it.
+  static const editable = {
+    'type',
+    'customer',
+    'address',
+    'city',
+    'contact',
+    'phone',
+    'access',
+    'material',
+    'volume',
+    'weight',
+    'equipment',
+    'disposal',
+    'dumpFee',
+    'window',
+    'miles',
+    'deadhead',
+    'payout',
+    'billed',
+    'hazards',
+  };
+
+  @override
+  String get kind => 'edit';
+
+  @override
+  Map<String, Object?> get payload => {'fields': fields};
+
+  @override
+  Job? apply(Job job, {Map<String, Uint8List> photoBytes = const {}}) {
+    final before = job.toJson();
+    // Filtered here as well as at the call site: the queue survives an app
+    // upgrade, so a mutation written by a build with a different idea of what
+    // is editable still cannot reach past this list.
+    final changes = {
+      for (final entry in fields.entries)
+        if (editable.contains(entry.key) &&
+            !_same(before[entry.key], entry.value))
+          entry.key: entry.value,
+    };
+    // Nothing left to do — already applied, or a replay.
+    if (changes.isEmpty) return null;
+
+    // The photos are re-attached from the job in hand rather than from
+    // [photoBytes], because an edit says nothing about them and must not drop
+    // them on the floor.
+    final updated = Job.fromJson(
+      {...before, ...changes},
+      photoBytes: {for (final p in job.photos) p.id: p.bytes},
+    );
+
+    return updated.copyWith(
+      events: [
+        ...updated.events,
+        JobEvent(
+          at: at,
+          label: changes.length == 1
+              ? 'Dispatch updated ${_label(changes.keys.first)}'
+              : 'Dispatch updated ${changes.length} details',
+          kind: EventKind.flat,
+        ),
+      ],
+    );
+  }
+
+  /// Lists compare by value; everything else is a scalar out of JSON.
+  static bool _same(Object? a, Object? b) {
+    if (a is List && b is List) {
+      return a.length == b.length &&
+          List.generate(a.length, (i) => a[i] == b[i]).every((x) => x);
+    }
+    return a == b;
+  }
+
+  static String _label(String field) => switch (field) {
+    'dumpFee' => 'the disposal fee',
+    'deadhead' => 'the deadhead miles',
+    'payout' => "the driver's cut",
+    'billed' => 'what it bills at',
+    'window' => 'the time window',
+    'access' => 'the access notes',
+    'hazards' => 'the hazards',
+    _ => 'the $field',
+  };
 }
 
 /// A driver takes an unclaimed job off the board.

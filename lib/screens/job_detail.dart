@@ -8,6 +8,7 @@ import '../theme/haul_theme.dart';
 import '../widgets/event_log.dart';
 import '../widgets/primitives.dart';
 import '../widgets/stage_rail.dart';
+import 'edit_job.dart';
 
 /// The full job card: where, how to get in, what the load is, the movement log,
 /// money (dispatch only), and the two photos that gate closing it out.
@@ -56,6 +57,41 @@ class JobDetail extends StatelessWidget {
                 ),
 
               if (state.beforePhotoDue(job)) _BeforePhotoPrompt(job: job),
+
+              if (state.canEditJobs)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Semantics(
+                    button: true,
+                    label: 'Edit every detail of ${job.id}',
+                    onTap: () => showEditJobSheet(context, job),
+                    excludeSemantics: true,
+                    child: OutlinedButton.icon(
+                      onPressed: () => showEditJobSheet(context, job),
+                      icon: Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: hc.brand,
+                      ),
+                      label: Text(
+                        'EDIT JOB DETAILS',
+                        style: ht.action.copyWith(
+                          fontSize: 12,
+                          color: hc.brand,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, HaulSpace.tap),
+                        side: BorderSide(color: hc.brand),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            HaulSpace.radiusSm,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
 
               HaulBlock(
                 title: 'Where',
