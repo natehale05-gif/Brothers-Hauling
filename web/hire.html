@@ -1,14 +1,47 @@
 <!DOCTYPE html>
+<!--
+  ============================================================================
+  BEFORE THIS GOES LIVE — fill in the four tokens below.
+
+  They are written as {{TOKEN}} on purpose. Left alone they render as visible
+  nonsense, which is the point: a broken-looking phone number gets noticed and
+  fixed, a plausible wrong one gets dialled.
+
+    {{PHONE}}        the number people ring, e.g. 541-555-0100
+    {{PHONE_LINK}}   the same number for tel:, digits only, e.g. +15415550100
+    {{EMAIL}}        the address you read
+    {{HOURS}}        e.g. Mon–Sat, 7am–6pm
+
+  Search this file for {{ to find every spot. They appear in the header, the
+  hero, the booking section, the footer, and the search-engine block at the
+  bottom of <head>.
+
+  And set ENDPOINT in the script at the bottom, or the form only files
+  bookings into the visitor's own browser. See the comment there.
+  ============================================================================
+-->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="Book a haul with Brothers Hauling.">
-  <meta name="theme-color" content="#111112">
-  <title>Hire Brothers Hauling</title>
+  <title>Brothers Hauling — debris, junk, gravel and equipment, Corvallis and the mid-valley</title>
+  <meta name="description" content="Debris hauling, junk removal, gravel and bark delivery, and equipment moves in Corvallis, Philomath, Monmouth and the surrounding mid-valley. Photographed before and after, every job.">
+  <meta name="theme-color" content="#111112" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#F2F2F0" media="(prefers-color-scheme: light)">
   <link rel="icon" type="image/png" href="favicon.png">
 
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Brothers Hauling">
+  <meta property="og:description" content="Debris, junk, gravel, bark and equipment moved across the mid-valley. Photographed before and after, every job.">
+  <meta property="og:image" content="favicon.png">
+
   <style>
+    /*
+      Two palettes, the same two the app ships. This page gets opened in a
+      yard at noon as often as it gets opened on a sofa at night, and the
+      brand orange is only 3.3:1 on white — so light mode uses the app's
+      light accent, not the dark one dropped onto a pale background.
+    */
     :root {
       --bg: #111112;
       --surface: #1A1A1C;
@@ -17,15 +50,11 @@
       --ink: #F2F2F3;
       --ink-soft: #A4A3A5;
       --brand: #F9570D;
+      --on-brand: #FFFFFF;
       --go: #2FCB74;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .5);
     }
 
-    /*
-      The same two palettes the app ships, for the same reason: this page gets
-      opened in a yard at noon as often as it gets opened on a sofa at night.
-      The light accents are the app's light accents, not the dark ones on white
-      — the icon's orange is only 3.3:1 on white, which is not a text colour.
-    */
     @media (prefers-color-scheme: light) {
       :root {
         --bg: #F2F2F0;
@@ -35,189 +64,634 @@
         --ink: #141416;
         --ink-soft: #55555A;
         --brand: #AC3C09;
+        --on-brand: #FFFFFF;
         --go: #1A6F40;
+        --shadow: 0 1px 2px rgba(20, 20, 22, .12);
       }
     }
 
     * { box-sizing: border-box; }
 
-    html, body {
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+    }
+
+    body {
       margin: 0;
-      padding: 0;
       background: var(--bg);
       color: var(--ink);
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      line-height: 1.5;
+      line-height: 1.55;
+      -webkit-text-size-adjust: 100%;
     }
 
-    main { max-width: 640px; margin: 0 auto; padding: 28px 20px 60px; }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+    .narrow { max-width: 660px; }
 
-    h1 {
-      font-size: 30px;
-      line-height: 1.0;
+    a { color: var(--brand); }
+
+    /* Keyboard users get the same clear ring everywhere. */
+    a:focus-visible,
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible {
+      outline: 3px solid var(--brand);
+      outline-offset: 2px;
+    }
+
+    .skip {
+      position: absolute;
+      left: -9999px;
+      top: 0;
+      background: var(--brand);
+      color: var(--on-brand);
+      padding: 12px 18px;
+      z-index: 10;
+    }
+    .skip:focus { left: 0; }
+
+    /* ---- header ---------------------------------------------------- */
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 9;
+      background: var(--bg);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-height: 64px;
+      padding-top: 10px;
+      padding-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .mark {
+      font-weight: 800;
+      font-size: 19px;
       letter-spacing: -0.01em;
       text-transform: uppercase;
-      margin: 0 0 6px;
+      color: var(--ink);
+      text-decoration: none;
+      line-height: 1.05;
+      margin-right: auto;
+    }
+    .mark span { color: var(--brand); }
+
+    nav { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+
+    nav a {
+      color: var(--ink-soft);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 10px 12px;
+      border-radius: 8px;
+    }
+    nav a:hover { color: var(--ink); background: var(--raised); }
+
+    .call {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      padding: 0 18px;
+      border-radius: 10px;
+      background: var(--brand);
+      color: var(--on-brand);
+      font-weight: 700;
+      font-size: 15px;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    /* Below the fold on a phone the header eats the screen; shed the links. */
+    @media (max-width: 620px) {
+      nav .nav-link { display: none; }
+      .mark { font-size: 17px; }
+    }
+
+    /* ---- hero ------------------------------------------------------- */
+
+    .hero { padding: 64px 0 56px; }
+
+    h1 {
+      font-size: clamp(38px, 8vw, 68px);
+      line-height: 0.98;
+      letter-spacing: -0.025em;
+      text-transform: uppercase;
+      margin: 0 0 20px;
+      max-width: 15ch;
     }
     h1 span { color: var(--brand); }
 
-    .lede { color: var(--ink-soft); margin: 0 0 26px; }
+    .lede {
+      font-size: clamp(17px, 2.4vw, 20px);
+      color: var(--ink-soft);
+      margin: 0 0 32px;
+      max-width: 54ch;
+    }
+
+    .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 54px;
+      padding: 0 26px;
+      border-radius: 10px;
+      font: inherit;
+      font-weight: 700;
+      font-size: 16px;
+      letter-spacing: 0.4px;
+      text-decoration: none;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    .btn-primary { background: var(--brand); color: var(--on-brand); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--ink);
+      border-color: var(--line);
+    }
+    .btn-ghost:hover { background: var(--raised); }
+
+    /* ---- sections --------------------------------------------------- */
+
+    section { padding: 56px 0; border-top: 1px solid var(--line); }
+
+    .kicker {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.6px;
+      text-transform: uppercase;
+      color: var(--brand);
+      margin: 0 0 10px;
+    }
+
+    h2 {
+      font-size: clamp(26px, 4.4vw, 36px);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      margin: 0 0 14px;
+    }
+
+    .sub { color: var(--ink-soft); margin: 0 0 34px; max-width: 58ch; }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 17px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .card p { margin: 0; color: var(--ink-soft); font-size: 15px; }
+
+    /* Numbered steps: the count is decoration, the heading carries meaning. */
+    .steps { counter-reset: step; }
+    .step { position: relative; padding-left: 56px; margin-bottom: 26px; }
+    .step::before {
+      counter-increment: step;
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--raised);
+      border: 1px solid var(--line);
+      color: var(--brand);
+      font-weight: 800;
+      font-size: 16px;
+    }
+    .step h3 { margin: 6px 0 6px; font-size: 18px; }
+    .step p { margin: 0; color: var(--ink-soft); }
+
+    .towns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 0 0 20px;
+      padding: 0;
+      list-style: none;
+    }
+    .towns li {
+      padding: 9px 16px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    /* ---- booking form ------------------------------------------------ */
+
+    #book { background: var(--surface); }
 
     fieldset { border: 0; padding: 0; margin: 0 0 22px; }
     legend {
       font-size: 12px;
+      font-weight: 700;
       letter-spacing: 1.4px;
       text-transform: uppercase;
       color: var(--ink-soft);
-      padding: 0 0 10px;
+      padding: 0 0 12px;
     }
 
     label { display: block; margin-bottom: 14px; }
-    .label { display: block; font-size: 13px; color: var(--ink-soft); margin-bottom: 5px; }
+    .label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink-soft);
+      margin-bottom: 5px;
+    }
 
-    input, textarea {
+    input, textarea, select {
       width: 100%;
       padding: 12px;
       min-height: 48px;
       font: inherit;
       color: var(--ink);
-      background: var(--raised);
+      background: var(--bg);
       border: 1px solid var(--line);
       border-radius: 10px;
     }
-    input:focus, textarea:focus {
-      outline: 2px solid var(--brand);
-      outline-offset: 1px;
-      border-color: var(--brand);
-    }
-    textarea { min-height: 96px; resize: vertical; }
+    input:focus, textarea:focus, select:focus { border-color: var(--brand); }
+    textarea { min-height: 104px; resize: vertical; }
 
-    button {
+    .row {
+      display: grid;
+      gap: 0 14px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    form button[type="submit"] {
       width: 100%;
-      min-height: 52px;
+      min-height: 54px;
       font: inherit;
       font-weight: 700;
-      letter-spacing: 1px;
+      font-size: 16px;
+      letter-spacing: 0.6px;
       text-transform: uppercase;
-      color: #FFFFFF;
+      color: var(--on-brand);
       background: var(--brand);
       border: 0;
       border-radius: 10px;
       cursor: pointer;
     }
-    button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+    form button[type="submit"][disabled] { opacity: .6; cursor: progress; }
 
     .req { color: var(--brand); }
 
-    .note {
-      margin-top: 26px;
-      padding: 14px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: var(--surface);
-      color: var(--ink-soft);
+    .error {
+      color: var(--brand);
       font-size: 13px;
+      font-weight: 600;
+      margin: -9px 0 12px;
     }
-    .note a { color: var(--brand); }
 
     #done {
       display: none;
-      padding: 16px;
+      padding: 18px;
       border: 1px solid var(--go);
       border-radius: 12px;
-      background: var(--surface);
-      margin-bottom: 22px;
+      background: var(--bg);
+      margin-bottom: 24px;
     }
-    #done h2 { margin: 0 0 6px; font-size: 18px; color: var(--go); }
-    #done p { margin: 0; color: var(--ink-soft); font-size: 14px; }
+    #done h3 { margin: 0 0 6px; font-size: 18px; color: var(--go); }
+    #done p { margin: 0; color: var(--ink-soft); font-size: 15px; }
 
-    .error { color: var(--brand); font-size: 13px; margin-top: -9px; margin-bottom: 12px; }
+    /* ---- footer ------------------------------------------------------ */
+
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 44px 0 56px;
+      color: var(--ink-soft);
+      font-size: 15px;
+    }
+    footer h3 {
+      color: var(--ink);
+      font-size: 13px;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      margin: 0 0 10px;
+    }
+    footer a { color: var(--brand); }
+    .foot-grid {
+      display: grid;
+      gap: 30px;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      margin-bottom: 34px;
+    }
+    .fine { border-top: 1px solid var(--line); padding-top: 22px; font-size: 13px; }
   </style>
 </head>
 <body>
-  <main>
-    <h1>Brothers<br><span>Hauling</span></h1>
-    <p class="lede">Tell us what needs moving. We'll price it and come back to you.</p>
+  <a class="skip" href="#main">Skip to content</a>
 
-    <div id="done" role="status" aria-live="polite">
-      <h2>Booking sent</h2>
-      <p>
-        It's on the dispatch board now — open the
-        <a href="./">board</a> and sign in as Admin or Manager to see it come in.
+  <header>
+    <div class="wrap bar">
+      <a class="mark" href="#top">Brothers <span>Hauling</span></a>
+      <nav>
+        <a class="nav-link" href="#services">Services</a>
+        <a class="nav-link" href="#how">How it works</a>
+        <a class="nav-link" href="#area">Area</a>
+        <a class="call" href="tel:{{PHONE_LINK}}">Call {{PHONE}}</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div id="top" class="wrap hero">
+      <h1>If it needs <span>hauling</span>, it's already half done</h1>
+      <p class="lede">
+        Debris, junk, gravel, bark and equipment, moved across Corvallis and
+        the mid-valley. Tell us what's there and we'll come back with a price
+        — no walkaround fee, no guesswork on the invoice.
       </p>
+      <div class="actions">
+        <a class="btn btn-primary" href="#book">Get a price</a>
+        <a class="btn btn-ghost" href="tel:{{PHONE_LINK}}">Call {{PHONE}}</a>
+      </div>
     </div>
 
-    <form id="form" novalidate>
-      <fieldset>
-        <legend>You</legend>
-        <label>
-          <span class="label">Your name or company <span class="req" aria-hidden="true">*</span></span>
-          <input name="customer" required autocomplete="organization"
-                 aria-describedby="customer-error">
-        </label>
-        <p class="error" id="customer-error" hidden>Tell us who to come back to.</p>
+    <section id="services">
+      <div class="wrap">
+        <p class="kicker">What we haul</p>
+        <h2>Five kinds of load</h2>
+        <p class="sub">
+          Most of what we do falls into one of these. If yours doesn't, ask
+          anyway — the truck is the same either way.
+        </p>
 
-        <label>
-          <span class="label">Who we'll speak to on the day</span>
-          <input name="contact" autocomplete="name">
-        </label>
+        <div class="grid">
+          <div class="card">
+            <h3>Debris haul</h3>
+            <p>
+              Construction and demolition waste off site: drywall, framing,
+              roofing tear-off, concrete and yard clearance.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Junk removal</h3>
+            <p>
+              Garages, sheds, rentals and estates cleared out. Furniture and
+              appliances included, and we do the lifting.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Gravel delivery</h3>
+            <p>
+              Driveway rock, base course and drain rock delivered by the yard,
+              dumped where you want it rather than at the kerb.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Bark &amp; soil</h3>
+            <p>
+              Bark dust, compost and garden soil for beds and paths, in
+              whatever quantity the job actually calls for.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Equipment moves</h3>
+            <p>
+              Skid steers, mini excavators, mowers and trailers shifted between
+              sites, yards and rental returns.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
 
-        <label>
-          <span class="label">Phone <span class="req" aria-hidden="true">*</span></span>
-          <input name="phone" type="tel" required autocomplete="tel"
-                 aria-describedby="phone-error">
-        </label>
-        <p class="error" id="phone-error" hidden>We need a number to confirm on.</p>
-      </fieldset>
+    <section id="how">
+      <div class="wrap narrow steps">
+        <p class="kicker">How it works</p>
+        <h2>Four steps, no surprises</h2>
+        <p class="sub">
+          The same process whether it's a pickup load or a week of clearance.
+        </p>
 
-      <fieldset>
-        <legend>Where</legend>
-        <label>
-          <span class="label">Address <span class="req" aria-hidden="true">*</span></span>
-          <input name="address" required autocomplete="street-address"
-                 aria-describedby="address-error">
-        </label>
-        <p class="error" id="address-error" hidden>We need somewhere to turn up to.</p>
+        <div class="step">
+          <h3>You tell us what's there</h3>
+          <p>
+            Ring us or fill in the form below. A rough description is plenty —
+            what it is, roughly how much, and where it's sitting.
+          </p>
+        </div>
+        <div class="step">
+          <h3>We come back with a price</h3>
+          <p>
+            A real figure for the job in front of us, including the dump fee.
+            Nothing goes on the schedule until you've agreed to it.
+          </p>
+        </div>
+        <div class="step">
+          <h3>We turn up in the window we said</h3>
+          <p>
+            The crew is dispatched from a live board, so the person on their
+            way to you is the person we told you about.
+          </p>
+        </div>
+        <div class="step">
+          <h3>You get photos, before and after</h3>
+          <p>
+            Every job is photographed on arrival and again on completion. You
+            can see the state we found it in and the state we left it in,
+            whether or not you were there.
+          </p>
+        </div>
+      </div>
+    </section>
 
-        <label>
-          <span class="label">Town</span>
-          <input name="city" autocomplete="address-level2">
-        </label>
-      </fieldset>
+    <section id="area">
+      <div class="wrap">
+        <p class="kicker">Where we go</p>
+        <h2>Corvallis and the mid-valley</h2>
+        <p class="sub">
+          These are the towns we're in most weeks. If you're on the edge of
+          that, call and ask — it's usually a yes.
+        </p>
+        <ul class="towns">
+          <li>Corvallis</li>
+          <li>Philomath</li>
+          <li>Monmouth</li>
+          <li>Blodgett</li>
+          <li>Independence</li>
+          <li>Adair Village</li>
+          <li>Albany</li>
+        </ul>
+      </div>
+    </section>
 
-      <fieldset>
-        <legend>The job</legend>
-        <label>
-          <span class="label">What kind of haul</span>
-          <input name="type" placeholder="Debris haul, junk removal, equipment move…">
-        </label>
+    <section id="book">
+      <div class="wrap narrow">
+        <p class="kicker">Get a price</p>
+        <h2>Tell us what needs moving</h2>
+        <p class="sub">
+          Takes a minute. We'll come back to you with a figure — and if it's
+          not a job for us, we'll say so and point you somewhere better.
+        </p>
 
-        <label>
-          <span class="label">What needs moving</span>
-          <textarea name="details"
-            placeholder="Two pallets of broken drywall behind the garage. Gate is round the side."></textarea>
-        </label>
+        <div id="done" role="status" aria-live="polite">
+          <h3>Booking sent</h3>
+          <p id="done-note">
+            We've got it. Expect a call on the number you gave us.
+          </p>
+        </div>
 
-        <label>
-          <span class="label">When suits you</span>
-          <input name="window" placeholder="Weekday mornings">
-        </label>
-      </fieldset>
+        <form id="form" novalidate>
+          <fieldset>
+            <legend>You</legend>
+            <label>
+              <span class="label">Your name or company <span class="req" aria-hidden="true">*</span></span>
+              <input name="customer" required autocomplete="organization"
+                     aria-describedby="customer-error">
+            </label>
+            <p class="error" id="customer-error" hidden>Tell us who to come back to.</p>
 
-      <button type="submit">Send the booking</button>
-    </form>
+            <div class="row">
+              <div>
+                <label>
+                  <span class="label">Who we'll speak to on the day</span>
+                  <input name="contact" autocomplete="name">
+                </label>
+              </div>
+              <div>
+                <label>
+                  <span class="label">Phone <span class="req" aria-hidden="true">*</span></span>
+                  <input name="phone" type="tel" required autocomplete="tel"
+                         aria-describedby="phone-error">
+                </label>
+              </div>
+            </div>
+            <p class="error" id="phone-error" hidden>We need a number to confirm on.</p>
+          </fieldset>
 
-    <p class="note">
-      This is the demo of a real intake. The booking is written to this
-      browser's own storage, which is the same place the board reads from when
-      it is served from this origin — so it genuinely appears in the app, on
-      this device, with no server involved. A live deployment points the app at
-      an HTTP endpoint instead; the shape of what gets sent is identical.
-    </p>
+          <fieldset>
+            <legend>Where</legend>
+            <label>
+              <span class="label">Address <span class="req" aria-hidden="true">*</span></span>
+              <input name="address" required autocomplete="street-address"
+                     aria-describedby="address-error">
+            </label>
+            <p class="error" id="address-error" hidden>We need somewhere to turn up to.</p>
+
+            <label>
+              <span class="label">Town</span>
+              <input name="city" autocomplete="address-level2">
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>The job</legend>
+            <label>
+              <span class="label">What kind of haul</span>
+              <input name="type" list="haul-types"
+                     placeholder="Debris haul, junk removal, gravel delivery…">
+              <datalist id="haul-types">
+                <option value="Debris haul"></option>
+                <option value="Junk removal"></option>
+                <option value="Gravel delivery"></option>
+                <option value="Bark &amp; soil"></option>
+                <option value="Equipment move"></option>
+              </datalist>
+            </label>
+
+            <label>
+              <span class="label">What needs moving</span>
+              <textarea name="details"
+                placeholder="Two pallets of broken drywall behind the garage. Gate is round the side."></textarea>
+            </label>
+
+            <label>
+              <span class="label">When suits you</span>
+              <input name="window" placeholder="Weekday mornings">
+            </label>
+          </fieldset>
+
+          <button type="submit">Send the booking</button>
+        </form>
+      </div>
+    </section>
   </main>
+
+  <footer>
+    <div class="wrap">
+      <div class="foot-grid">
+        <div>
+          <h3>Call or write</h3>
+          <p style="margin:0 0 4px">
+            <a href="tel:{{PHONE_LINK}}">{{PHONE}}</a>
+          </p>
+          <p style="margin:0">
+            <a href="mailto:{{EMAIL}}">{{EMAIL}}</a>
+          </p>
+        </div>
+        <div>
+          <h3>Hours</h3>
+          <p style="margin:0">{{HOURS}}</p>
+        </div>
+        <div>
+          <h3>Area</h3>
+          <p style="margin:0">
+            Corvallis, Philomath, Monmouth, Independence, Adair Village,
+            Albany and the surrounding mid-valley.
+          </p>
+        </div>
+      </div>
+      <div class="fine">
+        <p style="margin:0 0 6px">
+          &copy; <span id="year">2026</span> Brothers Hauling.
+        </p>
+        <p style="margin:0">
+          Crew: <a href="./">open the dispatch board</a>.
+        </p>
+      </div>
+    </div>
+  </footer>
 
   <script>
     (function () {
+      // ---------------------------------------------------------------
+      // WHERE BOOKINGS GO
+      //
+      // Empty  → the booking is filed into this browser's own storage,
+      //          which is how the GitHub Pages demo shows the round trip
+      //          without a server. Nobody at Brothers Hauling sees it.
+      //
+      // A URL  → the booking is POSTed there as JSON. That is what a real
+      //          deployment wants. Point the app's HttpIntakeSource at the
+      //          matching read endpoint and jobs land on the board by
+      //          themselves.
+      //
+      // The JSON body is the same either way, so switching costs one line.
+      // ---------------------------------------------------------------
+      var ENDPOINT = '';
+
       // Must match StoreIntakeSource's key and the exact shape
       // shared_preferences uses on the web: keys are namespaced with
       // "flutter.", and a string value is stored *JSON-encoded* — so the
@@ -227,6 +701,10 @@
 
       var form = document.getElementById('form');
       var done = document.getElementById('done');
+      var doneNote = document.getElementById('done-note');
+      var submit = form.querySelector('button[type="submit"]');
+
+      document.getElementById('year').textContent = new Date().getFullYear();
 
       function id() {
         // Enough to be unique per booking; the app dedupes on exactly this.
@@ -260,6 +738,22 @@
         if (field) field.setAttribute('aria-invalid', show ? 'true' : 'false');
       }
 
+      function succeed() {
+        form.reset();
+        done.style.display = 'block';
+        done.scrollIntoView({ block: 'nearest' });
+      }
+
+      function fail(message) {
+        // Never show a confirmation for something that did not happen — a
+        // booking nobody received is worse than an obvious error.
+        done.style.display = 'block';
+        done.querySelector('h3').textContent = "Couldn't send it";
+        done.querySelector('h3').style.color = 'var(--brand)';
+        doneNote.textContent = message;
+        done.scrollIntoView({ block: 'nearest' });
+      }
+
       form.addEventListener('submit', function (event) {
         event.preventDefault();
 
@@ -290,28 +784,74 @@
           window: form.elements.window.value.trim()
         };
 
-        try {
-          var all = read();
-          all.push(booking);
-          write(all);
-        } catch (e) {
-          // A browser with storage switched off cannot demo the round trip.
-          // Say so rather than showing a success that did not happen.
-          done.style.display = 'block';
-          done.querySelector('h2').textContent = "Couldn't send it";
-          done.querySelector('h2').style.color = 'var(--brand)';
-          done.querySelector('p').textContent =
-            'This browser will not let the page save anything, so the booking ' +
-            'could not be filed. Try again without private browsing.';
-          done.scrollIntoView({ block: 'nearest' });
+        if (!ENDPOINT) {
+          try {
+            var all = read();
+            all.push(booking);
+            write(all);
+          } catch (e) {
+            // A browser with storage switched off cannot demo the round trip.
+            fail(
+              'This browser will not let the page save anything, so the ' +
+              'booking could not be filed. Try again without private ' +
+              'browsing, or give us a ring.'
+            );
+            return;
+          }
+          succeed();
           return;
         }
 
-        form.reset();
-        done.style.display = 'block';
-        done.scrollIntoView({ block: 'nearest' });
+        submit.disabled = true;
+        submit.textContent = 'Sending…';
+
+        fetch(ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(booking)
+        }).then(function (response) {
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          succeed();
+        }).catch(function () {
+          fail(
+            'We could not get that through just now. Give us a ring on ' +
+            '{{PHONE}} and we will take it down over the phone.'
+          );
+        }).then(function () {
+          submit.disabled = false;
+          submit.textContent = 'Send the booking';
+        });
       });
     })();
+  </script>
+
+  <!--
+    Search-engine description of the business. Fill in the same tokens as
+    above; the "telephone" and "email" fields are what puts a callable number
+    into a search result.
+  -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "MovingCompany",
+    "name": "Brothers Hauling",
+    "description": "Debris hauling, junk removal, gravel and bark delivery, and equipment moves across Corvallis and the mid-valley.",
+    "telephone": "{{PHONE}}",
+    "email": "{{EMAIL}}",
+    "areaServed": [
+      { "@type": "City", "name": "Corvallis" },
+      { "@type": "City", "name": "Philomath" },
+      { "@type": "City", "name": "Monmouth" },
+      { "@type": "City", "name": "Independence" },
+      { "@type": "City", "name": "Adair Village" },
+      { "@type": "City", "name": "Albany" }
+    ],
+    "address": {
+      "@type": "PostalAddress",
+      "addressRegion": "OR",
+      "addressCountry": "US"
+    }
+  }
   </script>
 </body>
 </html>
