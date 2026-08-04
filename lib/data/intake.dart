@@ -107,7 +107,7 @@ class BookingRequest {
   /// Turns the booking into a job dispatch can work with.
   ///
   /// Everything the customer could not know is left blank or zero rather than
-  /// guessed. A made-up mileage or an invented payout would look exactly like a
+  /// guessed. A made-up mileage or an invented price would look exactly like a
   /// real one on the board, which is worse than an obviously empty field.
   Job toJob(String jobId) => Job(
     id: jobId,
@@ -129,7 +129,6 @@ class BookingRequest {
     window: window.isEmpty ? 'Not agreed yet' : window,
     miles: 0,
     deadhead: 0,
-    payout: 0,
     billed: 0,
     events: [
       JobEvent(

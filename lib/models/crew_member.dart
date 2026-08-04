@@ -33,6 +33,7 @@ class CrewMember {
     required this.appOpen,
     required this.rig,
     this.role = Role.employee,
+    this.hourlyRate = 0,
     this.lastSeen,
     this.lastPlace,
   });
@@ -43,6 +44,10 @@ class CrewMember {
   final String unit;
   final bool onShift;
   final bool appOpen;
+
+  /// Whole dollars an hour. Zero means nobody has set one yet, which shows as
+  /// "no rate set" rather than as free labour.
+  final int hourlyRate;
 
   /// What this person is allowed to see and do.
   ///
@@ -67,6 +72,7 @@ class CrewMember {
     'appOpen': appOpen,
     'rig': rig,
     'role': role.name,
+    'hourlyRate': hourlyRate,
     'lastSeen': lastSeen,
     'lastPlace': lastPlace,
   };
@@ -79,6 +85,7 @@ class CrewMember {
     onShift: json['onShift'] as bool? ?? false,
     appOpen: json['appOpen'] as bool? ?? false,
     rig: (json['rig'] as List?)?.cast<String>() ?? const [],
+    hourlyRate: (json['hourlyRate'] as num?)?.toInt() ?? 0,
     role: Role.values.firstWhere(
       (r) => r.name == json['role'],
       // Absent or unrecognised reads as employee. Guessing upwards would hand

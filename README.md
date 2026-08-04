@@ -15,9 +15,9 @@ Three roles, one job pipeline:
 
 | Role | Sees |
 | --- | --- |
-| **Admin** | Everything — money, live crew tracking, every job, and hiring at any level |
-| **Manager** | Job pay, who's staffed where, hiring drivers, plus the full employee view |
-| **Employee** | The board, job details, and before / after photos |
+| **Admin** | Everything — money, hours and rates, live crew tracking, every job, hiring at any level |
+| **Manager** | What jobs bill at, who's staffed where, hiring drivers, plus the full employee view |
+| **Employee** | The board, job details, their own hours, and before / after photos |
 
 A driver takes a load off the board by **pressing and holding** a card — an
 accidental tap must not sign someone up for a job. From there the job walks
@@ -108,6 +108,26 @@ mutation as well as at the call site, because the queue outlives an app upgrade.
 Every edit writes itself into the movement log, so dispatch changing what a job
 pays is something the driver can see afterwards.
 
+### Hours, and what drivers are not shown
+
+Pay is hourly, so there is no per-job "your cut" — and **a driver is never shown
+a money figure anywhere in the app**. Not their rate, not a job's price, not a
+running total. What an hour is worth is between them and payroll, and an app
+that announces it to whoever picks the phone up is not doing anyone a favour.
+They see their time; that is the part that is theirs to check.
+
+The clock is not a timer. There is nothing to start and nothing to forget to
+stop: **taking a job on starts it and closing the job stops it**, stamped by the
+same mutations that move the job. So a shift worked in a dead zone is already on
+the timesheet by the time the phone finds signal, and there is no stopwatch left
+running overnight. A timesheet built beside the jobs would be a second record of
+the same thing, and two records of the same thing disagree.
+
+The owner gets an **Hours** tab: everyone's total, who is on the clock right
+now, and each person opened up job by job with the times either side. Rates live
+there too — a rate nobody has set reads as "no rate", never as free labour.
+Managers do not see any of it.
+
 ### Working with no signal
 
 The board lives on the device, not in memory. Every change — claiming a load,
@@ -181,7 +201,7 @@ flutter analyze
 flutter test
 ```
 
-**480 tests**, in fourteen files:
+**518 tests**, in fifteen files:
 
 | File | Covers |
 | --- | --- |
@@ -197,6 +217,7 @@ flutter test
 | `test/photos_test.dart` | Many shots per slot, the on-site prompt, and that a board written by the previous build still loads |
 | `test/crew_test.dart` | Who may hire whom, that the rule is enforced in the state rather than the form, and that a new hire survives a relaunch |
 | `test/edit_job_test.dart` | That an owner can correct every detail, that nobody else can, and that an edit cannot rewrite what the driver did |
+| `test/hours_test.dart` | The clock starting and stopping with the job, the timesheet maths, and that a driver is never shown a figure |
 | `test/day_board_test.dart` | The day grid — which day is showing, what lands on it, the arrows, the keys, the swipe, and that the grid widens with the window |
 | `test/intake_test.dart` | The booking contract, that the same booking never lands twice, that a dead website doesn't take the board down, and that nothing reaches a driver unpriced |
 

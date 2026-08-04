@@ -101,7 +101,6 @@ void main() {
       // worse than an obviously empty field.
       final job = state.requestedJobs.single;
       expect(job.miles, 0);
-      expect(job.payout, 0);
       expect(job.billed, 0);
       expect(job.equipment, isEmpty);
       expect(job.needsPricing, isTrue);
@@ -229,14 +228,13 @@ void main() {
       final ok = await state.publishJob(state.requestedJobs.single);
 
       expect(ok, isFalse);
-      expect(state.toast, contains("driver's cut"));
+      expect(state.toast, contains('Put a price on it'));
       expect(state.requestedJobs, hasLength(1));
     });
 
     test('a priced one goes to the crew', () async {
       final state = await withBooking();
       await state.editJob(state.requestedJobs.single, {
-        'payout': 180,
         'billed': 360,
         'equipment': 'Dump trailer 14k',
         'miles': 22,
@@ -265,13 +263,13 @@ void main() {
 
       // The queue outlives the screen that enforced the rule.
       expect(publish.apply(job), isNull);
-      final priced = Job.fromJson({...job.toJson(), 'payout': 180});
+      final priced = Job.fromJson({...job.toJson(), 'billed': 360});
       expect(publish.apply(priced), isNotNull);
     });
 
     test('publishing writes itself into the log', () async {
       final state = await withBooking();
-      await state.editJob(state.requestedJobs.single, {'payout': 180});
+      await state.editJob(state.requestedJobs.single, {'billed': 360});
       await state.publishJob(state.requestedJobs.single);
 
       final job = state.jobs.firstWhere((j) => j.bookingId == 'bk-1');
@@ -421,7 +419,7 @@ void main() {
 
       // A dead grey button explains nothing; this one says what is missing.
       expect(harness.state.requestedJobs, hasLength(1));
-      expect(find.textContaining("driver's cut"), findsWidgets);
+      expect(find.textContaining('Put a price on it'), findsWidgets);
     });
   });
 }

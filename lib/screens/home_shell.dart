@@ -3,6 +3,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../models/job.dart';
+import '../models/time_entry.dart';
 import '../models/role.dart';
 import '../services/link_service.dart';
 import '../services/location_service.dart';
@@ -17,6 +18,7 @@ import 'role_gate.dart';
 import 'tabs/day_board.dart';
 import 'tabs/dispatch_tabs.dart';
 import 'tabs/employee_tabs.dart';
+import 'tabs/hours_tab.dart';
 
 /// The signed-in app.
 ///
@@ -177,6 +179,7 @@ class _TabBody extends StatelessWidget {
       HaulTab.mine => EmployeeMineTab(selectedJobId: selectedJobId),
       HaulTab.jobs => JobsTab(selectedJobId: selectedJobId),
       HaulTab.crew => const CrewTab(),
+      HaulTab.hours => const HoursTab(),
       HaulTab.tracking => const TrackingTab(),
       HaulTab.overview => const OverviewTab(),
     };
@@ -384,6 +387,7 @@ IconData _tabIcon(HaulTab tab) => switch (tab) {
   HaulTab.day => Icons.calendar_today_rounded,
   HaulTab.jobs => Icons.assignment_outlined,
   HaulTab.crew => Icons.people_alt_outlined,
+  HaulTab.hours => Icons.schedule_rounded,
   HaulTab.tracking => Icons.navigation_rounded,
   HaulTab.overview => Icons.dashboard_outlined,
 };
@@ -675,14 +679,20 @@ class _ClosedOverlay extends StatelessWidget {
                       style: ht.secondary,
                     ),
                     const SizedBox(height: 20),
+                    // The hours, not a figure. A driver is paid for their time,
+                    // and what that time is worth is between them and payroll —
+                    // not something the app announces at the end of every job.
                     Semantics(
-                      label: 'You earned ${job.payout} dollars',
+                      label:
+                          'Time on this job, '
+                          '\${describeWorked(job.workedBy(DateTime.now()))}',
                       excludeSemantics: true,
                       child: Text(
-                        '+\$${job.payout}',
+                        formatWorked(job.workedBy(DateTime.now())),
                         style: ht.money.copyWith(fontSize: 32),
                       ),
                     ),
+                    Text('on the clock', style: ht.small),
                     const SizedBox(height: 24),
                     FilledButton(
                       autofocus: true,

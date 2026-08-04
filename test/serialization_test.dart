@@ -45,7 +45,6 @@ void main() {
         expect(copy.window, original.window);
         expect(copy.miles, original.miles);
         expect(copy.deadhead, original.deadhead);
-        expect(copy.payout, original.payout);
         expect(copy.billed, original.billed);
         expect(copy.hazards, original.hazards);
         expect(copy.status, original.status);

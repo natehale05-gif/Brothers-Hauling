@@ -280,7 +280,6 @@ class EditJob extends JobMutation {
     'window',
     'miles',
     'deadhead',
-    'payout',
     'billed',
     'hazards',
     'scheduledFor',
@@ -341,7 +340,6 @@ class EditJob extends JobMutation {
   static String _label(String field) => switch (field) {
     'dumpFee' => 'the disposal fee',
     'deadhead' => 'the deadhead miles',
-    'payout' => "the driver's cut",
     'billed' => 'what it bills at',
     'window' => 'the time window',
     'scheduledFor' => 'the day it happens',
@@ -367,9 +365,9 @@ class PublishJob extends JobMutation {
   Job? apply(Job job, {Map<String, Uint8List> photoBytes = const {}}) {
     if (job.status != JobStatus.requested) return null;
     // The same guard as the caller's, because the queue outlives the screen
-    // that enforced it — a publish sitting in an outbox must not put a job
-    // paying nothing in front of a driver when it finally replays.
-    if (job.payout <= 0) return null;
+    // that enforced it — a publish sitting in an outbox must not put an
+    // unpriced job in front of a driver when it finally replays.
+    if (job.billed <= 0) return null;
 
     return job.copyWith(
       status: JobStatus.open,
@@ -407,6 +405,9 @@ class ClaimJob extends JobMutation {
       assignedTo: actorId,
       stage: 0,
       progress: 0,
+      // The clock starts here, stamped with when the driver actually did it
+      // rather than when this reaches a server.
+      startedAt: at,
       events: [
         ...job.events,
         JobEvent(
@@ -438,6 +439,7 @@ class AcceptJob extends JobMutation {
       status: JobStatus.active,
       stage: 0,
       progress: 0,
+      startedAt: at,
       events: [
         ...job.events,
         JobEvent(at: at, label: 'Accepted the job', kind: EventKind.flat),
@@ -499,6 +501,7 @@ class AdvanceStage extends JobMutation {
 
     return job.copyWith(
       status: closing ? JobStatus.done : job.status,
+      finishedAt: closing ? at : job.finishedAt,
       stage: toStage,
       progress: closing ? 1 : 0,
       events: [...job.events, job.transitionEvent(toStage, at)],

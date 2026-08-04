@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/seed_data.dart';
 import '../models/job.dart';
+import '../models/time_entry.dart';
 import '../services/link_service.dart';
 import '../state/app_state.dart';
 import '../theme/haul_theme.dart';
@@ -241,27 +242,25 @@ class _Header extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Semantics(
-            label: showMoney
-                ? 'Bills at ${job.billed} dollars'
-                : 'Your cut, ${job.payout} dollars',
-            excludeSemantics: true,
-            container: true,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '\$${showMoney ? job.billed : job.payout}',
-                  style: ht.money.copyWith(fontSize: 18),
-                ),
-                Text(
-                  showMoney ? 'billed' : 'your cut',
-                  style: ht.small.copyWith(fontSize: 11),
-                ),
-              ],
+          // Only dispatch gets a figure here. Pay is hourly, so there is no
+          // per-job number a driver could be shown that would even be true.
+          if (showMoney)
+            Semantics(
+              label: 'Bills at ${job.billed} dollars',
+              excludeSemantics: true,
+              container: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '\$${job.billed}',
+                    style: ht.money.copyWith(fontSize: 18),
+                  ),
+                  Text('billed', style: ht.small.copyWith(fontSize: 11)),
+                ],
+              ),
             ),
-          ),
           if (!showCloseButton) ...[
             const SizedBox(width: 8),
             HaulIconButton(
@@ -355,12 +354,17 @@ class _MoneyAndStaffing extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           KeyValueRow(label: 'Billed to customer', value: '\$${job.billed}'),
-          KeyValueRow(label: 'Driver payout', value: '\$${job.payout}'),
           KeyValueRow(label: 'Disposal cost', value: '\$${job.dumpFee}'),
           KeyValueRow(
-            label: 'Margin',
-            value: '\$${job.margin}',
+            label: 'Before labour',
+            value: '\$${job.beforeLabour}',
             valueStyle: ht.bodyStrong.copyWith(color: hc.go),
+          ),
+          KeyValueRow(
+            label: 'Time on the job',
+            value: job.startedAt == null
+                ? 'Not started'
+                : formatWorked(job.workedBy(DateTime.now())),
           ),
           KeyValueRow(
             label: 'Assigned to',

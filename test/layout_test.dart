@@ -28,6 +28,7 @@ const tabsByRole = <Role, List<HaulTab>>{
     HaulTab.day,
     HaulTab.jobs,
     HaulTab.tracking,
+    HaulTab.hours,
     HaulTab.crew,
   ],
 };

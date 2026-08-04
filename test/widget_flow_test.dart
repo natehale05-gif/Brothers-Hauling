@@ -118,20 +118,19 @@ void main() {
       );
     });
 
-    testWidgets('an employee sees their cut, never the billed figure', (
-      tester,
-    ) async {
+    testWidgets('an employee is shown no money at all', (tester) async {
       await pumpApp(tester, role: Role.employee);
 
-      expect(find.text('\$168'), findsOneWidget); // HL-4471 payout
-      expect(find.text('\$395'), findsNothing); // HL-4471 billed
+      // Pay is hourly. There is no per-job figure that would be true, and what
+      // an hour is worth is between the driver and payroll.
+      expect(find.textContaining(RegExp(r'\\$\d')), findsNothing);
     });
 
-    testWidgets('a manager sees billed and payout together', (tester) async {
+    testWidgets('a manager sees what the job bills at', (tester) async {
       await pumpApp(tester, role: Role.manager);
 
       expect(find.text('\$395'), findsOneWidget);
-      expect(find.text('billed · pays \$168'), findsOneWidget);
+      expect(find.text('billed'), findsWidgets);
     });
 
     testWidgets('the employee-view toggle hides money from a manager', (
@@ -144,8 +143,7 @@ void main() {
       await settle(tester);
 
       expect(harness.state.canSeeMoney, isFalse);
-      expect(find.text('\$395'), findsNothing);
-      expect(find.text('\$168'), findsOneWidget);
+      expect(find.textContaining(RegExp(r'\\$\d')), findsNothing);
     });
   });
 
@@ -180,7 +178,8 @@ void main() {
       await tapVisible(tester, find.text('CLOSE IT OUT'));
 
       expect(find.text('LOAD CLOSED'), findsOneWidget);
-      expect(find.text('+\$168'), findsOneWidget);
+      // The hours, not a figure — the driver is paid for their time.
+      expect(find.text('on the clock'), findsOneWidget);
 
       await tester.tap(find.text('BACK TO THE BOARD'));
       await settle(tester);
@@ -193,8 +192,6 @@ void main() {
       await pumpApp(tester, role: Role.admin);
 
       expect(find.text('\$470'), findsOneWidget); // billed today
-      expect(find.text('\$177'), findsOneWidget); // margin
-      expect(find.text('\$293'), findsOneWidget); // payout + disposal
     });
 
     testWidgets('tracking separates who is reporting from who is not', (

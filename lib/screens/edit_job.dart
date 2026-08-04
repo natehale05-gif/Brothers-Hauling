@@ -96,7 +96,7 @@ const _sections = <String, List<_Field>>{
     _Field('deadhead', 'Deadhead miles', number: true),
   ],
   'Money': [
-    _Field('payout', "Driver's cut", number: true, money: true),
+    // No driver's cut: pay is hourly, and hours are not a property of a job.
     _Field('billed', 'Bills at', number: true, money: true),
     _Field('dumpFee', 'Disposal fee', number: true, money: true),
   ],

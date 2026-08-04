@@ -134,7 +134,8 @@ class JobCard extends StatelessWidget {
             confirmTitle: 'Take ${job.id}?',
             confirmMessage:
                 '${job.type} for ${job.customer} in ${job.city}. '
-                'Pays \$${job.payout}. Dispatch will see you on it.',
+                'Your hours start when you take it. Dispatch will see you '
+                'on it.',
             onConfirmed: () => state.claim(job),
           ),
         ];
@@ -179,10 +180,9 @@ class _Headline extends StatelessWidget {
   Widget build(BuildContext context) {
     final ht = HaulText.of(context);
     // Money is one idea; read it as one phrase rather than a number followed by
-    // an orphaned caption.
-    final moneyLabel = showBilled
-        ? 'Bills at ${job.billed} dollars, driver payout ${job.payout} dollars'
-        : 'Your cut, ${job.payout} dollars';
+    // an orphaned caption. A driver gets no figure at all — they are paid for
+    // hours, so there is no per-job number that would even be true.
+    final moneyLabel = 'Bills at ${job.billed} dollars';
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,30 +204,26 @@ class _Headline extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 12),
-        Semantics(
-          label: moneyLabel,
-          excludeSemantics: true,
-          container: true,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '\$${showBilled ? job.billed : job.payout}',
-                style: ht.money,
-              ),
-              const SizedBox(height: 3),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 130),
-                child: Text(
-                  showBilled ? 'billed · pays \$${job.payout}' : 'your cut',
+        if (showBilled) ...[
+          const SizedBox(width: 12),
+          Semantics(
+            label: moneyLabel,
+            excludeSemantics: true,
+            container: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text('\$${job.billed}', style: ht.money),
+                const SizedBox(height: 3),
+                Text(
+                  'billed',
                   textAlign: TextAlign.end,
                   style: ht.small.copyWith(fontSize: 11),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }

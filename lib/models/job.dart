@@ -182,7 +182,6 @@ class Job {
     required this.window,
     required this.miles,
     required this.deadhead,
-    required this.payout,
     required this.billed,
     this.hazards = const [],
     this.status = JobStatus.open,
@@ -194,6 +193,8 @@ class Job {
     this.progress = 0,
     this.bookingId,
     this.scheduledFor,
+    this.startedAt,
+    this.finishedAt,
   });
 
   final String id;
@@ -225,7 +226,6 @@ class Job {
   /// Empty miles from the yard to the site.
   final int deadhead;
 
-  final int payout;
   final int billed;
   final List<String> hazards;
   final JobStatus status;
@@ -247,6 +247,31 @@ class Job {
 
   /// 0..1 along the current leg.
   final double progress;
+
+  /// When the driver took this job on, and when they closed it.
+  ///
+  /// The clock, and the only one. Hours are not a running timer somebody has
+  /// to remember to start — a timer is a thing that gets left going overnight,
+  /// and it cannot survive the app being killed in a dead zone. These two
+  /// stamps are written by the same mutations that move the job, so the hours
+  /// are a consequence of the work rather than a second record of it.
+  final DateTime? startedAt;
+  final DateTime? finishedAt;
+
+  /// How long this job has been worked, so far or in total.
+  ///
+  /// [now] is passed in rather than read, so a running job's figure is
+  /// whatever the caller's clock says and tests are not at the mercy of one.
+  Duration workedBy(DateTime now) {
+    final from = startedAt;
+    if (from == null) return Duration.zero;
+    final to = finishedAt ?? now;
+    final span = to.difference(from);
+    return span.isNegative ? Duration.zero : span;
+  }
+
+  /// Still on the clock.
+  bool get onTheClock => startedAt != null && finishedAt == null;
 
   /// The day this job is meant to happen.
   ///
@@ -285,7 +310,9 @@ class Job {
   JobPhoto? get photoBefore => photosBefore.isEmpty ? null : photosBefore.first;
   JobPhoto? get photoAfter => photosAfter.isEmpty ? null : photosAfter.first;
 
-  int get margin => billed - payout - dumpFee;
+  /// What is left before labour. Labour costs hours × the driver's rate, and
+  /// neither of those lives on a job, so this is deliberately not "profit".
+  int get beforeLabour => billed - dumpFee;
 
   /// Miles on the leg the driver is currently running.
   int get legMiles => stage == 1 ? deadhead : miles;
@@ -349,7 +376,6 @@ class Job {
     'window': window,
     'miles': miles,
     'deadhead': deadhead,
-    'payout': payout,
     'billed': billed,
     'hazards': hazards,
     'status': status.name,
@@ -361,6 +387,8 @@ class Job {
     'progress': progress,
     'bookingId': bookingId,
     'scheduledFor': scheduledFor?.toUtc().toIso8601String(),
+    'startedAt': startedAt?.toUtc().toIso8601String(),
+    'finishedAt': finishedAt?.toUtc().toIso8601String(),
   };
 
   /// [photoBytes] supplies the pixels for any photo id the job references;
@@ -406,7 +434,6 @@ class Job {
       window: json['window'] as String? ?? '',
       miles: (json['miles'] as num?)?.toInt() ?? 0,
       deadhead: (json['deadhead'] as num?)?.toInt() ?? 0,
-      payout: (json['payout'] as num?)?.toInt() ?? 0,
       billed: (json['billed'] as num?)?.toInt() ?? 0,
       hazards: (json['hazards'] as List?)?.cast<String>() ?? const [],
       status: _enumFrom(JobStatus.values, json['status'], JobStatus.open),
@@ -424,6 +451,12 @@ class Job {
       bookingId: json['bookingId'] as String?,
       scheduledFor: DateTime.tryParse(
         json['scheduledFor'] as String? ?? '',
+      )?.toLocal(),
+      startedAt: DateTime.tryParse(
+        json['startedAt'] as String? ?? '',
+      )?.toLocal(),
+      finishedAt: DateTime.tryParse(
+        json['finishedAt'] as String? ?? '',
       )?.toLocal(),
     );
   }
@@ -443,6 +476,8 @@ class Job {
     String? bookingId,
     DateTime? scheduledFor,
     bool clearSchedule = false,
+    DateTime? startedAt,
+    DateTime? finishedAt,
   }) {
     return Job(
       id: id,
@@ -462,7 +497,6 @@ class Job {
       window: window,
       miles: miles,
       deadhead: deadhead,
-      payout: payout,
       billed: billed,
       hazards: hazards,
       status: status ?? this.status,
@@ -474,6 +508,8 @@ class Job {
       progress: progress ?? this.progress,
       bookingId: bookingId ?? this.bookingId,
       scheduledFor: clearSchedule ? null : (scheduledFor ?? this.scheduledFor),
+      startedAt: startedAt ?? this.startedAt,
+      finishedAt: finishedAt ?? this.finishedAt,
     );
   }
 }

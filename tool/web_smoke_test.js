@@ -190,9 +190,11 @@ function check(label, ok, detail = '') {
         n.some((x) => /Wrong rig for this load/.test(x)),
       );
       check(
-        'the payout reads as a phrase, not a bare number',
-        n.some((x) => /Your cut, \d+ dollars/.test(x)),
-        n.find((x) => /Your cut/.test(x)),
+        'a driver is shown no money at all',
+        // Pay is hourly, so there is no per-job figure that would be true, and
+        // what an hour is worth is between the driver and payroll.
+        !n.some((x) => /dollars|\$\d/.test(x)),
+        n.find((x) => /dollars|\$\d/.test(x)),
       );
       check(
         'tabs announce their position',
@@ -291,11 +293,11 @@ function check(label, ok, detail = '') {
       );
       check(
         'the wide layout offers every destination',
-        n.filter((x) => /^button:.*tab,? \d of 5$/i.test(x)).length === 5,
+        n.filter((x) => /^button:.*tab,? \d of 6$/i.test(x)).length === 6,
       );
       check(
         'the day view is one of them',
-        n.some((x) => /^button:.*Day tab,? \d of 5$/i.test(x)),
+        n.some((x) => /^button:.*Day tab,? \d of 6$/i.test(x)),
       );
 
       await press(page, 'Tracking tab');

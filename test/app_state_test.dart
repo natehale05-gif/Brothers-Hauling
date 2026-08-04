@@ -242,20 +242,22 @@ void main() {
   });
 
   group('money roll-ups', () {
-    test('revenue, cost and margin come off closed jobs only', () {
+    test('revenue comes off closed jobs only', () {
       final s = makeState()..enter(Role.admin);
 
       // HL-4468 is the only job closed in the seed data.
       expect(s.revenue, 470);
-      expect(s.cost, 205 + 88);
-      expect(s.revenue - s.cost, 177);
       s.dispose();
     });
 
-    test("a driver's earnings only count their own closed jobs", () {
-      final s = makeState()..enter(Role.employee);
-      // HL-4468 belongs to K. Whitlow, not me.
-      expect(s.myEarned, 0);
+    test('cost is disposal plus what the hours came to', () {
+      final s = makeState()..enter(Role.admin);
+
+      // Labour is hours × rate, so it cannot be read off the jobs alone —
+      // which is the whole point of the change to hourly pay.
+      final disposal = s.doneAll.fold(0, (total, j) => total + j.dumpFee);
+      final labour = s.timesheets.fold(0, (total, t) => total + (t.pay ?? 0));
+      expect(s.cost, disposal + labour);
       s.dispose();
     });
   });

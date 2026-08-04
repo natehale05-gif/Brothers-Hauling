@@ -295,26 +295,24 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('money is read as a sentence, not a bare number', (
-      tester,
-    ) async {
+    testWidgets('a driver is never read a figure at all', (tester) async {
       final handle = tester.ensureSemantics();
       await pumpApp(tester, role: Role.employee);
 
-      expect(find.bySemanticsLabel('Your cut, 168 dollars'), findsOneWidget);
+      // Pay is hourly, so there is no per-job number that would even be true —
+      // and what an hour is worth is not the app's to announce.
+      expect(find.bySemanticsLabel(RegExp('dollars')), findsNothing);
+      expect(find.bySemanticsLabel(RegExp('Your cut')), findsNothing);
       handle.dispose();
     });
 
-    testWidgets('a manager hears both figures on one node', (tester) async {
+    testWidgets('money is read as a sentence for the people who see it', (
+      tester,
+    ) async {
       final handle = tester.ensureSemantics();
       await pumpApp(tester, role: Role.manager);
 
-      expect(
-        find.bySemanticsLabel(
-          'Bills at 395 dollars, driver payout 168 dollars',
-        ),
-        findsOneWidget,
-      );
+      expect(find.bySemanticsLabel('Bills at 395 dollars'), findsOneWidget);
       handle.dispose();
     });
 
@@ -376,12 +374,12 @@ void main() {
       final handle = tester.ensureSemantics();
       await pumpApp(tester, role: Role.admin);
 
-      expect(find.bySemanticsLabel('Overview tab, 1 of 5'), findsOneWidget);
-      expect(find.bySemanticsLabel('Day tab, 2 of 5'), findsOneWidget);
-      expect(find.bySemanticsLabel('Crew tab, 5 of 5'), findsOneWidget);
+      expect(find.bySemanticsLabel('Overview tab, 1 of 6'), findsOneWidget);
+      expect(find.bySemanticsLabel('Day tab, 2 of 6'), findsOneWidget);
+      expect(find.bySemanticsLabel('Crew tab, 6 of 6'), findsOneWidget);
 
       final selected = tester.getSemantics(
-        find.bySemanticsLabel('Overview tab, 1 of 5'),
+        find.bySemanticsLabel('Overview tab, 1 of 6'),
       );
       // isSelected is a tristate: unset, true, or false.
       expect(

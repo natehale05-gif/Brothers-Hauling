@@ -534,7 +534,7 @@ class _BookingCard extends StatelessWidget {
     final hc = HaulColors.of(context);
     final ht = HaulText.of(context);
     final state = AppScope.of(context);
-    final priced = job.payout > 0;
+    final priced = job.billed > 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -550,7 +550,7 @@ class _BookingCard extends StatelessWidget {
             button: true,
             label:
                 'Open the booking from ${job.customer}, '
-                '${priced ? "priced at ${job.payout} dollars" : "not priced yet"}',
+                '${priced ? "priced at ${job.billed} dollars" : "not priced yet"}',
             onTap: () => state.openJobCard(job),
             excludeSemantics: true,
             child: InkWell(
@@ -588,7 +588,7 @@ class _BookingCard extends StatelessWidget {
                         if (!priced)
                           const Pill.violet(label: 'No price yet')
                         else
-                          Pill.brand(label: '\$${job.payout} to the driver'),
+                          Pill.brand(label: 'Bills at \$${job.billed}'),
                       ],
                     ),
                   ],

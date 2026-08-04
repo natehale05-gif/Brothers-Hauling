@@ -54,12 +54,12 @@ void main() {
 
     test('the state refuses the edit, not just the button', () async {
       final state = boot(role: Role.manager);
-      final before = jobIn(state, 'HL-4471').payout;
+      final before = jobIn(state, 'HL-4471').billed;
 
-      final ok = await state.editJob(jobIn(state, 'HL-4471'), {'payout': 999});
+      final ok = await state.editJob(jobIn(state, 'HL-4471'), {'billed': 999});
 
       expect(ok, isFalse);
-      expect(jobIn(state, 'HL-4471').payout, before);
+      expect(jobIn(state, 'HL-4471').billed, before);
       expect(state.toast, contains('Only an owner'));
     });
   });
@@ -71,15 +71,15 @@ void main() {
 
       await state.editJob(before, {
         'customer': 'Fairbanks Excavating',
-        'payout': 210,
+        'billed': 610,
       });
 
       final after = jobIn(state, 'HL-4471');
       expect(after.customer, 'Fairbanks Excavating');
-      expect(after.payout, 210);
+      expect(after.billed, 610);
       // Everything unnamed is untouched.
       expect(after.address, before.address);
-      expect(after.billed, before.billed);
+      expect(after.dumpFee, before.dumpFee);
       expect(after.equipment, before.equipment);
     });
 
@@ -103,7 +103,6 @@ void main() {
         'window': '6:00 – 8:00 AM',
         'miles': 41,
         'deadhead': 12,
-        'payout': 310,
         'billed': 640,
         'hazards': ['Sharp edges'],
       });
@@ -124,19 +123,18 @@ void main() {
       expect(job.window, '6:00 – 8:00 AM');
       expect(job.miles, 41);
       expect(job.deadhead, 12);
-      expect(job.payout, 310);
       expect(job.billed, 640);
       expect(job.hazards, ['Sharp edges']);
     });
 
     test('it lands in the movement log', () async {
       final state = boot(role: Role.admin);
-      await state.editJob(jobIn(state, 'HL-4471'), {'payout': 210});
+      await state.editJob(jobIn(state, 'HL-4471'), {'billed': 610});
 
-      // Dispatch quietly changing what a job pays is exactly the thing a
-      // driver needs to be able to see afterwards.
+      // Dispatch quietly changing a job's terms is exactly the thing a driver
+      // needs to be able to see afterwards.
       expect(jobIn(state, 'HL-4471').events.last.label, contains('Dispatch'));
-      expect(jobIn(state, 'HL-4471').events.last.label, contains("driver's"));
+      expect(jobIn(state, 'HL-4471').events.last.label, contains('bills at'));
     });
 
     test('it survives a relaunch', () async {
@@ -319,11 +317,11 @@ void main() {
       await tester.tap(find.text('EDIT JOB DETAILS'));
       await settle(tester);
 
-      final payout = find.ancestor(
-        of: find.text("Driver's cut"),
+      final billed = find.ancestor(
+        of: find.text('Bills at'),
         matching: find.byType(TextFormField),
       );
-      await tester.enterText(payout, '');
+      await tester.enterText(billed, '');
       await tester.tap(find.text('SAVE CHANGES'));
       await settle(tester);
 

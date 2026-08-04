@@ -37,7 +37,6 @@ Job job(
   window: '7:00 – 9:00 AM',
   miles: 10,
   deadhead: 2,
-  payout: 100,
   billed: 200,
   assignedTo: assignedTo,
 );

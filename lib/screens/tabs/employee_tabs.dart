@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/job.dart';
+import '../../models/time_entry.dart';
 import '../../state/app_state.dart';
 import '../../theme/haul_theme.dart';
 import '../../widgets/job_card.dart';
@@ -94,13 +95,16 @@ class EmployeeMineTab extends StatelessWidget {
             ),
         if (done.isNotEmpty) ...[
           const SizedBox(height: 20),
+          // Hours, not money. What those hours are worth is between the
+          // driver and payroll, and the app is not where anyone finds out.
           SectionHeader(
             title: 'Closed today',
             trailing: Semantics(
-              label: 'Earned today: ${state.myEarned} dollars',
+              label:
+                  'On the clock today: ${describeWorked(state.myHoursToday)}',
               excludeSemantics: true,
               child: Text(
-                '\$${state.myEarned}',
+                formatWorked(state.myHoursToday),
                 style: ht.money.copyWith(fontSize: 16),
               ),
             ),
@@ -146,7 +150,7 @@ class EmployeeMineTab extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '\$${done[i].payout}',
+                            formatWorked(done[i].workedBy(DateTime.now())),
                             style: ht.money.copyWith(fontSize: 16),
                           ),
                         ],

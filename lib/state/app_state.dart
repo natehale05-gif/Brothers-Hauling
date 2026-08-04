@@ -9,6 +9,7 @@ import '../data/intake.dart';
 import '../data/seed_data.dart';
 import '../data/store.dart';
 import '../models/mutation.dart';
+import '../models/time_entry.dart';
 import '../models/crew_member.dart';
 import '../models/job.dart';
 import '../models/role.dart';
@@ -17,7 +18,7 @@ import '../services/photo_service.dart';
 
 /// Tabs, per role. Kept as an enum so a stale tab can never survive a role
 /// switch — [AppState.enter] always lands on one this role owns.
-enum HaulTab { board, mine, day, jobs, crew, tracking, overview }
+enum HaulTab { board, mine, day, jobs, crew, hours, tracking, overview }
 
 extension HaulTabLabel on HaulTab {
   String get label => switch (this) {
@@ -26,6 +27,7 @@ extension HaulTabLabel on HaulTab {
     HaulTab.day => 'Day',
     HaulTab.jobs => 'Jobs',
     HaulTab.crew => 'Crew',
+    HaulTab.hours => 'Hours',
     HaulTab.tracking => 'Tracking',
     HaulTab.overview => 'Overview',
   };
@@ -340,8 +342,8 @@ class AppState extends ChangeNotifier {
       notifyListeners();
       return false;
     }
-    if (job.payout <= 0) {
-      showToast("Put a driver's cut on it before it goes to the crew.");
+    if (job.billed <= 0) {
+      showToast('Put a price on it before it goes to the crew.');
       notifyListeners();
       return false;
     }
@@ -501,9 +503,58 @@ class AppState extends ChangeNotifier {
       .where((j) => j.status == JobStatus.active && j.phase.moving)
       .toList();
 
-  int get myEarned => myDone.fold(0, (s, j) => s + j.payout);
   int get revenue => doneAll.fold(0, (s, j) => s + j.billed);
-  int get cost => doneAll.fold(0, (s, j) => s + j.payout + j.dumpFee);
+
+  /// Disposal plus labour. Labour is hours × rate, which is why it cannot be
+  /// read off the jobs alone.
+  int get cost =>
+      doneAll.fold(0, (s, j) => s + j.dumpFee) +
+      timesheets.fold(0, (s, t) => s + (t.pay ?? 0));
+
+  // ---------------------------------------------------------------- hours
+
+  /// Everyone's paid time, derived from the jobs themselves.
+  ///
+  /// There is no timer to start and none to forget to stop: a job's own start
+  /// and finish stamps are the timesheet, so a shift worked with no signal is
+  /// already counted by the time the phone finds any.
+  List<TimeEntry> get timeEntries => TimeEntry.from(_board.jobs);
+
+  /// One per person, biggest first, so the eye lands on who has done the most.
+  List<Timesheet> get timesheets {
+    final byCrew = <String, List<TimeEntry>>{};
+    for (final entry in timeEntries) {
+      (byCrew[entry.crewId] ??= []).add(entry);
+    }
+    final out = [
+      for (final member in crew)
+        Timesheet(
+          member: member,
+          entries: byCrew[member.id] ?? const [],
+          now: _now(),
+        ),
+    ]..sort((a, b) => b.minutes.compareTo(a.minutes));
+    return out;
+  }
+
+  /// This person's hours. Everyone has one, even at zero.
+  Timesheet timesheetFor(CrewMember member) => Timesheet(
+    member: member,
+    entries: timeEntries.where((e) => e.crewId == member.id).toList(),
+    now: _now(),
+  );
+
+  /// Only an owner sees what anybody is paid — including their own figure.
+  bool get canSeeHoursAndPay => _role == Role.admin && !_asEmployee;
+
+  /// The driver's own hours. No money attached: what they are owed is payroll's
+  /// business, and the app is not where somebody finds out their rate.
+  Duration get myHoursToday {
+    final today = this.today;
+    return timeEntries
+        .where((e) => e.crewId == kMeId && e.day == today)
+        .fold(Duration.zero, (total, e) => total + e.workedBy(_now()));
+  }
 
   /// The tabs this role gets, in order.
   List<HaulTab> get navTabs {
@@ -515,11 +566,15 @@ class AppState extends ChangeNotifier {
         HaulTab.crew,
         HaulTab.board,
       ],
+      // Six, which is as many as the bottom bar will carry — every label
+      // ellipsises rather than overflowing, and the icons carry the rest.
+      // Hours are the owner's alone, including the rates behind them.
       Role.admin => const [
         HaulTab.overview,
         HaulTab.day,
         HaulTab.jobs,
         HaulTab.tracking,
+        HaulTab.hours,
         HaulTab.crew,
       ],
       _ => const [HaulTab.board, HaulTab.mine],
