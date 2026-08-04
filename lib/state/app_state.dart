@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter/widgets.dart';
 
+import '../data/accounts.dart';
 import '../data/board_repository.dart';
 import '../data/ids.dart';
 import '../data/intake.dart';
 import '../data/seed_data.dart';
+import '../data/server_control.dart';
 import '../data/store.dart';
 import '../models/mutation.dart';
 import '../models/time_entry.dart';
@@ -50,7 +52,12 @@ class AppState extends ChangeNotifier {
     IntakeSource? intake,
     DateTime Function()? now,
     IdGenerator? idGenerator,
+    ServerControl? server,
+    AccountBook? accounts,
   }) : _prefs = store ?? MemoryStore(),
+       // ignore: prefer_initializing_formals
+       _server = server,
+       _accounts = accounts ?? AccountBook(),
        _intake = intake ?? const NoIntakeSource(),
        _location = location ?? const GeolocatorLocationService(),
        photos = photos ?? ImagePickerPhotoService(),
@@ -82,9 +89,150 @@ class AppState extends ChangeNotifier {
   Future<void> restore() async {
     await _board.load();
     await _restoreThemeMode();
+    await _restoreAccounts();
     // Anything booked while the app was closed is on the board before the
     // first frame, rather than appearing a second later.
     await checkForBookings();
+  }
+
+  // ------------------------------------------- serving the crew from here
+
+  static const _accountsKey = 'accounts.v1';
+
+  final ServerControl? _server;
+
+  /// The same book the server checks passwords against — see [AccountBook.adopt].
+  final AccountBook _accounts;
+
+  /// Whether this device could be the one the crew syncs to.
+  ///
+  /// False on the web, which cannot listen on a port — the panel says so
+  /// rather than offering a button that does nothing.
+  bool get canServe => _server?.supported ?? false;
+
+  bool get serving => _server?.running ?? false;
+
+  /// Addresses a driver could type in. Empty until the server is running.
+  List<String> get serverAddresses => _server?.addresses ?? const [];
+
+  int get serverPort => _server?.port ?? 0;
+
+  /// Only an owner turns this device into the board everybody else reads.
+  bool get canManageServer => _role == Role.admin && !_asEmployee;
+
+  /// Who has a login, in the order they were added.
+  ///
+  /// The book holds password hashes and nothing else — the owner runs the
+  /// server and still cannot read what anybody typed.
+  List<Account> get accounts => _accounts.accounts.toList();
+
+  bool hasLogin(String crewId) =>
+      _accounts.accounts.any((a) => a.crewId == crewId);
+
+  Future<void> _restoreAccounts() async {
+    final stored = AccountBook.decode(await _prefs.readString(_accountsKey));
+    _accounts.adopt(stored.accounts);
+    notifyListeners();
+  }
+
+  Future<void> _writeAccounts() =>
+      _prefs.writeString(_accountsKey, _accounts.encode());
+
+  /// Gives somebody on the roster a way in.
+  ///
+  /// The password is hashed here and the plain text is never held, written or
+  /// sent — which is what makes this safe to run on the owner's own laptop.
+  Future<bool> setLogin({
+    required CrewMember member,
+    required String username,
+    required String password,
+  }) async {
+    if (!canManageServer) {
+      showToast('Only an owner can hand out logins.');
+      notifyListeners();
+      return false;
+    }
+    if (username.trim().isEmpty || password.isEmpty) {
+      showToast('A login needs a name and a password.');
+      notifyListeners();
+      return false;
+    }
+
+    final ok = _accounts.put(
+      Account(
+        username: username.trim(),
+        crewId: member.id,
+        role: member.role,
+        password: PasswordHash.of(password),
+      ),
+    );
+    if (!ok) {
+      showToast('Somebody else already signs in as that.');
+      notifyListeners();
+      return false;
+    }
+
+    await _writeAccounts();
+    showToast('${member.name} can sign in now.');
+    notifyListeners();
+    return true;
+  }
+
+  /// Takes somebody's way in away.
+  ///
+  /// Their device stops working at its next request rather than at its next
+  /// restart, which is the point of doing it at all.
+  Future<bool> removeLogin(String username) async {
+    if (!canManageServer) {
+      showToast('Only an owner can take a login away.');
+      notifyListeners();
+      return false;
+    }
+    if (!_accounts.has(username)) return false;
+
+    _accounts.remove(username);
+    await _writeAccounts();
+    showToast('$username can no longer sign in.');
+    notifyListeners();
+    return true;
+  }
+
+  /// Starts or stops serving the board to the crew from this device.
+  Future<bool> setServing(bool on) async {
+    final server = _server;
+    if (!canManageServer || server == null || !server.supported) {
+      showToast('This device cannot be the dispatch server.');
+      notifyListeners();
+      return false;
+    }
+    if (on == server.running) return true;
+
+    if (on && _accounts.isEmpty) {
+      // A server with no accounts refuses everybody, which looks exactly like
+      // a broken network to the crew standing in the yard.
+      showToast('Give somebody a login first, or nobody can connect.');
+      notifyListeners();
+      return false;
+    }
+
+    try {
+      if (on) {
+        await server.start();
+        showToast('Serving the board from this device.');
+      } else {
+        await server.stop();
+        showToast('Stopped serving.');
+      }
+    } catch (e) {
+      // Port taken, permission refused, no network. Say which rather than
+      // leaving a toggle that silently springs back.
+      showToast('Could not start: $e');
+      notifyListeners();
+      return false;
+    }
+
+    notifyListeners();
+    return true;
   }
 
   // ------------------------------------------------------------ appearance

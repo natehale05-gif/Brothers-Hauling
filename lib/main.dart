@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'data/accounts.dart';
 import 'data/board_repository.dart';
 import 'data/intake.dart';
+import 'data/server_control.dart';
 import 'data/store.dart';
 import 'screens/home_shell.dart';
 import 'services/link_service.dart';
@@ -40,9 +42,22 @@ void main() async {
   // shifts from filling up.
   unawaited(board.sweepOrphanedPhotos());
 
+  // The accounts this device would serve with, read before the server exists
+  // so the same book is the one the owner edits and the one that checks
+  // passwords. Only hashes are on disk; nothing here can be read back into a
+  // password, including by the person whose laptop it is.
+  // One book, shared: the server checks passwords against exactly what the
+  // owner's screen edits. Two copies is how somebody gets added, sees it
+  // confirmed, and still cannot connect until the app restarts.
+  final accounts = AccountBook.decode(await store.readString('accounts.v1'));
+
   final state = AppState(
     board: board,
     store: store,
+    // Lets the owner's machine be the one the crew syncs to. Unsupported on
+    // the web, which cannot listen on a port — see ServerControl.
+    server: buildServerControl(board: board, accounts: accounts),
+    accounts: accounts,
     // Bookings made on the website. On the hosted demo `hire.html` is served
     // from the same origin, so a booking made there lands in the storage this
     // reads — a real round trip rather than a mocked one. Pointing at a live

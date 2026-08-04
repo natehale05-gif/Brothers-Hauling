@@ -606,6 +606,7 @@ class HaulTextField extends StatelessWidget {
     this.validator,
     this.prefix,
     this.inputFormatters,
+    this.obscure = false,
   });
 
   final TextEditingController controller;
@@ -618,6 +619,10 @@ class HaulTextField extends StatelessWidget {
   final String? Function(String?)? validator;
   final String? prefix;
   final List<TextInputFormatter>? inputFormatters;
+
+  /// Hides what is typed. For a password being set on somebody else's behalf,
+  /// often with them standing there.
+  final bool obscure;
 
   @override
   Widget build(BuildContext context) {
@@ -637,6 +642,7 @@ class HaulTextField extends StatelessWidget {
       autofocus: autofocus,
       validator: validator,
       inputFormatters: inputFormatters,
+      obscureText: obscure,
       style: ht.body,
       cursorColor: hc.brand,
       decoration: InputDecoration(

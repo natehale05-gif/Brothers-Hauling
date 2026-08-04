@@ -12,6 +12,7 @@ import '../edit_job.dart';
 import 'day_board.dart';
 import '../../widgets/primitives.dart';
 import '../../widgets/route_strip.dart';
+import '../../widgets/server_panel.dart';
 import '../../widgets/track_card.dart';
 
 /// Every job, sorted by what needs a human: unclaimed first, then running,
@@ -202,6 +203,7 @@ class CrewTab extends StatelessWidget {
           title: 'Crew',
           trailing: Text('$onShift ON SHIFT', style: ht.eyebrow),
         ),
+        const ServerPanel(),
         if (state.canHire) const AddCrewButton(),
         Container(
           decoration: BoxDecoration(
@@ -306,6 +308,7 @@ class CrewTab extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
+                          if (state.canManageServer) _LoginControl(member: c),
                           RoleControl(member: c),
                         ],
                       ),
@@ -376,6 +379,45 @@ class RoleControl extends StatelessWidget {
             size: 22,
             color: hc.inkSoft,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Whether somebody can sign in on their own device, and a way to change it.
+///
+/// Only shown to an owner serving from this machine — an account is a way into
+/// the data, and the data is on their laptop.
+class _LoginControl extends StatelessWidget {
+  const _LoginControl({required this.member});
+
+  final CrewMember member;
+
+  @override
+  Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final state = AppScope.of(context);
+    final has = state.hasLogin(member.id);
+
+    return Semantics(
+      button: true,
+      label: has
+          ? '${member.name} can sign in. Change or remove their login.'
+          : 'Give ${member.name} a login',
+      onTap: () => showLoginSheet(context, member),
+      excludeSemantics: true,
+      child: IconButton(
+        onPressed: () => showLoginSheet(context, member),
+        tooltip: has ? 'Change their login' : 'Give them a login',
+        iconSize: 20,
+        constraints: const BoxConstraints(
+          minWidth: 40,
+          minHeight: HaulSpace.tap,
+        ),
+        icon: Icon(
+          has ? Icons.key_outlined : Icons.key_off_outlined,
+          color: has ? hc.go : hc.inkSoft,
         ),
       ),
     );

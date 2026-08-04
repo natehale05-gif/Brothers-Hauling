@@ -20,6 +20,7 @@ dependencies:
   # Before/after photos. Camera on mobile, file picker on desktop and web.
   image_picker: ^1.2.0
   shared_preferences: ^2.5.5
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:
