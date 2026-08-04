@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import '../models/crew_member.dart';
 import '../models/job.dart';
 
 /// A change to the board, as a thing rather than a method call.
@@ -14,18 +15,11 @@ import '../models/job.dart';
 /// Applying one is a pure function of (board, mutation), so the same code
 /// produces the same result on the device now and on the server later.
 sealed class Mutation {
-  const Mutation({
-    required this.id,
-    required this.jobId,
-    required this.actorId,
-    required this.at,
-  });
+  const Mutation({required this.id, required this.actorId, required this.at});
 
   /// Device-minted, and the server's idempotency key. A retry after a reply
   /// that never arrived must not advance a job twice.
   final String id;
-
-  final String jobId;
 
   /// Who did it. Not "the signed-in user at upload time" — the driver may have
   /// handed the phone over by then.
@@ -36,19 +30,9 @@ sealed class Mutation {
 
   String get kind;
 
-  /// Applies this change to [job], returning the new job.
-  ///
-  /// Returns null when the mutation cannot apply — already applied, or the job
-  /// moved on underneath it. The caller drops it rather than forcing it.
-  ///
-  /// [photoBytes] supplies pixels by photo id for the mutations that need
-  /// them, so applying stays a pure function of its inputs.
-  Job? apply(Job job, {Map<String, Uint8List> photoBytes = const {}});
-
   Map<String, Object?> toJson() => {
     'id': id,
     'kind': kind,
-    'jobId': jobId,
     'actorId': actorId,
     'at': at.toUtc().toIso8601String(),
     ...payload,
@@ -62,9 +46,23 @@ sealed class Mutation {
     final jobId = json['jobId'] as String?;
     final actorId = json['actorId'] as String?;
     final at = DateTime.tryParse(json['at'] as String? ?? '')?.toLocal();
-    if (id == null || jobId == null || actorId == null || at == null) {
+    if (id == null || actorId == null || at == null) return null;
+
+    // Crew changes are about the company, not a job, so they are read before
+    // the jobId guard rather than being given a fake one.
+    if (json['kind'] == 'crew.add') {
+      if (json['member'] case final Map raw) {
+        return AddCrewMember(
+          id: id,
+          actorId: actorId,
+          at: at,
+          member: CrewMember.fromJson(raw.cast<String, Object?>()),
+        );
+      }
       return null;
     }
+
+    if (jobId == null) return null;
 
     return switch (json['kind']) {
       'claim' => ClaimJob(id: id, jobId: jobId, actorId: actorId, at: at),
@@ -99,8 +97,78 @@ sealed class Mutation {
   }
 }
 
+/// A change to one job.
+///
+/// Split out from [Mutation] because not everything worth recording is about a
+/// job — hiring someone is a change to the company. Giving crew changes a
+/// pretend job id to fit one shape would have put a lie in the outbox, and the
+/// outbox is the thing a server later replays.
+sealed class JobMutation extends Mutation {
+  const JobMutation({
+    required super.id,
+    required this.jobId,
+    required super.actorId,
+    required super.at,
+  });
+
+  final String jobId;
+
+  /// Applies this change to [job], returning the new job.
+  ///
+  /// Returns null when the mutation cannot apply — already applied, or the job
+  /// moved on underneath it. The caller drops it rather than forcing it.
+  ///
+  /// [photoBytes] supplies pixels by photo id for the mutations that need
+  /// them, so applying stays a pure function of its inputs.
+  Job? apply(Job job, {Map<String, Uint8List> photoBytes = const {}});
+
+  @override
+  Map<String, Object?> toJson() => {...super.toJson(), 'jobId': jobId};
+}
+
+/// A change to who works here.
+sealed class CrewMutation extends Mutation {
+  const CrewMutation({
+    required super.id,
+    required super.actorId,
+    required super.at,
+  });
+
+  /// Returns the new roster, or null when the change no longer applies.
+  List<CrewMember>? apply(List<CrewMember> crew);
+}
+
+/// Someone is hired.
+///
+/// The whole member travels in the mutation rather than an id, because the
+/// person does not exist anywhere else yet — this record *is* the hiring, and
+/// it has to be replayable against a server that has never heard of them.
+class AddCrewMember extends CrewMutation {
+  const AddCrewMember({
+    required super.id,
+    required super.actorId,
+    required super.at,
+    required this.member,
+  });
+
+  final CrewMember member;
+
+  @override
+  String get kind => 'crew.add';
+
+  @override
+  Map<String, Object?> get payload => {'member': member.toJson()};
+
+  @override
+  List<CrewMember>? apply(List<CrewMember> crew) {
+    // Idempotent: a replay must not hire the same person twice.
+    if (crew.any((c) => c.id == member.id)) return null;
+    return [...crew, member];
+  }
+}
+
 /// A driver takes an unclaimed job off the board.
-class ClaimJob extends Mutation {
+class ClaimJob extends JobMutation {
   const ClaimJob({
     required super.id,
     required super.jobId,
@@ -134,7 +202,7 @@ class ClaimJob extends Mutation {
 }
 
 /// A driver says yes to a job dispatch pushed at them.
-class AcceptJob extends Mutation {
+class AcceptJob extends JobMutation {
   const AcceptJob({
     required super.id,
     required super.jobId,
@@ -161,7 +229,7 @@ class AcceptJob extends Mutation {
 }
 
 /// Dispatch pushes a job at a driver. They still have to accept it.
-class AssignJob extends Mutation {
+class AssignJob extends JobMutation {
   const AssignJob({
     required super.id,
     required super.jobId,
@@ -187,7 +255,7 @@ class AssignJob extends Mutation {
 
 /// A driver steps a job forward. [toStage] is absolute, not "+1", so a
 /// mutation replayed out of order cannot double-advance.
-class AdvanceStage extends Mutation {
+class AdvanceStage extends JobMutation {
   const AdvanceStage({
     required super.id,
     required super.jobId,
@@ -225,7 +293,7 @@ class AdvanceStage extends Mutation {
 /// Carries the photo's identity, not its pixels — those go to storage on their
 /// own schedule, and a 3 MB image has no business sitting in a queue that gets
 /// rewritten on every change.
-class AttachPhoto extends Mutation {
+class AttachPhoto extends JobMutation {
   const AttachPhoto({
     required super.id,
     required super.jobId,

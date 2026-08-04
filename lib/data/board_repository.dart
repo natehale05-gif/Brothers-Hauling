@@ -2,11 +2,12 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../models/crew_member.dart';
 import '../models/job.dart';
 import '../models/mutation.dart';
 import 'ids.dart';
 import 'outbox.dart';
-import 'seed_data.dart' show kSeedJobs;
+import 'seed_data.dart' show kCrew, kSeedJobs;
 import 'store.dart';
 
 /// How settled the board is. The UI shows this verbatim; it is never allowed to
@@ -54,6 +55,11 @@ class SyncState {
 /// server later without three different code paths that can disagree.
 abstract class BoardRepository extends ChangeNotifier {
   List<Job> get jobs;
+
+  /// Who works here. Recorded the same way jobs are, so hiring someone in a
+  /// dead zone survives the app dying exactly as a claimed load does.
+  List<CrewMember> get crew;
+
   SyncState get syncState;
 
   /// Job ids carrying changes the server has not acknowledged.
@@ -104,6 +110,7 @@ class LocalBoardRepository extends BoardRepository {
     // read from disk is in flight; [load] replaces this with whatever the
     // device actually had.
     _jobs = List.of(_seed ?? kSeedJobs);
+    _crew = List.of(kCrew);
     _outbox =
         outbox ??
         Outbox(
@@ -117,6 +124,7 @@ class LocalBoardRepository extends BoardRepository {
   }
 
   static const _boardKey = 'board.v1';
+  static const _crewKey = 'crew.v1';
   static String _photoKey(String id) => 'photo.v1.$id';
 
   final Store _store;
@@ -126,11 +134,15 @@ class LocalBoardRepository extends BoardRepository {
   late final Outbox _outbox;
 
   List<Job> _jobs = [];
+  List<CrewMember> _crew = [];
   SyncState _sync = const SyncState();
   bool _loaded = false;
 
   @override
   List<Job> get jobs => List.unmodifiable(_jobs);
+
+  @override
+  List<CrewMember> get crew => List.unmodifiable(_crew);
 
   @override
   SyncState get syncState => _sync;
@@ -153,9 +165,27 @@ class LocalBoardRepository extends BoardRepository {
       _jobs = await _decodeBoard(text) ?? _jobs;
     }
 
+    _crew = _decodeCrew(await _store.readString(_crewKey)) ?? _crew;
+
     _refreshSync();
     notifyListeners();
     await sync();
+  }
+
+  List<CrewMember>? _decodeCrew(String? text) {
+    if (text == null) return null;
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is! List) return null;
+      return [
+        for (final raw in decoded.whereType<Map>())
+          CrewMember.fromJson(raw.cast<String, Object?>()),
+      ];
+    } on FormatException {
+      // A truncated write. Keeping the seed roster beats starting the day with
+      // nobody on the crew list.
+      return null;
+    }
   }
 
   Future<List<Job>?> _decodeBoard(String text) async {
@@ -204,26 +234,42 @@ class LocalBoardRepository extends BoardRepository {
     );
   }
 
+  Future<void> _persistCrew() async {
+    await _store.writeString(
+      _crewKey,
+      jsonEncode([for (final member in _crew) member.toJson()]),
+    );
+  }
+
   @override
   Future<bool> apply(Mutation mutation, {JobPhoto? photo}) async {
-    final index = _jobs.indexWhere((j) => j.id == mutation.jobId);
-    if (index < 0) return false;
+    switch (mutation) {
+      case CrewMutation():
+        final updated = mutation.apply(_crew);
+        if (updated == null) return false;
+        _crew = updated;
+        await _persistCrew();
 
-    // Pixels first. If the write fails we have not yet told anyone the photo
-    // exists, which is the recoverable order to fail in.
-    if (photo != null) {
-      await _store.writeBytes(_photoKey(photo.id), photo.bytes);
+      case JobMutation():
+        final index = _jobs.indexWhere((j) => j.id == mutation.jobId);
+        if (index < 0) return false;
+
+        // Pixels first. If the write fails we have not yet told anyone the
+        // photo exists, which is the recoverable order to fail in.
+        if (photo != null) {
+          await _store.writeBytes(_photoKey(photo.id), photo.bytes);
+        }
+
+        final updated = mutation.apply(
+          _jobs[index],
+          photoBytes: {if (photo != null) photo.id: photo.bytes},
+        );
+        if (updated == null) return false;
+
+        _jobs = [..._jobs]..[index] = updated;
+        await _persistBoard();
     }
 
-    final updated = mutation.apply(
-      _jobs[index],
-      photoBytes: {if (photo != null) photo.id: photo.bytes},
-    );
-    if (updated == null) return false;
-
-    _jobs = [..._jobs]..[index] = updated;
-
-    await _persistBoard();
     await _outbox.add(mutation);
 
     _refreshSync();

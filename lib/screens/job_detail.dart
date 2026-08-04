@@ -338,7 +338,7 @@ class _MoneyAndStaffing extends StatelessWidget {
               child: Text('PUSH TO A DRIVER', style: ht.blockTitle),
             ),
             const SizedBox(height: 6),
-            for (final c in kCrew.where((c) => c.onShift))
+            for (final c in state.drivers.where((c) => c.onShift))
               Semantics(
                 button: true,
                 label:

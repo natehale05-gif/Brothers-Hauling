@@ -5,6 +5,7 @@ import '../../models/job.dart';
 import '../../state/app_state.dart';
 import '../../theme/haul_theme.dart';
 import '../../widgets/job_card.dart';
+import '../../widgets/add_crew.dart';
 import '../../widgets/primitives.dart';
 import '../../widgets/route_strip.dart';
 import '../../widgets/track_card.dart';
@@ -99,11 +100,12 @@ class TrackingTab extends StatelessWidget {
         .where((j) => j.status == JobStatus.active && j.assignedTo != null)
         .toList();
     final busy = running.map((j) => j.assignedTo).toSet();
+    final drivers = state.drivers;
     final notTracking = [
-      ...kCrew.where((c) => c.onShift && !busy.contains(c.id)),
-      ...kCrew.where((c) => !c.onShift),
+      ...drivers.where((c) => c.onShift && !busy.contains(c.id)),
+      ...drivers.where((c) => !c.onShift),
     ];
-    final appsOpen = kCrew.where((c) => c.appOpen).length;
+    final appsOpen = drivers.where((c) => c.appOpen).length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -197,7 +199,8 @@ class CrewTab extends StatelessWidget {
     final hc = HaulColors.of(context);
     final ht = HaulText.of(context);
     final state = AppScope.of(context);
-    final onShift = kCrew.where((c) => c.onShift).length;
+    final crew = state.crew;
+    final onShift = crew.where((c) => c.onShift).length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -206,6 +209,7 @@ class CrewTab extends StatelessWidget {
           title: 'Crew',
           trailing: Text('$onShift ON SHIFT', style: ht.eyebrow),
         ),
+        if (state.canHire) const AddCrewButton(),
         Container(
           decoration: BoxDecoration(
             color: hc.surface,
@@ -214,10 +218,10 @@ class CrewTab extends StatelessWidget {
           ),
           child: Column(
             children: [
-              for (var i = 0; i < kCrew.length; i++)
+              for (var i = 0; i < crew.length; i++)
                 Builder(
                   builder: (context) {
-                    final c = kCrew[i];
+                    final c = crew[i];
                     Job? on;
                     for (final j in state.jobs) {
                       if (j.assignedTo == c.id && j.status != JobStatus.done) {

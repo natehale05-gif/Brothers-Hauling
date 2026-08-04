@@ -586,3 +586,76 @@ class HaulIconButton extends StatelessWidget {
     );
   }
 }
+
+/// A themed text field.
+///
+/// The label is a real label rather than a placeholder that vanishes the moment
+/// you type — somebody filling in twenty job fields with the sun on the screen
+/// needs to be able to look away and back without losing their place.
+class HaulTextField extends StatelessWidget {
+  const HaulTextField({
+    super.key,
+    required this.controller,
+    required this.label,
+    this.hint,
+    this.helper,
+    this.keyboardType,
+    this.maxLines = 1,
+    this.autofocus = false,
+    this.validator,
+    this.prefix,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String? hint;
+  final String? helper;
+  final TextInputType? keyboardType;
+  final int maxLines;
+  final bool autofocus;
+  final String? Function(String?)? validator;
+  final String? prefix;
+
+  @override
+  Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
+
+    OutlineInputBorder border(Color color, [double width = 1]) =>
+        OutlineInputBorder(
+          borderRadius: BorderRadius.circular(HaulSpace.radiusSm),
+          borderSide: BorderSide(color: color, width: width),
+        );
+
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      autofocus: autofocus,
+      validator: validator,
+      style: ht.body,
+      cursorColor: hc.brand,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        helperText: helper,
+        prefixText: prefix,
+        prefixStyle: ht.body,
+        filled: true,
+        fillColor: hc.raised,
+        labelStyle: ht.secondary,
+        floatingLabelStyle: ht.secondary.copyWith(color: hc.brand),
+        hintStyle: ht.secondary,
+        helperStyle: ht.small,
+        helperMaxLines: 3,
+        errorStyle: ht.small.copyWith(color: hc.alert),
+        errorMaxLines: 3,
+        border: border(hc.line),
+        enabledBorder: border(hc.line),
+        focusedBorder: border(hc.brand, 2),
+        errorBorder: border(hc.alert),
+        focusedErrorBorder: border(hc.alert, 2),
+      ),
+    );
+  }
+}

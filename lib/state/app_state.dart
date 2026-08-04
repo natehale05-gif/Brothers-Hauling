@@ -177,7 +177,77 @@ class AppState extends ChangeNotifier {
   bool get asEmployee => _asEmployee;
   GpsFix get gps => _gps;
 
-  CrewMember get me => kCrew.firstWhere((c) => c.id == kMeId);
+  /// Everyone on the books, drivers and office alike.
+  List<CrewMember> get crew => _board.crew;
+
+  /// Just the people who run loads — who a job can be pushed at.
+  List<CrewMember> get drivers =>
+      crew.where((c) => c.role == Role.employee).toList();
+
+  CrewMember get me => crew.firstWhere(
+    (c) => c.id == kMeId,
+    // The roster is data now, and data can be edited. A board whose "me" has
+    // been removed should not take the app down on the next frame.
+    orElse: () => kCrew.firstWhere((c) => c.id == kMeId),
+  );
+
+  // ------------------------------------------------------------ hiring
+
+  /// What the signed-in role is allowed to take on.
+  ///
+  /// Empty for a driver, and empty for anyone standing in the employee view —
+  /// if you are looking at what your crew sees, you get what your crew gets.
+  List<Role> get hirableRoles =>
+      _asEmployee ? const [] : (_role?.canHire ?? const []);
+
+  bool get canHire => hirableRoles.isNotEmpty;
+
+  /// Puts someone on the books.
+  ///
+  /// Refuses a role the signed-in user is not allowed to hire, rather than
+  /// trusting the form to have offered the right options — "add crew" must not
+  /// become a privilege escalation with a friendly form on top of it.
+  Future<bool> hire({
+    required String name,
+    required Role role,
+    required String unit,
+    required List<String> rig,
+  }) async {
+    if (!hirableRoles.contains(role)) {
+      showToast('You cannot add a ${role.label.toLowerCase()}.');
+      notifyListeners();
+      return false;
+    }
+
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return false;
+
+    final member = CrewMember(
+      id: _ids.next('crew'),
+      name: trimmed,
+      initials: initialsFor(trimmed),
+      unit: unit.trim(),
+      // Nobody is on shift the moment they are hired, and nobody has the app
+      // open before they have installed it. Starting them "live" would put a
+      // driver on the tracking board who has never seen the thing.
+      onShift: false,
+      appOpen: false,
+      rig: rig,
+      role: role,
+    );
+
+    final ok = await _board.apply(
+      _stamp(
+        (id, at) =>
+            AddCrewMember(id: id, actorId: kMeId, at: at, member: member),
+      ),
+    );
+    if (!ok) return false;
+
+    showToast('${member.name} added as ${role.label.toLowerCase()}.');
+    notifyListeners();
+    return true;
+  }
 
   /// The job open in the detail pane, re-read from the list every time so it
   /// never shows a stale copy after a stage change.

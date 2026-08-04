@@ -15,8 +15,8 @@ Three roles, one job pipeline:
 
 | Role | Sees |
 | --- | --- |
-| **Admin** | Everything — money, live crew tracking, every job |
-| **Manager** | Job pay, who's staffed where, plus the full employee view |
+| **Admin** | Everything — money, live crew tracking, every job, and hiring at any level |
+| **Manager** | Job pay, who's staffed where, hiring drivers, plus the full employee view |
 | **Employee** | The board, job details, and before / after photos |
 
 A driver takes a load off the board by **pressing and holding** a card — an
@@ -35,6 +35,18 @@ already broken.
 Managers and admins can push a job at a specific driver, but the driver still
 has to accept it. Anyone above employee can flip into the employee view to see
 exactly what their crew sees, money hidden and all.
+
+### Hiring
+
+Admins take on anyone; managers staff their own crew but cannot mint another
+manager, and nobody but an owner can make an owner. That rule lives in the state,
+not in the form — the form only offers what you may hand out, but submitting
+something else is refused anyway, because otherwise "add crew" is a privilege
+escalation with a friendly form on top of it. Anyone in the employee view gets
+what their crew gets: no hiring at all.
+
+A new hire starts off shift with the app closed, so nobody appears on the
+tracking board before they have installed the thing.
 
 ### Working with no signal
 
@@ -109,7 +121,7 @@ flutter analyze
 flutter test
 ```
 
-**357 tests**, in ten files:
+**382 tests**, in eleven files:
 
 | File | Covers |
 | --- | --- |
@@ -123,6 +135,7 @@ flutter test
 | `test/sync_ui_test.dart` | That the app never tells a driver their work landed when it has not |
 | `test/theme_test.dart` | The appearance choice — that it cycles, persists, repaints, and says which mode is on |
 | `test/photos_test.dart` | Many shots per slot, the on-site prompt, and that a board written by the previous build still loads |
+| `test/crew_test.dart` | Who may hire whom, that the rule is enforced in the state rather than the form, and that a new hire survives a relaunch |
 
 ### Browser smoke test
 

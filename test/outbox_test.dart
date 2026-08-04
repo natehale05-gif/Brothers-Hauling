@@ -72,8 +72,9 @@ void main() {
       await revived.load();
 
       expect(revived.pendingCount, 2);
-      expect(revived.pending.first.mutation.jobId, 'HL-4471');
-      expect(revived.pending.last.mutation.jobId, 'HL-4482');
+      // Only job changes carry a job — hiring someone does not.
+      expect((revived.pending.first.mutation as JobMutation).jobId, 'HL-4471');
+      expect((revived.pending.last.mutation as JobMutation).jobId, 'HL-4482');
     });
 
     test('the attempt count and backoff survive too', () async {

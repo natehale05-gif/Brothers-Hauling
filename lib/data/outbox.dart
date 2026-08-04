@@ -145,9 +145,13 @@ class Outbox {
   bool get isEmpty => _pending.isEmpty && _abandoned.isEmpty;
 
   /// Job ids with unsent work, so the UI can mark exactly those cards.
+  /// Only job changes have a job to mark. Hiring someone is owed to dispatch
+  /// too, but there is no card on the board to put a badge on.
   Set<String> get pendingJobIds => {
-    for (final p in _pending) p.mutation.jobId,
-    for (final p in _abandoned) p.mutation.jobId,
+    for (final p in _pending)
+      if (p.mutation case final JobMutation m) m.jobId,
+    for (final p in _abandoned)
+      if (p.mutation case final JobMutation m) m.jobId,
   };
 
   final _changes = StreamController<void>.broadcast();
