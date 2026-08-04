@@ -48,6 +48,20 @@ sealed class Mutation {
     final at = DateTime.tryParse(json['at'] as String? ?? '')?.toLocal();
     if (id == null || actorId == null || at == null) return null;
 
+    // Creating a job has no job to point at yet, so it is read before the
+    // jobId guard.
+    if (json['kind'] == 'job.create') {
+      if (json['job'] case final Map raw) {
+        return CreateJob(
+          id: id,
+          actorId: actorId,
+          at: at,
+          job: Job.fromJson(raw.cast<String, Object?>()),
+        );
+      }
+      return null;
+    }
+
     // Crew changes are about the company, not a job, so they are read before
     // the jobId guard rather than being given a fake one.
     if (json['kind'] == 'crew.add') {
@@ -81,6 +95,7 @@ sealed class Mutation {
         at: at,
         toStage: (json['toStage'] as num?)?.toInt() ?? 0,
       ),
+      'publish' => PublishJob(id: id, jobId: jobId, actorId: actorId, at: at),
       'edit' => EditJob(
         id: id,
         jobId: jobId,
@@ -134,6 +149,54 @@ sealed class JobMutation extends Mutation {
 
   @override
   Map<String, Object?> toJson() => {...super.toJson(), 'jobId': jobId};
+}
+
+/// A change to which jobs exist, rather than to one of them.
+sealed class BoardMutation extends Mutation {
+  const BoardMutation({
+    required super.id,
+    required super.actorId,
+    required super.at,
+  });
+
+  /// Returns the new board, or null when the change no longer applies.
+  List<Job>? apply(List<Job> jobs);
+}
+
+/// A job appears — today, always because someone booked it on the website.
+///
+/// The whole job travels in the mutation for the same reason the whole member
+/// does when someone is hired: it does not exist anywhere else yet, so this
+/// record *is* the job, and it has to replay against a server that has never
+/// heard of it.
+class CreateJob extends BoardMutation {
+  const CreateJob({
+    required super.id,
+    required super.actorId,
+    required super.at,
+    required this.job,
+  });
+
+  final Job job;
+
+  @override
+  String get kind => 'job.create';
+
+  @override
+  Map<String, Object?> get payload => {'job': job.toJson()};
+
+  @override
+  List<Job>? apply(List<Job> jobs) {
+    // Idempotent on both keys. The id catches a replay; the booking id catches
+    // the same website booking arriving down a second poll, or after a
+    // relaunch mid-sync, having been given a fresh job id on the way in.
+    final booking = job.bookingId;
+    final already = jobs.any(
+      (j) => j.id == job.id || (booking != null && j.bookingId == booking),
+    );
+    if (already) return null;
+    return [job, ...jobs];
+  }
 }
 
 /// A change to who works here.
@@ -284,6 +347,40 @@ class EditJob extends JobMutation {
     'hazards' => 'the hazards',
     _ => 'the $field',
   };
+}
+
+/// Dispatch puts a priced booking in front of the crew.
+class PublishJob extends JobMutation {
+  const PublishJob({
+    required super.id,
+    required super.jobId,
+    required super.actorId,
+    required super.at,
+  });
+
+  @override
+  String get kind => 'publish';
+
+  @override
+  Job? apply(Job job, {Map<String, Uint8List> photoBytes = const {}}) {
+    if (job.status != JobStatus.requested) return null;
+    // The same guard as the caller's, because the queue outlives the screen
+    // that enforced it — a publish sitting in an outbox must not put a job
+    // paying nothing in front of a driver when it finally replays.
+    if (job.payout <= 0) return null;
+
+    return job.copyWith(
+      status: JobStatus.open,
+      events: [
+        ...job.events,
+        JobEvent(
+          at: at,
+          label: 'Priced and put on the board',
+          kind: EventKind.flat,
+        ),
+      ],
+    );
+  }
 }
 
 /// A driver takes an unclaimed job off the board.

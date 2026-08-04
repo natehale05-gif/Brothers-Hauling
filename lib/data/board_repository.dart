@@ -244,6 +244,12 @@ class LocalBoardRepository extends BoardRepository {
   @override
   Future<bool> apply(Mutation mutation, {JobPhoto? photo}) async {
     switch (mutation) {
+      case BoardMutation():
+        final updated = mutation.apply(_jobs);
+        if (updated == null) return false;
+        _jobs = updated;
+        await _persistBoard();
+
       case CrewMutation():
         final updated = mutation.apply(_crew);
         if (updated == null) return false;

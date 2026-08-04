@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 
 import '../data/board_repository.dart';
 import '../data/ids.dart';
+import '../data/intake.dart';
 import '../data/seed_data.dart';
 import '../data/store.dart';
 import '../models/mutation.dart';
@@ -43,9 +44,11 @@ class AppState extends ChangeNotifier {
     this.toastDuration = const Duration(milliseconds: 3800),
     this.storageIsDurable = true,
     Store? store,
+    IntakeSource? intake,
     DateTime Function()? now,
     IdGenerator? idGenerator,
   }) : _prefs = store ?? MemoryStore(),
+       _intake = intake ?? const NoIntakeSource(),
        _location = location ?? const GeolocatorLocationService(),
        photos = photos ?? ImagePickerPhotoService(),
        _now = now ?? DateTime.now,
@@ -68,10 +71,17 @@ class AppState extends ChangeNotifier {
 
   void _onBoardChanged() => notifyListeners();
 
+  /// Where website bookings come from. [NoIntakeSource] when none is wired up,
+  /// which is a board that simply never gains a job on its own.
+  final IntakeSource _intake;
+
   /// Reads whatever this device already had. Call once at startup.
   Future<void> restore() async {
     await _board.load();
     await _restoreThemeMode();
+    // Anything booked while the app was closed is on the board before the
+    // first frame, rather than appearing a second later.
+    await checkForBookings();
   }
 
   // ------------------------------------------------------------ appearance
@@ -190,6 +200,103 @@ class AppState extends ChangeNotifier {
     // been removed should not take the app down on the next frame.
     orElse: () => kCrew.firstWhere((c) => c.id == kMeId),
   );
+
+  // ------------------------------------------------- bookings from the web
+
+  /// Bookings that have come in and not been priced yet.
+  List<Job> get requestedJobs =>
+      jobs.where((j) => j.status == JobStatus.requested).toList();
+
+  /// Reads the website and enters anything new on the board.
+  ///
+  /// Safe to call as often as you like: every booking carries the website's own
+  /// id, and a job already holding that id is left alone. Returns how many were
+  /// genuinely new.
+  ///
+  /// A source that is down returns nothing rather than throwing — the board is
+  /// not allowed to break because the website is.
+  Future<int> checkForBookings() async {
+    final List<BookingRequest> bookings;
+    try {
+      bookings = await _intake.fetch();
+    } catch (_) {
+      return 0;
+    }
+
+    // Oldest first, so the board reads in the order people actually booked.
+    // Sorted on a copy: what a source hands back is its own, and several of
+    // them hand back a const list.
+    final ordered = [...bookings]
+      ..sort((a, b) => a.requestedAt.compareTo(b.requestedAt));
+
+    final known = {for (final job in _board.jobs) ?job.bookingId};
+
+    var added = 0;
+    for (final booking in ordered) {
+      if (known.contains(booking.id)) continue;
+      final job = booking.toJob(_nextJobId());
+      final ok = await _board.apply(
+        _stamp((id, at) => CreateJob(id: id, actorId: kMeId, at: at, job: job)),
+      );
+      if (ok) {
+        added++;
+        known.add(booking.id);
+      }
+    }
+
+    if (added > 0) {
+      showToast(
+        added == 1
+            ? 'A new job came in from the website.'
+            : '$added new jobs came in from the website.',
+      );
+    }
+    notifyListeners();
+    return added;
+  }
+
+  /// The next board-facing job number.
+  ///
+  /// Human-readable on purpose — "HL-4492" is what gets said down a phone, and
+  /// a device-minted opaque id is not. The device id still exists underneath as
+  /// the mutation's key, so two phones inventing the same number is a display
+  /// collision rather than a lost job.
+  String _nextJobId() {
+    var highest = 4470;
+    for (final job in _board.jobs) {
+      final n = int.tryParse(job.id.replaceAll(RegExp(r'[^0-9]'), ''));
+      if (n != null && n > highest) highest = n;
+    }
+    return 'HL-${highest + 1}';
+  }
+
+  /// Puts a priced booking onto the driver board.
+  ///
+  /// Refused while it still pays nothing: an unpriced job on the board is a job
+  /// someone can volunteer for at nothing a load.
+  Future<bool> publishJob(Job job) async {
+    if (!canEditJobs) {
+      showToast('Only an owner can put a job on the board.');
+      notifyListeners();
+      return false;
+    }
+    if (job.payout <= 0) {
+      showToast("Put a driver's cut on it before it goes to the crew.");
+      notifyListeners();
+      return false;
+    }
+
+    final ok = await _board.apply(
+      _stamp(
+        (id, at) => PublishJob(id: id, jobId: job.id, actorId: kMeId, at: at),
+      ),
+    );
+    if (!ok) return false;
+
+    showToast('${job.id} is on the board.');
+    notifyListeners();
+    return true;
+  }
 
   // -------------------------------------------------------- editing a job
 

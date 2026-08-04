@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:haul_board/data/intake.dart';
 import 'package:haul_board/main.dart';
 import 'package:haul_board/screens/home_shell.dart';
 import 'package:haul_board/models/job.dart';
@@ -53,6 +54,7 @@ Future<Harness> pumpApp(
   /// Defaults to dark, which is what the app ships as. Pass light to run a
   /// check against the other palette.
   ThemeMode themeMode = ThemeMode.dark,
+  IntakeSource? intake,
 }) async {
   tester.view
     ..physicalSize = size
@@ -63,6 +65,7 @@ Future<Harness> pumpApp(
   final resolvedPhotos = photos ?? FakePhotoService();
   final state = AppState(
     jobs: jobs,
+    intake: intake,
     location: const SimulatedLocationService(),
     photos: resolvedPhotos,
     // No background timers: a ticker or a toast still pending when the test

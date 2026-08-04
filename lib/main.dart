@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'data/board_repository.dart';
+import 'data/intake.dart';
 import 'data/store.dart';
 import 'screens/home_shell.dart';
 import 'services/link_service.dart';
@@ -39,17 +40,26 @@ void main() async {
   // shifts from filling up.
   unawaited(board.sweepOrphanedPhotos());
 
-  runApp(
-    BrothersHaulingApp(
-      state: AppState(
-        board: board,
-        store: store,
-        storageIsDurable: durable,
-        location: const GeolocatorLocationService(),
-        photos: ImagePickerPhotoService(),
-      ),
-    ),
+  final state = AppState(
+    board: board,
+    store: store,
+    // Bookings made on the website. On the hosted demo `hire.html` is served
+    // from the same origin, so a booking made there lands in the storage this
+    // reads — a real round trip rather than a mocked one. Pointing at a live
+    // backend is a HttpIntakeSource here and nothing else in the app.
+    intake: StoreIntakeSource(store: store),
+    storageIsDurable: durable,
+    location: const GeolocatorLocationService(),
+    photos: ImagePickerPhotoService(),
   );
+
+  // The board is already loaded above, so this is the appearance choice and
+  // anything booked while the app was closed. Both are cheap reads, and both
+  // want to be settled before the first frame: a board that flashes dark then
+  // turns light is worse than one that waits a frame.
+  await state.restore();
+
+  runApp(BrothersHaulingApp(state: state));
 }
 
 /// Brothers Hauling — one job pipeline, three access levels.

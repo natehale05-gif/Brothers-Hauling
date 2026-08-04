@@ -2,6 +2,13 @@ import 'dart:typed_data';
 
 /// Where a job sits in the pipeline.
 enum JobStatus {
+  /// Came in from the website and has not been priced yet.
+  ///
+  /// Deliberately not [open]: an unpriced job on the driver board is a job
+  /// somebody can volunteer for at nothing a load. Dispatch puts a number on
+  /// it first, and only then does it reach the crew.
+  requested,
+
   /// On the board, nobody has taken it.
   open,
 
@@ -185,6 +192,7 @@ class Job {
     this.photosAfter = const [],
     this.events = const [],
     this.progress = 0,
+    this.bookingId,
   });
 
   final String id;
@@ -238,6 +246,18 @@ class Job {
 
   /// 0..1 along the current leg.
   final double progress;
+
+  /// The website booking this came from, if it did.
+  ///
+  /// Kept so the same booking arriving twice — a retried poll, a relaunch
+  /// mid-sync — becomes the same job rather than a duplicate on the board.
+  final String? bookingId;
+
+  /// Waiting on dispatch to put a price on it.
+  bool get needsPricing => status == JobStatus.requested;
+
+  /// Came in from the website rather than being written by dispatch.
+  bool get fromWebsite => bookingId != null;
 
   Phase get phase => kPhases[stage];
 
@@ -324,6 +344,7 @@ class Job {
     'photosAfter': [for (final p in photosAfter) p.toJson()],
     'events': events.map((e) => e.toJson()).toList(),
     'progress': progress,
+    'bookingId': bookingId,
   };
 
   /// [photoBytes] supplies the pixels for any photo id the job references;
@@ -384,6 +405,7 @@ class Job {
               .toList() ??
           const [],
       progress: (json['progress'] as num?)?.toDouble().clamp(0.0, 1.0) ?? 0,
+      bookingId: json['bookingId'] as String?,
     );
   }
 
@@ -399,6 +421,7 @@ class Job {
     List<JobPhoto>? photosAfter,
     List<JobEvent>? events,
     double? progress,
+    String? bookingId,
   }) {
     return Job(
       id: id,
@@ -428,6 +451,7 @@ class Job {
       photosAfter: photosAfter ?? this.photosAfter,
       events: events ?? this.events,
       progress: progress ?? this.progress,
+      bookingId: bookingId ?? this.bookingId,
     );
   }
 }

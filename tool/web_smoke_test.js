@@ -121,16 +121,34 @@ async function boot(browser, viewport) {
   return { page, errors };
 }
 
-/** Flattens the accessibility tree into `role:name` strings. */
+/**
+ * Flattens Flutter's semantics into `role:name` strings.
+ *
+ * Read straight off the semantics DOM rather than through
+ * `page.accessibility.snapshot()`. That API is deprecated, and on a narrow
+ * viewport it collapses the whole scrolling body into a single node — so a
+ * board full of announced job cards came back as one unreadable blob and every
+ * assertion against it failed while the app itself was perfectly fine. These
+ * are the same nodes a screen reader walks, and the locator pierces the shadow
+ * root the engine puts them in.
+ */
 async function axNames(page) {
-  const snapshot = await page.accessibility.snapshot();
-  const names = [];
-  (function walk(node) {
-    if (!node) return;
-    if (node.name) names.push(`${node.role}:${node.name}`);
-    (node.children || []).forEach(walk);
-  })(snapshot);
-  return names;
+  return page.locator('flt-semantics').evaluateAll((nodes) =>
+    nodes
+      .map((node) => {
+        // A label belongs to the leaf that carries it. Taking textContent from
+        // a node that still has semantic children would glue a whole subtree
+        // into one string.
+        if (node.querySelector('flt-semantics')) return null;
+        // The engine writes the label as text, not as aria-label, and wraps
+        // lines — "Overview\nTab 1 of 4" is one label, not two.
+        const label = (node.textContent || '').replace(/\s+/g, ' ').trim();
+        if (!label) return null;
+        const role = node.getAttribute('role') === 'button' ? 'button' : 'text';
+        return `${role}:${label}`;
+      })
+      .filter(Boolean),
+  );
 }
 
 async function press(page, name) {
@@ -297,6 +315,86 @@ function check(label, ok, detail = '') {
       );
       check('no page errors', errors.length === 0, errors.join('; '));
       await page.close();
+    }
+
+    // ---- a booking made on the website reaches the board -----------------
+    // Both pages share one browser context on purpose: same origin, same
+    // storage, which is the whole mechanism. Nothing below this line works if
+    // hire.html writes in a shape the app cannot read — and it very nearly
+    // did, because shared_preferences stores a string JSON-encoded.
+    {
+      const context = await browser.newContext({
+        viewport: { width: 1194, height: 834 },
+        locale: 'en-US',
+      });
+
+      const site = await context.newPage();
+      await site.goto(`http://127.0.0.1:${PORT}${BASE_PATH}hire.html`, {
+        waitUntil: 'load',
+        timeout: 60000,
+      });
+      await site.fill('[name="customer"]', 'Fairbanks Excavating');
+      await site.fill('[name="phone"]', '555-0177');
+      await site.fill('[name="address"]', '9 Mill Road');
+      await site.fill('[name="type"]', 'Equipment move');
+      await site.fill('[name="details"]', 'Skid steer behind the shop.');
+      await site.click('button[type="submit"]');
+      await site.waitForTimeout(400);
+      check(
+        'the booking form confirms it was sent',
+        await site.locator('#done').isVisible(),
+      );
+      await site.close();
+
+      const app = await context.newPage();
+      const appErrors = [];
+      app.on('pageerror', (e) => appErrors.push(e.message));
+      await app.goto(`http://127.0.0.1:${PORT}${BASE_PATH}`, {
+        waitUntil: 'load',
+        timeout: 60000,
+      });
+      await app.waitForFunction(() => !document.getElementById('boot'), {
+        timeout: 60000,
+      });
+      await app.waitForTimeout(1500);
+      await app.evaluate(() => {
+        const ph = document.querySelector('flt-semantics-placeholder');
+        if (!ph) return;
+        ph.click();
+        ph.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+        ph.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+      });
+      await app.waitForTimeout(1200);
+      await press(app, 'Sign in as Admin');
+      await press(app, 'Jobs tab');
+
+      const n = await axNames(app);
+      check(
+        'a job booked on the website turns up on the dispatch board',
+        n.some((x) => /Fairbanks Excavating/.test(x)),
+        n.find((x) => /Fairbanks/.test(x)),
+      );
+      check(
+        'and it is held back until somebody prices it',
+        n.some((x) => /not priced yet/i.test(x)),
+      );
+
+      // The same booking must not become a second job on the next launch.
+      await app.reload({ waitUntil: 'load' });
+      await app.waitForFunction(() => !document.getElementById('boot'), {
+        timeout: 60000,
+      });
+      await app.waitForTimeout(2500);
+      const fromWeb = await app.evaluate(() => {
+        const raw = window.localStorage.getItem('flutter.board.v1');
+        const board = raw ? JSON.parse(JSON.parse(raw)) : [];
+        return board.filter((j) => j.bookingId).length;
+      });
+      check('one booking is still one job after a reload', fromWeb === 1,
+        `${fromWeb} job(s) carrying a bookingId`);
+      check('no page errors', appErrors.length === 0, appErrors.join('; '));
+
+      await context.close();
     }
   } finally {
     await browser.close();

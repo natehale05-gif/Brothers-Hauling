@@ -6,6 +6,7 @@ import '../../state/app_state.dart';
 import '../../theme/haul_theme.dart';
 import '../../widgets/job_card.dart';
 import '../../widgets/add_crew.dart';
+import '../edit_job.dart';
 import '../../widgets/primitives.dart';
 import '../../widgets/route_strip.dart';
 import '../../widgets/track_card.dart';
@@ -48,6 +49,16 @@ class JobsTab extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
+        if (state.requestedJobs.isNotEmpty) ...[
+          SectionHeader(
+            title: 'Came in from the website',
+            trailing: Pill.violet(label: 'Needs pricing'),
+          ),
+          // Held back from the driver board on purpose: a job with no cut on
+          // it is a job somebody can volunteer for at nothing a load.
+          for (final j in state.requestedJobs)
+            _BookingCard(job: j, selected: j.id == selectedJobId),
+        ],
         if (open.isNotEmpty) ...[
           SectionHeader(
             title: "Nobody's taken these",
@@ -503,5 +514,155 @@ class OverviewTab extends StatelessWidget {
       b.write(s[i]);
     }
     return b.toString();
+  }
+}
+
+/// A booking waiting on a price.
+///
+/// Not a [JobCard]: the driver-facing card leads with the money, and the whole
+/// point of this one is that there isn't any yet. It leads with what the
+/// customer asked for and ends in the two things dispatch has to do — put a
+/// number on it, then let the crew see it.
+class _BookingCard extends StatelessWidget {
+  const _BookingCard({required this.job, required this.selected});
+
+  final Job job;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final hc = HaulColors.of(context);
+    final ht = HaulText.of(context);
+    final state = AppScope.of(context);
+    final priced = job.payout > 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: hc.surface,
+        border: Border.all(color: selected ? hc.brand : hc.line),
+        borderRadius: BorderRadius.circular(HaulSpace.radius),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            button: true,
+            label:
+                'Open the booking from ${job.customer}, '
+                '${priced ? "priced at ${job.payout} dollars" : "not priced yet"}',
+            onTap: () => state.openJobCard(job),
+            excludeSemantics: true,
+            child: InkWell(
+              onTap: () => state.openJobCard(job),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(job.type.toUpperCase(), style: ht.heading),
+                    const SizedBox(height: 3),
+                    Text(
+                      [
+                        job.customer,
+                        if (job.city.isNotEmpty) job.city,
+                      ].join(' · '),
+                      style: ht.secondary,
+                    ),
+                    if (job.access.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        job.access,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: ht.small,
+                      ),
+                    ],
+                    const SizedBox(height: 9),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        Pill(label: job.id, icon: Icons.tag_rounded),
+                        Pill(label: job.window, icon: Icons.schedule_rounded),
+                        if (!priced)
+                          const Pill.violet(label: 'No price yet')
+                        else
+                          Pill.brand(label: '\$${job.payout} to the driver'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: hc.line)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Semantics(
+                    button: true,
+                    label: 'Price ${job.id} and fill in its details',
+                    onTap: () => showEditJobSheet(context, job),
+                    excludeSemantics: true,
+                    child: TextButton(
+                      onPressed: () => showEditJobSheet(context, job),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(0, HaulSpace.tap),
+                        foregroundColor: hc.inkSoft,
+                      ),
+                      child: Text(
+                        'FILL IN THE DETAILS',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: ht.action.copyWith(
+                          fontSize: 12,
+                          color: hc.inkSoft,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Container(width: 1, height: 28, color: hc.line),
+                Expanded(
+                  child: Semantics(
+                    button: true,
+                    enabled: priced,
+                    label: priced
+                        ? 'Put ${job.id} on the board for the crew'
+                        : "Put ${job.id} on the board — needs a driver's cut "
+                              'first',
+                    onTap: priced ? () => state.publishJob(job) : null,
+                    excludeSemantics: true,
+                    child: TextButton(
+                      // Always tappable: tapping it while unpriced is how the
+                      // driver's cut gets explained, and a dead grey button
+                      // explains nothing.
+                      onPressed: () => state.publishJob(job),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(0, HaulSpace.tap),
+                        foregroundColor: priced ? hc.brand : hc.inkSoft,
+                      ),
+                      child: Text(
+                        'PUT ON THE BOARD',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: ht.action.copyWith(
+                          fontSize: 12,
+                          color: priced ? hc.brand : hc.inkSoft,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

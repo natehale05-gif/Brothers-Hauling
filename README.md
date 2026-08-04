@@ -48,6 +48,31 @@ what their crew gets: no hiring at all.
 A new hire starts off shift with the app closed, so nobody appears on the
 tracking board before they have installed the thing.
 
+### Hiring us from the website
+
+A booking made on the website turns into a job on the dispatch board.
+
+`BookingRequest` is the wire contract, and it is deliberately small: a customer
+knows what they want moved and where from, and knows none of the things the app
+needs to run the job. Mileage, equipment and money are left blank rather than
+guessed — a made-up figure looks exactly like a real one on the board.
+
+So a booking lands as **requested**, not open. Dispatch fills in the details and
+puts a price on it, and only then does it reach the crew; an unpriced job on the
+driver board is a job somebody can volunteer for at nothing a load. That rule is
+enforced in the mutation as well as the screen, because the queue outlives the
+screen.
+
+Every booking carries the website's own id, and the job keeps it. The same
+booking arriving down a second poll, or after a relaunch mid-sync, is the same
+job rather than a second one.
+
+**Try it:** open [`hire.html`](https://natehale05-gif.github.io/Brothers-Hauling/hire.html),
+book a haul, then open the board and sign in as Admin. The demo page is served
+from the same origin as the app, so the booking lands in the storage the board
+reads — no server, but a real round trip rather than a mocked one. Pointing at a
+live backend is `HttpIntakeSource` in `main.dart` and nothing else in the app.
+
 ### Correcting a job
 
 An owner can edit every detail of a job — customer, address, access notes,
@@ -140,7 +165,7 @@ flutter analyze
 flutter test
 ```
 
-**402 tests**, in twelve files:
+**433 tests**, in thirteen files:
 
 | File | Covers |
 | --- | --- |
@@ -156,6 +181,7 @@ flutter test
 | `test/photos_test.dart` | Many shots per slot, the on-site prompt, and that a board written by the previous build still loads |
 | `test/crew_test.dart` | Who may hire whom, that the rule is enforced in the state rather than the form, and that a new hire survives a relaunch |
 | `test/edit_job_test.dart` | That an owner can correct every detail, that nobody else can, and that an edit cannot rewrite what the driver did |
+| `test/intake_test.dart` | The booking contract, that the same booking never lands twice, that a dead website doesn't take the board down, and that nothing reaches a driver unpriced |
 
 ### Browser smoke test
 
