@@ -40,29 +40,30 @@ void main() {
   });
 
   group('employee board', () {
-    testWidgets('open jobs are listed and the wrong rig is called out', (
+    testWidgets('open jobs are listed with the rig each one needs', (
       tester,
     ) async {
       final harness = await pumpApp(tester, role: Role.employee);
 
       expect(find.text('DEBRIS HAUL'), findsWidgets);
 
-      // HL-4488 needs a Lowboy; Nate is not checked out on one. It runs
-      // tomorrow, so the board is paged there — the point of a day view.
+      // HL-4488 needs a Lowboy, and says so. It runs tomorrow, so the board
+      // is paged there — the point of a day view.
       harness.state.showDay(1);
       await settle(tester);
-      expect(find.text('Lowboy 25t — not your rig'), findsOneWidget);
+      expect(find.text('Lowboy 25t'), findsOneWidget);
     });
 
-    testWidgets('the hold button is blocked for equipment I cannot run', (
-      tester,
-    ) async {
+    testWidgets('and every one of them can be taken', (tester) async {
       final harness = await pumpApp(tester, role: Role.employee);
       expect(find.text('HOLD TO VOLUNTEER'), findsWidgets);
 
+      // Including the lowboy job. The card says what it needs; it does not
+      // decide who is allowed to answer.
       harness.state.showDay(1);
       await settle(tester);
-      expect(find.text('WRONG RIG FOR THIS LOAD'), findsOneWidget);
+      expect(find.text('HOLD TO VOLUNTEER'), findsWidgets);
+      expect(find.textContaining('not your rig'), findsNothing);
     });
 
     testWidgets('holding a card volunteers me for the load', (tester) async {

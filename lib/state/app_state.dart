@@ -619,7 +619,6 @@ class AppState extends ChangeNotifier {
     required String name,
     required Role role,
     required String unit,
-    required List<String> rig,
   }) async {
     if (!hirableRoles.contains(role)) {
       showToast('You cannot add a ${role.label.toLowerCase()}.');
@@ -640,7 +639,6 @@ class AppState extends ChangeNotifier {
       // driver on the tracking board who has never seen the thing.
       onShift: false,
       appOpen: false,
-      rig: rig,
       role: role,
     );
 
@@ -768,8 +766,6 @@ class AppState extends ChangeNotifier {
       _ => const [HaulTab.board, HaulTab.mine],
     };
   }
-
-  bool canRun(Job job) => me.canRun(job.equipment);
 
   // ---------------------------------------------------------------- writing
 

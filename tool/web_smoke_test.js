@@ -214,8 +214,13 @@ function check(label, ok, detail = '') {
       await press(page, 'Show Tomorrow');
       await page.waitForTimeout(600);
       check(
-        'a blocked control says why',
-        await axContains(page, /Wrong rig for this load/),
+        'the rig a job needs is stated',
+        await axContains(page, /Lowboy 25t/),
+      );
+      check(
+        "and it is nobody's to be locked out of",
+        (await axContains(page, /Hold to volunteer/)) &&
+          !(await axContains(page, /not your rig|Wrong rig/)),
       );
       await press(page, 'Back to today');
       await page.waitForTimeout(600);

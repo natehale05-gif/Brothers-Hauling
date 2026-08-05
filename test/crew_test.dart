@@ -66,7 +66,6 @@ void main() {
           name: 'Sneaky Pete',
           role: Role.admin,
           unit: '',
-          rig: const [],
         );
 
         expect(ok, isFalse);
@@ -85,7 +84,6 @@ void main() {
         name: 'Dale Whitlow',
         role: Role.employee,
         unit: 'Truck 12',
-        rig: const ['Dump trailer 14k'],
       );
 
       expect(ok, isTrue);
@@ -94,17 +92,11 @@ void main() {
       expect(hired.name, 'Dale Whitlow');
       expect(hired.initials, 'DW');
       expect(hired.role, Role.employee);
-      expect(hired.rig, ['Dump trailer 14k']);
     });
 
     test('nobody starts a shift they have not turned up for', () async {
       final state = boot(role: Role.admin);
-      await state.hire(
-        name: 'Ana Reyes',
-        role: Role.employee,
-        unit: '',
-        rig: const [],
-      );
+      await state.hire(name: 'Ana Reyes', role: Role.employee, unit: '');
 
       // Starting them "live" would put a driver on the tracking board who has
       // never opened the app.
@@ -116,12 +108,7 @@ void main() {
       final state = boot(role: Role.admin);
       final before = state.crew.length;
       expect(
-        await state.hire(
-          name: '   ',
-          role: Role.employee,
-          unit: '',
-          rig: const [],
-        ),
+        await state.hire(name: '   ', role: Role.employee, unit: ''),
         isFalse,
       );
       expect(state.crew, hasLength(before));
@@ -129,12 +116,7 @@ void main() {
 
     test('a new manager is not offered a load', () async {
       final state = boot(role: Role.admin);
-      await state.hire(
-        name: 'Priya Nair',
-        role: Role.manager,
-        unit: '',
-        rig: const [],
-      );
+      await state.hire(name: 'Priya Nair', role: Role.manager, unit: '');
 
       // Jobs get pushed at drivers, not at the office.
       expect(state.crew.map((c) => c.name), contains('Priya Nair'));
@@ -149,7 +131,6 @@ void main() {
         name: 'Dale Whitlow',
         role: Role.employee,
         unit: 'Truck 12',
-        rig: const ['Roll-off'],
       );
 
       // Hiring someone in a dead zone has to survive the app dying, exactly as
@@ -157,7 +138,6 @@ void main() {
       final second = boot(store: store, role: Role.admin);
       await second.restore();
       expect(second.crew.map((c) => c.name), contains('Dale Whitlow'));
-      expect(second.crew.last.rig, ['Roll-off']);
       expect(second.crew.last.role, Role.employee);
     });
 
@@ -165,12 +145,7 @@ void main() {
       final state = boot(role: Role.admin);
       await state.restore();
       final pending = state.syncState.pending;
-      await state.hire(
-        name: 'Ana Reyes',
-        role: Role.employee,
-        unit: '',
-        rig: const [],
-      );
+      await state.hire(name: 'Ana Reyes', role: Role.employee, unit: '');
       expect(state.syncState.pending, greaterThanOrEqualTo(pending));
     });
   });
@@ -183,7 +158,6 @@ void main() {
       unit: 'Truck 12',
       onShift: false,
       appOpen: false,
-      rig: ['Roll-off'],
       role: Role.employee,
     );
 
@@ -207,7 +181,6 @@ void main() {
       expect(restored.id, 'crew-9');
       expect(restored.name, 'Dale Whitlow');
       expect(restored.role, Role.employee);
-      expect(restored.rig, ['Roll-off']);
     });
 
     test('it carries no job, and is not counted against one', () {
@@ -278,7 +251,6 @@ void main() {
         name: 'Dale Whitlow',
         role: Role.employee,
         unit: 'Truck 12',
-        rig: const [],
       );
       await settle(tester);
 
@@ -392,7 +364,6 @@ void main() {
       // A promotion is a change of level, not a chance to rewrite a record.
       expect(after.name, before.name);
       expect(after.unit, before.unit);
-      expect(after.rig, before.rig);
       expect(after.hourlyRate, before.hourlyRate);
       expect(after.onShift, before.onShift);
     });
@@ -448,7 +419,6 @@ void main() {
         unit: 'Truck 12',
         onShift: true,
         appOpen: true,
-        rig: [],
       ),
     ];
 

@@ -31,7 +31,6 @@ class CrewMember {
     required this.unit,
     required this.onShift,
     required this.appOpen,
-    required this.rig,
     this.role = Role.employee,
     this.hourlyRate = 0,
     this.lastSeen,
@@ -56,10 +55,6 @@ class CrewMember {
   /// silently as an owner.
   final Role role;
 
-  /// Trailers/decks this driver is checked out on. A job whose equipment is not
-  /// in this list cannot be volunteered for.
-  final List<String> rig;
-
   final String? lastSeen;
   final String? lastPlace;
 
@@ -70,7 +65,6 @@ class CrewMember {
     'unit': unit,
     'onShift': onShift,
     'appOpen': appOpen,
-    'rig': rig,
     'role': role.name,
     'hourlyRate': hourlyRate,
     'lastSeen': lastSeen,
@@ -84,7 +78,6 @@ class CrewMember {
     unit: json['unit'] as String? ?? '',
     onShift: json['onShift'] as bool? ?? false,
     appOpen: json['appOpen'] as bool? ?? false,
-    rig: (json['rig'] as List?)?.cast<String>() ?? const [],
     hourlyRate: (json['hourlyRate'] as num?)?.toInt() ?? 0,
     role: Role.values.firstWhere(
       (r) => r.name == json['role'],
@@ -107,17 +100,9 @@ class CrewMember {
     unit: unit,
     onShift: onShift,
     appOpen: appOpen,
-    rig: rig,
     role: role,
     hourlyRate: hourlyRate,
     lastSeen: lastSeen,
     lastPlace: lastPlace,
   );
-
-  /// Equipment strings are compared with whitespace stripped so
-  /// "Dump trailer 14k" and "Dump trailer14k" are the same rig.
-  bool canRun(String equipment) {
-    String squash(String s) => s.replaceAll(RegExp(r'\s'), '');
-    return rig.any((r) => squash(r) == squash(equipment));
-  }
 }

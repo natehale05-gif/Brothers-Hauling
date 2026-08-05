@@ -13,9 +13,10 @@ enum SendOutcome {
   /// this is the ordinary case in a truck.
   retry,
 
-  /// The server understood and refused: the job was already taken, the driver
-  /// no longer has the rig, the payload is malformed. Retrying will fail
-  /// identically forever, so it must not sit in the queue blocking the rest.
+  /// The server understood and refused: the job was already taken, the change
+  /// was filed under somebody else, the payload is malformed. Retrying will
+  /// fail identically forever, so it must not sit in the queue blocking the
+  /// rest.
   rejected,
 }
 

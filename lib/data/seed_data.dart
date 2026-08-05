@@ -12,7 +12,6 @@ const List<CrewMember> kCrew = [
     unit: 'Unit 12',
     onShift: true,
     appOpen: true,
-    rig: ['Dump trailer 14k', 'Flatbed 20ft'],
   ),
   CrewMember(
     id: 'c2',
@@ -21,7 +20,6 @@ const List<CrewMember> kCrew = [
     unit: 'Unit 04',
     onShift: true,
     appOpen: true,
-    rig: ['Dump trailer 14k', 'Lowboy 25t'],
   ),
   CrewMember(
     id: 'c3',
@@ -30,7 +28,6 @@ const List<CrewMember> kCrew = [
     unit: 'Unit 07',
     onShift: true,
     appOpen: false,
-    rig: ['Flatbed 20ft'],
     lastSeen: '8:02 AM',
     lastPlace: 'Hwy 20 near Philomath',
   ),
@@ -41,7 +38,6 @@ const List<CrewMember> kCrew = [
     unit: 'Unit 09',
     onShift: false,
     appOpen: false,
-    rig: ['Dump trailer 14k'],
     lastSeen: 'Yesterday 4:40 PM',
     lastPlace: 'Yard',
   ),

@@ -157,8 +157,8 @@ class Account {
   /// "Kara" and "kara " are the same person at the login box.
   final String username;
 
-  /// The roster entry this account is. Ties a login to the hours, the jobs and
-  /// the rig checks that already exist for that person.
+  /// The roster entry this account is. Ties a login to the hours and the jobs
+  /// that already exist for that person.
   final String crewId;
 
   final Role role;

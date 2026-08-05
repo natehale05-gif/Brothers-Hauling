@@ -260,8 +260,8 @@ class AddCrewMember extends CrewMutation {
 ///
 /// Carries the id and the new level rather than the whole member, for the same
 /// reason [EditJob] carries fields rather than a whole job: a promotion queued
-/// offline must not, on replay, undo a unit change or a rig someone was checked
-/// out on in the meantime. It moves the role and touches nothing else.
+/// offline must not, on replay, undo a name or unit corrected in the meantime.
+/// It moves the role and touches nothing else.
 class SetCrewRole extends CrewMutation {
   const SetCrewRole({
     required super.id,

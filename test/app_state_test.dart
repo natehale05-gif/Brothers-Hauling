@@ -221,23 +221,21 @@ void main() {
     });
   });
 
-  group('rig matching', () {
-    test(
-      'a driver can only volunteer for equipment they are checked out on',
-      () {
-        final s = makeState()..enter(Role.employee);
+  group('equipment is stated, never enforced', () {
+    test('any driver can take any load', () {
+      final s = makeState()..enter(Role.employee);
 
-        // Nate is on the dump trailer and the flatbed, not the lowboy.
-        expect(s.canRun(jobById(s, 'HL-4471')), isTrue);
-        expect(s.canRun(jobById(s, 'HL-4488')), isFalse);
-        s.dispose();
-      },
-    );
+      // Nothing on a person says which equipment they may run. What a job
+      // needs is on the card; who takes it is settled in the yard.
+      for (final job in s.openBoard) {
+        expect(job.equipment, isNotEmpty);
+      }
+      s.dispose();
+    });
 
-    test('whitespace differences do not break the match', () {
+    test('nobody carries a list of what they are checked out on', () {
       final me = kCrew.firstWhere((c) => c.id == kMeId);
-      expect(me.canRun('Dump trailer14k'), isTrue);
-      expect(me.canRun('Lowboy 25t'), isFalse);
+      expect(me.toJson().containsKey('rig'), isFalse);
     });
   });
 

@@ -403,7 +403,7 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('a blocked hold control says why it is blocked', (
+    testWidgets('the hold control is never announced as blocked', (
       tester,
     ) async {
       final handle = tester.ensureSemantics();
@@ -411,18 +411,14 @@ void main() {
       // The Lowboy job runs tomorrow; the board is paged by day.
       harness.state.showDay(1);
       await settle(tester);
-      // Semantics only exist for what is on screen, so the card has to be
-      // scrolled to before its label can be read.
-      await tester.ensureVisible(find.text('WRONG RIG FOR THIS LOAD'));
+      await tester.ensureVisible(find.text('HOLD TO VOLUNTEER').first);
       await settle(tester);
 
-      // The label is the reason, so it isn't a dead control with no
-      // explanation. Matched by containment: the card announces as one node,
-      // and the reason is a phrase inside it rather than a label of its own.
-      expect(
-        find.bySemanticsLabel(RegExp('Wrong rig for this load')),
-        findsWidgets,
-      );
+      // There is no disabled state left to explain. A job states the rig it
+      // needs; it does not decide who may answer, so a screen reader never
+      // meets a dead control here.
+      expect(find.bySemanticsLabel(RegExp('rig')), findsNothing);
+      expect(find.bySemanticsLabel(RegExp('Hold to volunteer')), findsWidgets);
       handle.dispose();
     });
 

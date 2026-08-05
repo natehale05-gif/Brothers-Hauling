@@ -156,7 +156,6 @@ void main() {
         expect(copy.unit, original.unit);
         expect(copy.onShift, original.onShift);
         expect(copy.appOpen, original.appOpen);
-        expect(copy.rig, original.rig);
         expect(copy.lastSeen, original.lastSeen);
         expect(copy.lastPlace, original.lastPlace);
       }

@@ -39,11 +39,9 @@ class JobCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final hc = HaulColors.of(context);
     final state = AppScope.of(context);
-    final runnable = state.canRun(job);
     final worker = crewById(job.assignedTo);
     final isMineActive =
         job.assignedTo == kMeId && job.status == JobStatus.active;
-    final lockedOut = mode == JobCardMode.board && !runnable;
 
     final border = selected
         ? hc.brand
@@ -61,76 +59,63 @@ class JobCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(HaulSpace.radius),
       ),
       clipBehavior: Clip.antiAlias,
-      // Dimming the card is a visual shorthand for "wrong rig"; the fact chip
-      // below spells it out so the meaning does not live in opacity alone.
-      child: Opacity(
-        opacity: lockedOut ? 0.62 : 1,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+            child: _Headline(job: job, showBilled: state.canSeeMoney),
+          ),
+          if (job.status == JobStatus.active)
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-              child: _Headline(job: job, showBilled: state.canSeeMoney),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+              child: StageRail(
+                stage: job.stage,
+                trailing: job.phase.moving
+                    ? '${job.etaMinutes()} min out'
+                    : null,
+              ),
             ),
-            if (job.status == JobStatus.active)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
-                child: StageRail(
-                  stage: job.stage,
-                  trailing: job.phase.moving
-                      ? '${job.etaMinutes()} min out'
-                      : null,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                FactChip(
+                  icon: Icons.place_outlined,
+                  label: '${job.miles} mi · ${job.deadhead} out',
                 ),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
+                FactChip(label: '${job.volume} · ${job.weight}'),
+                // What the job needs, stated. Not a check against anybody:
+                // who can run what is a conversation in the yard, not a
+                // rule the app enforces on a driver's phone.
+                FactChip(icon: Icons.build_outlined, label: job.equipment),
+                FactChip(icon: Icons.schedule_rounded, label: job.window),
+                if (worker != null && !state.employeeView)
                   FactChip(
-                    icon: Icons.place_outlined,
-                    label: '${job.miles} mi · ${job.deadhead} out',
+                    icon: Icons.person_outline_rounded,
+                    label: worker.name,
                   ),
-                  FactChip(label: '${job.volume} · ${job.weight}'),
-                  FactChip(
-                    icon: lockedOut
-                        ? Icons.warning_amber_rounded
-                        : Icons.build_outlined,
-                    label: lockedOut
-                        ? '${job.equipment} — not your rig'
-                        : job.equipment,
-                    bad: lockedOut,
-                  ),
-                  FactChip(icon: Icons.schedule_rounded, label: job.window),
-                  if (worker != null && !state.employeeView)
-                    FactChip(
-                      icon: Icons.person_outline_rounded,
-                      label: worker.name,
-                    ),
-                  if (job.status == JobStatus.assigned)
-                    Pill.violet(label: 'Awaiting accept'),
-                  if (state.unsyncedJobIds.contains(job.id))
-                    const UnsyncedChip(),
-                ],
-              ),
+                if (job.status == JobStatus.assigned)
+                  Pill.violet(label: 'Awaiting accept'),
+                if (state.unsyncedJobIds.contains(job.id)) const UnsyncedChip(),
+              ],
             ),
-            ..._actions(context, state, runnable),
-          ],
-        ),
+          ),
+          ..._actions(context, state),
+        ],
       ),
     );
   }
 
-  List<Widget> _actions(BuildContext context, AppState state, bool runnable) {
+  List<Widget> _actions(BuildContext context, AppState state) {
     switch (mode) {
       case JobCardMode.board:
         return [
           HoldButton(
-            enabled: runnable,
             idleLabel: 'Hold to volunteer',
-            blockedLabel: 'Wrong rig for this load',
             confirmTitle: 'Take ${job.id}?',
             confirmMessage:
                 '${job.type} for ${job.customer} in ${job.city}. '

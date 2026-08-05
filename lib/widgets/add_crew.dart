@@ -161,17 +161,6 @@ class _AddCrewDialogState extends State<_AddCrewDialog> {
   /// field initialiser — the inherited state is not readable that early.
   Role? _role;
 
-  /// Only meaningful for drivers — an office manager is not checked out on a
-  /// lowboy, and asking would just be a field nobody fills in.
-  final Set<String> _rig = {};
-
-  static const _rigs = [
-    'Dump trailer 14k',
-    'Flatbed 20ft',
-    'Lowboy 25t',
-    'Roll-off',
-  ];
-
   @override
   void dispose() {
     _name.dispose();
@@ -182,12 +171,7 @@ class _AddCrewDialogState extends State<_AddCrewDialog> {
   Future<void> _submit(Role role) async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final state = AppScope.of(context);
-    final ok = await state.hire(
-      name: _name.text,
-      role: role,
-      unit: _unit.text,
-      rig: role == Role.employee ? _rig.toList() : const [],
-    );
+    final ok = await state.hire(name: _name.text, role: role, unit: _unit.text);
     if (ok && mounted) Navigator.of(context).pop();
   }
 
@@ -240,30 +224,6 @@ class _AddCrewDialogState extends State<_AddCrewDialog> {
                       '${i + 1} of ${roles.length}. ${roles[i].blurb}',
                   onTap: () => setState(() => _role = roles[i]),
                 ),
-              if (role == Role.employee) ...[
-                const SizedBox(height: 10),
-                Semantics(
-                  header: true,
-                  child: Text('CHECKED OUT ON', style: ht.blockTitle),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'A job whose equipment is not on this list cannot be '
-                  'volunteered for.',
-                  style: ht.small,
-                ),
-                const SizedBox(height: 4),
-                for (final rig in _rigs)
-                  _PickRow(
-                    selected: _rig.contains(rig),
-                    exclusive: false,
-                    title: rig,
-                    semanticLabel: 'Checked out on $rig',
-                    onTap: () => setState(() {
-                      if (!_rig.remove(rig)) _rig.add(rig);
-                    }),
-                  ),
-              ],
             ],
           ),
         ),

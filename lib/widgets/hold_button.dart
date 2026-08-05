@@ -6,6 +6,10 @@ import '../theme/haul_theme.dart';
 /// Hold-to-commit. Volunteering for a load is a real commitment and a phone in
 /// a truck gets bumped, so a stray tap must not sign anyone up for a job.
 ///
+/// It has no disabled state, deliberately. Every load is every driver's to
+/// take — what a job needs is stated on the card, and who can run what is
+/// settled in the yard rather than enforced on somebody's phone.
+///
 /// Three ways to fire it, because "press and hold" alone locks out a lot of
 /// people:
 ///
@@ -18,24 +22,16 @@ class HoldButton extends StatefulWidget {
   const HoldButton({
     super.key,
     required this.idleLabel,
-    required this.blockedLabel,
     required this.onConfirmed,
     required this.confirmTitle,
     required this.confirmMessage,
-    this.enabled = true,
     this.holdDuration = const Duration(milliseconds: 850),
   });
 
   final String idleLabel;
-
-  /// Shown instead of [idleLabel] when [enabled] is false, and it says *why* —
-  /// a disabled control with no reason is a dead end.
-  final String blockedLabel;
-
   final VoidCallback onConfirmed;
   final String confirmTitle;
   final String confirmMessage;
-  final bool enabled;
   final Duration holdDuration;
 
   @override
@@ -73,7 +69,6 @@ class _HoldButtonState extends State<HoldButton>
   }
 
   void _startHold() {
-    if (!widget.enabled) return;
     _justFired = false;
     _fill.forward(from: 0);
   }
@@ -85,7 +80,6 @@ class _HoldButtonState extends State<HoldButton>
 
   /// The no-gesture path: confirm in a dialog instead of sustaining a press.
   Future<void> _confirmViaDialog() async {
-    if (!widget.enabled) return;
     final hc = HaulColors.of(context);
     final ht = HaulText.of(context);
     if (_justFired) {
@@ -151,22 +145,16 @@ class _HoldButtonState extends State<HoldButton>
         MediaQuery.accessibleNavigationOf(context) ||
         MediaQuery.disableAnimationsOf(context);
 
-    final label = widget.enabled ? widget.idleLabel : widget.blockedLabel;
-
     return Semantics(
       button: true,
-      enabled: widget.enabled,
-      label: label,
-      hint: widget.enabled
-          ? (noGestures
-                ? 'Activate to confirm'
-                : 'Press and hold to confirm, or activate for a confirmation prompt')
-          : null,
-      onTap: widget.enabled ? _confirmViaDialog : null,
+      label: widget.idleLabel,
+      hint: noGestures
+          ? 'Activate to confirm'
+          : 'Press and hold to confirm, or activate for a confirmation prompt',
+      onTap: _confirmViaDialog,
       excludeSemantics: true,
       child: Focus(
-        onKeyEvent: widget.enabled ? _onKey : null,
-        canRequestFocus: widget.enabled,
+        onKeyEvent: _onKey,
         child: Builder(
           builder: (context) {
             final focused = Focus.of(context).hasFocus;
@@ -177,11 +165,9 @@ class _HoldButtonState extends State<HoldButton>
               onTapCancel: noGestures ? null : _cancelHold,
               // A plain tap on the accessible path, and a safety net on the
               // gesture path for anyone who taps instead of holding.
-              onTap: widget.enabled ? _confirmViaDialog : null,
+              onTap: _confirmViaDialog,
               child: MouseRegion(
-                cursor: widget.enabled
-                    ? SystemMouseCursors.click
-                    : SystemMouseCursors.forbidden,
+                cursor: SystemMouseCursors.click,
                 child: AnimatedBuilder(
                   animation: _fill,
                   builder: (context, _) {
@@ -229,9 +215,7 @@ class _HoldButtonState extends State<HoldButton>
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    widget.enabled
-                                        ? Icons.bolt_rounded
-                                        : Icons.lock_outline_rounded,
+                                    Icons.bolt_rounded,
                                     size: 17,
                                     color: armed ? hc.bg : hc.ink,
                                   ),
@@ -240,15 +224,11 @@ class _HoldButtonState extends State<HoldButton>
                                     child: Text(
                                       (pct > 0 && pct < 1
                                               ? 'Keep holding'
-                                              : label)
+                                              : widget.idleLabel)
                                           .toUpperCase(),
                                       textAlign: TextAlign.center,
                                       style: ht.action.copyWith(
-                                        color: armed
-                                            ? hc.bg
-                                            : widget.enabled
-                                            ? hc.ink
-                                            : hc.inkSoft,
+                                        color: armed ? hc.bg : hc.ink,
                                       ),
                                     ),
                                   ),

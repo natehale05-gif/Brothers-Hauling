@@ -150,7 +150,6 @@ void main() {
         unit: 'Truck 12',
         onShift: true,
         appOpen: true,
-        rig: [],
         hourlyRate: 30,
       );
       final sheet = Timesheet(
@@ -181,7 +180,6 @@ void main() {
         unit: '',
         onShift: true,
         appOpen: false,
-        rig: [],
       );
       final sheet = Timesheet(member: member, entries: const [], now: clock);
 
