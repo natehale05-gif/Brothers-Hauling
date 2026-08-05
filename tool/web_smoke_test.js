@@ -323,11 +323,11 @@ function check(label, ok, detail = '') {
       );
       check(
         'the wide layout offers every destination',
-        n.filter((x) => /^button:.*tab,? \d of 6$/i.test(x)).length === 6,
+        n.filter((x) => /^button:.*tab,? \d of 4$/i.test(x)).length === 4,
       );
       check(
-        'the day view is one of them',
-        n.some((x) => /^button:.*Day tab,? \d of 6$/i.test(x)),
+        'the jobs list is one of them',
+        n.some((x) => /^button:.*Jobs tab,? \d of 4$/i.test(x)),
       );
 
       await press(page, 'Tracking tab');

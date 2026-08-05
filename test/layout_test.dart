@@ -22,15 +22,8 @@ const sizes = <String, Size>{
 /// Every tab, by the role that can reach it.
 const tabsByRole = <Role, List<HaulTab>>{
   Role.employee: [HaulTab.board, HaulTab.mine],
-  Role.manager: [HaulTab.day, HaulTab.jobs, HaulTab.crew, HaulTab.board],
-  Role.admin: [
-    HaulTab.overview,
-    HaulTab.day,
-    HaulTab.jobs,
-    HaulTab.tracking,
-    HaulTab.hours,
-    HaulTab.crew,
-  ],
+  Role.manager: [HaulTab.jobs, HaulTab.crew, HaulTab.board],
+  Role.admin: [HaulTab.overview, HaulTab.jobs, HaulTab.tracking, HaulTab.crew],
 };
 
 void main() {

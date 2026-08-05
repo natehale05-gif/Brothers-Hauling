@@ -20,16 +20,14 @@ import '../services/photo_service.dart';
 
 /// Tabs, per role. Kept as an enum so a stale tab can never survive a role
 /// switch — [AppState.enter] always lands on one this role owns.
-enum HaulTab { board, mine, day, jobs, crew, hours, tracking, overview }
+enum HaulTab { board, mine, jobs, crew, tracking, overview }
 
 extension HaulTabLabel on HaulTab {
   String get label => switch (this) {
     HaulTab.board => 'Board',
     HaulTab.mine => 'My jobs',
-    HaulTab.day => 'Day',
     HaulTab.jobs => 'Jobs',
     HaulTab.crew => 'Crew',
-    HaulTab.hours => 'Hours',
     HaulTab.tracking => 'Tracking',
     HaulTab.overview => 'Overview',
   };
@@ -757,21 +755,14 @@ class AppState extends ChangeNotifier {
   List<HaulTab> get navTabs {
     if (employeeView) return const [HaulTab.board, HaulTab.mine];
     return switch (_role) {
-      Role.manager => const [
-        HaulTab.day,
-        HaulTab.jobs,
-        HaulTab.crew,
-        HaulTab.board,
-      ],
-      // Six, which is as many as the bottom bar will carry — every label
-      // ellipsises rather than overflowing, and the icons carry the rest.
-      // Hours are the owner's alone, including the rates behind them.
+      Role.manager => const [HaulTab.jobs, HaulTab.crew, HaulTab.board],
+      // No separate day tab: Jobs is the day, paged. No separate hours tab
+      // either — hours are a fact about a person, so they sit on Crew with
+      // the person they belong to, and stay owner-only there.
       Role.admin => const [
         HaulTab.overview,
-        HaulTab.day,
         HaulTab.jobs,
         HaulTab.tracking,
-        HaulTab.hours,
         HaulTab.crew,
       ],
       _ => const [HaulTab.board, HaulTab.mine],

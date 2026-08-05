@@ -4,6 +4,7 @@ import '../../data/seed_data.dart';
 import '../../models/crew_member.dart';
 import '../../models/job.dart';
 import '../../models/role.dart';
+import '../../models/time_entry.dart';
 import '../../state/app_state.dart';
 import '../../theme/haul_theme.dart';
 import '../../widgets/job_card.dart';
@@ -12,6 +13,7 @@ import '../edit_job.dart';
 import 'day_board.dart';
 import '../../widgets/primitives.dart';
 import '../../widgets/route_strip.dart';
+import '../../widgets/hours_section.dart';
 import '../../widgets/server_panel.dart';
 import '../../widgets/track_card.dart';
 
@@ -231,6 +233,13 @@ class CrewTab extends StatelessWidget {
                         ? 'Idle — no load'
                         : 'Off shift';
 
+                    // An owner sees what each person has put in, right on the
+                    // row they are already reading. Nobody else does — what an
+                    // hour is worth is between them and payroll.
+                    final sheet = state.canSeeHoursAndPay
+                        ? state.timesheetFor(c)
+                        : null;
+
                     return Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
@@ -245,11 +254,13 @@ class CrewTab extends StatelessWidget {
                             ),
                       child: Row(
                         children: [
-                          // The person reads as one thing; the control that
-                          // changes their access is its own, so a screen
+                          // The person reads as one thing; the controls that
+                          // change their access are their own, so a screen
                           // reader does not fold a button into a sentence.
                           Expanded(
-                            child: MergeSemantics(
+                            child: _PersonTap(
+                              member: c,
+                              sheet: sheet,
                               child: Row(
                                 children: [
                                   CrewAvatar.muted(
@@ -287,11 +298,15 @@ class CrewTab extends StatelessWidget {
                                         ),
                                         const SizedBox(height: 3),
                                         Text(
-                                          // The level rides in the text rather
-                                          // than as another chip: it is worth
-                                          // seeing, not worth a column.
-                                          '${c.role.label} · ${c.unit} · '
-                                          '$detail',
+                                          // The level and the hours ride in
+                                          // the text rather than as more
+                                          // chips: both are worth seeing,
+                                          // neither is worth a column that
+                                          // would overflow at large text.
+                                          '${c.role.label} · ${c.unit}'
+                                          '${sheet == null ? '' : ' · '
+                                                    '${formatWorked(sheet.worked)}'}'
+                                          ' · $detail',
                                           style: ht.small,
                                         ),
                                       ],
@@ -318,7 +333,46 @@ class CrewTab extends StatelessWidget {
             ],
           ),
         ),
+        // Hours live with the people they belong to rather than on a tab of
+        // their own. Owner-only, and the widget enforces that itself.
+        const HoursSection(),
       ],
+    );
+  }
+}
+
+/// The person half of a crew row.
+///
+/// One announcement either way. For an owner it is also the way into that
+/// person's hours — the roster is where you are already looking somebody up,
+/// so making their time a second screen was one screen too many.
+class _PersonTap extends StatelessWidget {
+  const _PersonTap({
+    required this.member,
+    required this.sheet,
+    required this.child,
+  });
+
+  final CrewMember member;
+  final Timesheet? sheet;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final worked = sheet;
+    if (worked == null) return MergeSemantics(child: child);
+
+    final pay = worked.pay;
+    return Semantics(
+      button: true,
+      label:
+          '${member.name}, ${describeWorked(worked.worked)}'
+          '${worked.onTheClock ? ', on the clock now' : ''}'
+          '${pay == null ? ', no rate set' : ', $pay dollars'}. '
+          'Open their hours.',
+      onTap: () => showTimesheet(context, member),
+      excludeSemantics: true,
+      child: InkWell(onTap: () => showTimesheet(context, member), child: child),
     );
   }
 }

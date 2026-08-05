@@ -23,7 +23,7 @@ class DayBoard extends StatefulWidget {
     this.selectedJobId,
     this.only,
     this.pinned,
-    this.tile,
+    required this.tile,
     this.emptyMessage = 'Swipe or use the arrows to look at another day.',
   });
 
@@ -42,10 +42,10 @@ class DayBoard extends StatefulWidget {
 
   /// What one cell of the grid is.
   ///
-  /// Null gives the compact planning tile. A board somebody has to act on
-  /// passes the full job card instead, so the day layout does not cost the
-  /// driver the hold-to-volunteer control that is the whole point of it.
-  final Widget Function(Job job, bool selected)? tile;
+  /// Required: every day-paged screen is one somebody has to act on, so the
+  /// cell is the full job card. A compact planning tile lived here while there
+  /// was a separate day tab; there is not one now.
+  final Widget Function(Job job, bool selected) tile;
 
   final String emptyMessage;
 
@@ -244,7 +244,7 @@ class _DayPage extends StatelessWidget {
     required this.emptyMessage,
     this.selectedJobId,
     this.only,
-    this.tile,
+    required this.tile,
     this.header,
   });
 
@@ -252,7 +252,7 @@ class _DayPage extends StatelessWidget {
   final String emptyMessage;
   final String? selectedJobId;
   final bool Function(Job job)? only;
-  final Widget Function(Job job, bool selected)? tile;
+  final Widget Function(Job job, bool selected) tile;
 
   /// Shown above the grid on every day — the things that are not about a day
   /// at all and must not be swiped past.
@@ -285,21 +285,12 @@ class _DayPage extends StatelessWidget {
       return ListView(padding: EdgeInsets.zero, children: [header!, empty]);
     }
 
-    // Compact planning tiles unless the caller wants real cards.
-    final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-    final build =
-        tile ??
-        (Job job, bool selected) => SizedBox(
-          height: 150 * scale,
-          child: _DayTile(job: job, selected: selected),
-        );
-
     return ListView(
       padding: EdgeInsets.zero,
       children: [
         ?header,
         if (jobs.isNotEmpty)
-          _Grid(jobs: jobs, selectedJobId: selectedJobId, tile: build)
+          _Grid(jobs: jobs, selectedJobId: selectedJobId, tile: tile)
         else
           const EmptyState(
             title: 'Nothing booked in',
@@ -308,7 +299,7 @@ class _DayPage extends StatelessWidget {
         if (loose.isNotEmpty) ...[
           const SizedBox(height: 6),
           const SectionHeader(title: 'No day set', topPadding: 10),
-          _Grid(jobs: loose, selectedJobId: selectedJobId, tile: build),
+          _Grid(jobs: loose, selectedJobId: selectedJobId, tile: tile),
         ],
       ],
     );
@@ -352,123 +343,6 @@ class _Grid extends StatelessWidget {
         );
       },
     );
-  }
-}
-
-/// One job, compressed to what you need to plan a day: when, what, where, who.
-class _DayTile extends StatelessWidget {
-  const _DayTile({required this.job, required this.selected});
-
-  final Job job;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final hc = HaulColors.of(context);
-    final ht = HaulText.of(context);
-    final state = AppScope.of(context);
-    final worker = state.crew.where((c) => c.id == job.assignedTo).firstOrNull;
-
-    final when = job.scheduledFor == null
-        ? 'No day set'
-        : formatClock(job.scheduledFor!);
-    final who = worker?.name ?? 'Nobody yet';
-
-    return Semantics(
-      button: true,
-      selected: selected,
-      label:
-          '$when, ${job.type}, ${job.customer}'
-          '${job.city.isEmpty ? '' : ' in ${job.city}'}. '
-          '${worker == null ? 'Not staffed.' : 'Run by $who.'}',
-      onTap: () => state.openJobCard(job),
-      excludeSemantics: true,
-      child: Material(
-        color: hc.surface,
-        borderRadius: BorderRadius.circular(HaulSpace.radius),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => state.openJobCard(job),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-            decoration: BoxDecoration(
-              border: Border.all(color: selected ? hc.brand : hc.line),
-              borderRadius: BorderRadius.circular(HaulSpace.radius),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      when,
-                      style: ht.mono.copyWith(color: hc.brand, fontSize: 13),
-                    ),
-                    const Spacer(),
-                    _StatusDot(job: job),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  job.type.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: ht.sectionTitle,
-                ),
-                Text(
-                  job.customer,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: ht.secondary,
-                ),
-                const Spacer(),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.person_outline_rounded,
-                      size: 14,
-                      color: worker == null ? hc.alert : hc.inkSoft,
-                    ),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(
-                        who,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: ht.small.copyWith(
-                          color: worker == null ? hc.alert : hc.inkSoft,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Status as a shape and a colour, never colour alone — the tile's semantic
-/// label says the same thing in words.
-class _StatusDot extends StatelessWidget {
-  const _StatusDot({required this.job});
-
-  final Job job;
-
-  @override
-  Widget build(BuildContext context) {
-    final hc = HaulColors.of(context);
-    final (colour, icon) = switch (job.status) {
-      JobStatus.requested => (hc.violet, Icons.language_rounded),
-      JobStatus.open => (hc.alert, Icons.error_outline_rounded),
-      JobStatus.assigned => (hc.violet, Icons.schedule_rounded),
-      JobStatus.active => (hc.go, Icons.local_shipping_outlined),
-      JobStatus.done => (hc.inkSoft, Icons.check_circle_outline_rounded),
-    };
-    return Icon(icon, size: 15, color: colour);
   }
 }
 

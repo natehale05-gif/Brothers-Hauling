@@ -15,10 +15,8 @@ import '../widgets/sync_strip.dart';
 import '../widgets/theme_toggle.dart';
 import 'job_detail.dart';
 import 'role_gate.dart';
-import 'tabs/day_board.dart';
 import 'tabs/dispatch_tabs.dart';
 import 'tabs/employee_tabs.dart';
-import 'tabs/hours_tab.dart';
 
 /// The signed-in app.
 ///
@@ -53,13 +51,9 @@ class HomeShell extends StatelessWidget {
         actions: {
           _StepDayIntent: CallbackAction<_StepDayIntent>(
             onInvoke: (intent) {
-              // Every day-paged tab, not just the dispatcher's: a mouse has
-              // nothing to swipe with, and a keyboard user cannot swipe at all.
-              if (const {
-                HaulTab.day,
-                HaulTab.board,
-                HaulTab.jobs,
-              }.contains(state.tab)) {
+              // Both day-paged tabs: a mouse has nothing to swipe with, and a
+              // keyboard user cannot swipe at all.
+              if (const {HaulTab.board, HaulTab.jobs}.contains(state.tab)) {
                 state.stepDay(intent.by);
               }
               return null;
@@ -183,11 +177,9 @@ class _TabBody extends StatelessWidget {
 
     final Widget body = switch (state.tab) {
       HaulTab.board => EmployeeBoardTab(selectedJobId: selectedJobId),
-      HaulTab.day => DayBoard(selectedJobId: selectedJobId),
       HaulTab.mine => EmployeeMineTab(selectedJobId: selectedJobId),
       HaulTab.jobs => JobsTab(selectedJobId: selectedJobId),
       HaulTab.crew => const CrewTab(),
-      HaulTab.hours => const HoursTab(),
       HaulTab.tracking => const TrackingTab(),
       HaulTab.overview => const OverviewTab(),
     };
@@ -196,7 +188,7 @@ class _TabBody extends StatelessWidget {
     // height rather than being shrink-wrapped by a scroll view that would
     // leave its pages with nothing to fill. Every other tab is a column of
     // content that grows as long as it likes.
-    if (const {HaulTab.day, HaulTab.board, HaulTab.jobs}.contains(state.tab)) {
+    if (const {HaulTab.board, HaulTab.jobs}.contains(state.tab)) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
         child: Center(
@@ -392,10 +384,8 @@ class _LocationStrip extends StatelessWidget {
 IconData _tabIcon(HaulTab tab) => switch (tab) {
   HaulTab.board => Icons.grid_view_rounded,
   HaulTab.mine => Icons.local_shipping_rounded,
-  HaulTab.day => Icons.calendar_today_rounded,
   HaulTab.jobs => Icons.assignment_outlined,
   HaulTab.crew => Icons.people_alt_outlined,
-  HaulTab.hours => Icons.schedule_rounded,
   HaulTab.tracking => Icons.navigation_rounded,
   HaulTab.overview => Icons.dashboard_outlined,
 };

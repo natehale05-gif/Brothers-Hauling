@@ -6,7 +6,8 @@ import 'package:haul_board/models/crew_member.dart';
 import 'package:haul_board/models/job.dart';
 import 'package:haul_board/models/role.dart';
 import 'package:haul_board/models/time_entry.dart';
-import 'package:haul_board/screens/tabs/hours_tab.dart';
+import 'package:haul_board/screens/tabs/dispatch_tabs.dart';
+import 'package:haul_board/widgets/hours_section.dart';
 import 'package:haul_board/services/location_service.dart';
 import 'package:haul_board/services/photo_service.dart';
 import 'package:haul_board/state/app_state.dart';
@@ -246,14 +247,26 @@ void main() {
       expect(find.textContaining('your cut'), findsNothing);
     });
 
-    testWidgets('the hours tab is not theirs', (tester) async {
+    testWidgets('the hours section is not on their crew screen', (
+      tester,
+    ) async {
+      // A driver has no crew screen at all, so there is nowhere for it to be.
       final harness = await pumpApp(tester, role: Role.employee);
-      expect(harness.state.navTabs, isNot(contains(HaulTab.hours)));
+      expect(harness.state.navTabs, isNot(contains(HaulTab.crew)));
+      expect(find.byType(HoursSection), findsNothing);
     });
 
-    testWidgets('nor a manager\'s', (tester) async {
+    testWidgets('nor on a manager\'s, who does have one', (tester) async {
       final harness = await pumpApp(tester, role: Role.manager);
-      expect(harness.state.navTabs, isNot(contains(HaulTab.hours)));
+      expect(harness.state.navTabs, contains(HaulTab.crew));
+
+      harness.state.setTab(HaulTab.crew);
+      await settle(tester);
+
+      // The roster is a manager's business. What people earn is not.
+      expect(find.byType(CrewTab), findsOneWidget);
+      expect(find.text('Hours'), findsNothing);
+      expect(find.text('Hours on the books'), findsNothing);
     });
   });
 
@@ -272,14 +285,14 @@ void main() {
       if (withWork) {
         await harness.state.claim(jobIn(harness.state, 'HL-4471'));
       }
-      harness.state.setTab(HaulTab.hours);
+      harness.state.setTab(HaulTab.crew);
       await settle(tester);
       return harness;
     }
 
     testWidgets('everyone on the crew has a row', (tester) async {
       final harness = await openHours(tester);
-      expect(find.byType(HoursTab), findsOneWidget);
+      expect(find.byType(HoursSection), findsOneWidget);
       for (final member in harness.state.crew) {
         expect(find.text(member.name), findsWidgets);
       }
@@ -296,10 +309,12 @@ void main() {
     testWidgets('opening a person lists every job they worked', (tester) async {
       await openHours(tester, withWork: true);
 
-      // Scoped to the tab: the top bar carries the signed-in name too.
+      // Scoped to the tab: the top bar carries the signed-in name too. The
+      // roster row is the way in — hours are not a second list of the same
+      // people further down the same screen.
       await tester.tap(
         find.descendant(
-          of: find.byType(HoursTab),
+          of: find.byType(CrewTab),
           matching: find.text('Nate R.'),
         ),
       );
@@ -320,7 +335,7 @@ void main() {
 
       await tester.tap(
         find.descendant(
-          of: find.byType(HoursTab),
+          of: find.byType(CrewTab),
           matching: find.text(idle.name),
         ),
       );

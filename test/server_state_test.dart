@@ -8,7 +8,6 @@ import 'package:haul_board/services/location_service.dart';
 import 'package:haul_board/services/photo_service.dart';
 import 'package:haul_board/state/app_state.dart';
 
-
 /// Stands in for a real socket. What is under test here is who is allowed to
 /// turn it on and what gets written down — not that dart:io can bind a port,
 /// which sync_server_test drives for real.

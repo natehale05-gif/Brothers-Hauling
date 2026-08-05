@@ -374,12 +374,12 @@ void main() {
       final handle = tester.ensureSemantics();
       await pumpApp(tester, role: Role.admin);
 
-      expect(find.bySemanticsLabel('Overview tab, 1 of 6'), findsOneWidget);
-      expect(find.bySemanticsLabel('Day tab, 2 of 6'), findsOneWidget);
-      expect(find.bySemanticsLabel('Crew tab, 6 of 6'), findsOneWidget);
+      expect(find.bySemanticsLabel('Overview tab, 1 of 4'), findsOneWidget);
+      expect(find.bySemanticsLabel('Jobs tab, 2 of 4'), findsOneWidget);
+      expect(find.bySemanticsLabel('Crew tab, 4 of 4'), findsOneWidget);
 
       final selected = tester.getSemantics(
-        find.bySemanticsLabel('Overview tab, 1 of 6'),
+        find.bySemanticsLabel('Overview tab, 1 of 4'),
       );
       // isSelected is a tristate: unset, true, or false.
       expect(

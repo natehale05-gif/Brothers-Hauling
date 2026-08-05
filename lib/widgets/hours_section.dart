@@ -1,26 +1,34 @@
 import 'package:flutter/material.dart';
 
-import '../../models/crew_member.dart';
-import '../../models/job.dart' show formatClock;
-import '../../models/time_entry.dart';
-import '../../state/app_state.dart';
-import '../../theme/haul_theme.dart';
-import '../../widgets/primitives.dart';
-import '../../widgets/route_strip.dart' show PingDot;
+import '../models/crew_member.dart';
+import '../models/job.dart' show formatClock;
+import '../models/time_entry.dart';
+import '../state/app_state.dart';
+import '../theme/haul_theme.dart';
+import 'primitives.dart';
 
-/// Everybody's hours, one person at a time.
+/// Everybody's hours, one person at a time, on the screen the people are on.
+///
+/// Not a tab of its own: hours are a fact about a person, and the roster is
+/// where the people already are. Looking somebody up and then looking their
+/// time up somewhere else was two screens for one question.
 ///
 /// Owner-only, and that includes the rates. A driver's own screens show them
 /// their time and nothing about what it is worth — what somebody earns is
 /// between them and payroll, and an app that announces it to whoever picks the
 /// phone up is not doing anyone a favour.
-class HoursTab extends StatelessWidget {
-  const HoursTab({super.key});
+class HoursSection extends StatelessWidget {
+  const HoursSection({super.key});
 
   @override
   Widget build(BuildContext context) {
     final ht = HaulText.of(context);
     final state = AppScope.of(context);
+
+    // The gate is here rather than at the call site so there is one place that
+    // decides, and no screen can accidentally show this by forgetting to ask.
+    if (!state.canSeeHoursAndPay) return const SizedBox.shrink();
+
     final sheets = state.timesheets;
     final total = sheets.fold(Duration.zero, (t, s) => t + s.worked);
     final running = sheets.where((s) => s.onTheClock).length;
@@ -28,6 +36,14 @@ class HoursTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        SectionHeader(
+          title: 'Hours',
+          topPadding: 22,
+          trailing: Text(
+            running == 1 ? '1 ON THE CLOCK' : '$running ON THE CLOCK',
+            style: ht.eyebrow,
+          ),
+        ),
         Row(
           children: [
             Expanded(
@@ -38,23 +54,18 @@ class HoursTab extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: StatTile(
-                value: '$running',
-                label: running == 1 ? 'On the clock' : 'On the clock',
-              ),
+              child: StatTile(value: '$running', label: 'On the clock'),
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        const SectionHeader(title: 'By person'),
-        for (final sheet in sheets) _PersonRow(sheet: sheet),
         const SizedBox(height: 14),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Text(
             'Hours come from the jobs themselves — the clock starts when a '
             'driver takes a job on and stops when they close it. There is no '
-            'timer to remember to start, and none to leave running overnight.',
+            'timer to remember to start, and none to leave running overnight. '
+            'Tap anyone above to read their time job by job.',
             style: ht.small.copyWith(fontSize: 12),
           ),
         ),
@@ -63,99 +74,16 @@ class HoursTab extends StatelessWidget {
   }
 }
 
-class _PersonRow extends StatelessWidget {
-  const _PersonRow({required this.sheet});
-
-  final Timesheet sheet;
-
-  @override
-  Widget build(BuildContext context) {
-    final hc = HaulColors.of(context);
-    final ht = HaulText.of(context);
-    final pay = sheet.pay;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: hc.surface,
-        border: Border.all(color: hc.line),
-        borderRadius: BorderRadius.circular(HaulSpace.radius),
-      ),
-      child: Semantics(
-        button: true,
-        label:
-            '${sheet.member.name}, ${describeWorked(sheet.worked)}'
-            '${sheet.onTheClock ? ', on the clock now' : ''}'
-            '${pay == null ? ', no rate set' : ', $pay dollars'}. '
-            'Open their hours.',
-        onTap: () => _open(context),
-        excludeSemantics: true,
-        child: InkWell(
-          onTap: () => _open(context),
-          borderRadius: BorderRadius.circular(HaulSpace.radius),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
-            child: Row(
-              children: [
-                CrewAvatar.muted(initials: sheet.member.initials, size: 34),
-                const SizedBox(width: 11),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(sheet.member.name, style: ht.bodyStrong),
-                      const SizedBox(height: 2),
-                      Text(
-                        sheet.member.hourlyRate > 0
-                            ? '\$${sheet.member.hourlyRate}/hr · '
-                                  '${sheet.entries.length} '
-                                  '${sheet.entries.length == 1 ? 'job' : 'jobs'}'
-                            : 'No rate set · ${sheet.entries.length} '
-                                  '${sheet.entries.length == 1 ? 'job' : 'jobs'}',
-                        style: ht.small,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      formatWorked(sheet.worked),
-                      style: ht.money.copyWith(fontSize: 17),
-                    ),
-                    Text(
-                      // A rate nobody has set reads as missing, not as free.
-                      pay == null ? 'no rate' : '\$$pay',
-                      style: ht.small.copyWith(fontSize: 11),
-                    ),
-                  ],
-                ),
-                if (sheet.onTheClock) ...[
-                  const SizedBox(width: 8),
-                  PingDot(live: true, size: 9),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _open(BuildContext context) {
-    final state = AppScope.of(context);
-    showDialog<void>(
-      context: context,
-      builder: (_) => AppScope(
-        state: state,
-        child: _PersonSheet(member: sheet.member),
-      ),
-    );
-  }
+/// Opens one person's hours, job by job.
+Future<void> showTimesheet(BuildContext context, CrewMember member) {
+  final state = AppScope.of(context);
+  return showDialog<void>(
+    context: context,
+    builder: (_) => AppScope(
+      state: state,
+      child: _PersonSheet(member: member),
+    ),
+  );
 }
 
 /// One person's hours, job by job — the thing you check before paying someone.

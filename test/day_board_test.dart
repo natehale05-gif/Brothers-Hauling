@@ -172,18 +172,21 @@ void main() {
         size: size,
         jobs: jobs,
       );
-      harness.state.setTab(HaulTab.day);
+      harness.state.setTab(HaulTab.jobs);
       await settle(tester);
       return harness;
     }
 
-    testWidgets('dispatch gets the tab, a driver does not', (tester) async {
+    testWidgets('dispatch gets the whole company, a driver does not', (
+      tester,
+    ) async {
       final harness = await pumpApp(tester, role: Role.admin);
-      expect(harness.state.navTabs, contains(HaulTab.day));
+      expect(harness.state.navTabs, contains(HaulTab.jobs));
 
       final driver = await pumpApp(tester, role: Role.employee);
-      // The day view is every job in the company, which is a dispatch screen.
-      expect(driver.state.navTabs, isNot(contains(HaulTab.day)));
+      // Jobs is every job in the company, which is a dispatch screen. A
+      // driver's day is their own board.
+      expect(driver.state.navTabs, isNot(contains(HaulTab.jobs)));
     });
 
     testWidgets('it opens on today and says so', (tester) async {
@@ -258,13 +261,13 @@ void main() {
         ],
       );
 
-      expect(find.text('Today Customer'), findsOneWidget);
-      expect(find.text('Tomorrow Customer'), findsNothing);
+      expect(find.textContaining('Today Customer'), findsOneWidget);
+      expect(find.textContaining('Tomorrow Customer'), findsNothing);
 
       await tester.drag(find.byType(PageView), const Offset(-400, 0));
       await settle(tester);
-      expect(find.text('Tomorrow Customer'), findsOneWidget);
-      expect(find.text('Today Customer'), findsNothing);
+      expect(find.textContaining('Tomorrow Customer'), findsOneWidget);
+      expect(find.textContaining('Today Customer'), findsNothing);
     });
 
     testWidgets('an empty day says which day is empty', (tester) async {
@@ -291,34 +294,20 @@ void main() {
         ],
       );
 
-      expect(find.text('Booked In'), findsOneWidget);
+      expect(find.textContaining('Booked In'), findsOneWidget);
       expect(find.text('NO DAY SET'), findsOneWidget);
-      expect(find.text('No Day Yet'), findsOneWidget);
+      expect(find.textContaining('No Day Yet'), findsOneWidget);
     });
 
-    testWidgets('a tile says everything the label needs to', (tester) async {
-      final handle = tester.ensureSemantics();
-      await openDay(
-        tester,
-        jobs: [job('HL-1', on: today, customer: 'Sunset Ridge Builders')],
-      );
-
-      // Status is a coloured icon on the tile, so the words have to carry it.
-      expect(
-        find.bySemanticsLabel(RegExp('Sunset Ridge Builders in Philomath')),
-        findsOneWidget,
-      );
-      expect(find.bySemanticsLabel(RegExp('Not staffed')), findsOneWidget);
-      handle.dispose();
-    });
-
-    testWidgets('tapping a tile opens the job', (tester) async {
+    testWidgets('a card on the grid opens the job', (tester) async {
       final harness = await openDay(
         tester,
         jobs: [job('HL-1', on: today, customer: 'Sunset Ridge Builders')],
       );
 
-      await tester.tap(find.text('Sunset Ridge Builders'));
+      // Its own control rather than the whole card: a card that opens on any
+      // tap cannot also carry a hold-to-volunteer button.
+      await tester.tap(find.text('DETAILS & STAFFING'));
       await settle(tester);
       expect(harness.state.openJob?.id, 'HL-1');
     });
@@ -329,10 +318,10 @@ void main() {
           job('HL-$i', on: today, customer: 'Customer $i'),
       ];
 
-      // Two tiles side by side share a row; stacked ones do not.
+      // Two cards side by side share a row; stacked ones do not.
       bool sideBySide(WidgetTester t) =>
-          t.getTopLeft(find.text('Customer 0')).dy ==
-          t.getTopLeft(find.text('Customer 1')).dy;
+          t.getTopLeft(find.textContaining('Customer 0')).dy ==
+          t.getTopLeft(find.textContaining('Customer 1')).dy;
 
       await openDay(tester, jobs: many, size: const Size(430, 900));
       expect(sideBySide(tester), isFalse, reason: 'one column on a phone');
