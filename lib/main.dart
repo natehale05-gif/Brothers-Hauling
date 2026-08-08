@@ -8,6 +8,7 @@ import 'data/store.dart';
 import 'calendar/calendar_home.dart';
 import 'calendar/calendar_state.dart';
 import 'calendar/calendar_theme.dart';
+import 'services/alert_service.dart';
 import 'services/link_service.dart';
 import 'services/location_service.dart';
 import 'services/photo_service.dart';
@@ -67,6 +68,9 @@ void main() async {
     storageIsDurable: durable,
     location: const GeolocatorLocationService(),
     photos: ImagePickerPhotoService(),
+    // Reminders on the device. Every alert is stored on the job either way,
+    // so a platform that refuses to schedule them loses nothing but the buzz.
+    alerts: LocalAlertService(),
   );
 
   // The board is already loaded above, so this is the appearance choice and
@@ -74,6 +78,12 @@ void main() async {
   // want to be settled before the first frame: a board that flashes dark then
   // turns light is worse than one that waits a frame.
   await state.restore();
+
+  // Anything already booked gets its reminder set now, without asking for
+  // permission first — the ask belongs to the moment somebody sets an alert,
+  // not to the first launch. On a platform that never gates it, this is all
+  // that ever needs to happen.
+  unawaited(state.syncAlerts());
 
   runApp(BrothersHaulingApp(state: state));
 }

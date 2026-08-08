@@ -7,6 +7,7 @@ import 'package:haul_board/models/job.dart';
 import 'package:haul_board/models/role.dart';
 import 'package:haul_board/services/link_service.dart';
 import 'package:haul_board/services/location_service.dart';
+import 'package:haul_board/services/alert_service.dart';
 import 'package:haul_board/services/photo_service.dart';
 import 'package:haul_board/state/app_state.dart';
 
@@ -61,6 +62,7 @@ Future<Harness> pumpApp(
   List<Job>? jobs,
   ThemeMode themeMode = ThemeMode.light,
   IntakeSource? intake,
+  AlertService? alerts,
 }) async {
   tester.view
     ..physicalSize = size
@@ -78,6 +80,7 @@ Future<Harness> pumpApp(
     autoAdvance: false,
     toastDuration: null,
     intake: intake,
+    alerts: alerts,
     now: () => clock,
   );
   addTearDown(state.dispose);

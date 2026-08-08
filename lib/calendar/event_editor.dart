@@ -17,6 +17,27 @@ import 'event.dart';
 /// How long a new job runs unless somebody says otherwise.
 const int kDefaultMinutes = 120;
 
+/// The reminders offered, as minutes before the job starts.
+///
+/// Apple's list, minus the ones a hauling day has no use for. Null is no
+/// reminder at all; zero is "when it starts".
+const List<(int?, String)> kAlertChoices = [
+  (null, 'None'),
+  (0, 'At the time'),
+  (15, '15 min before'),
+  (30, '30 min before'),
+  (60, '1 hour before'),
+  (120, '2 hours before'),
+  (1440, '1 day before'),
+];
+
+String alertLabel(int? minutes) {
+  for (final (value, label) in kAlertChoices) {
+    if (value == minutes) return label;
+  }
+  return '$minutes min before';
+}
+
 /// Opens the editor over the calendar.
 ///
 /// One form for both jobs: [job] null is a new one, [job] set is a correction.
@@ -69,6 +90,7 @@ class _EventEditorState extends State<EventEditor> {
   late int _minutes;
   Repeat _repeat = Repeat.never;
   int _times = 4;
+  int? _alert;
   bool _saving = false;
 
   bool get _isNew => widget.job == null;
@@ -94,6 +116,7 @@ class _EventEditorState extends State<EventEditor> {
         : (at != null && at.hour == 0 && at.minute == 0);
     _starts = at ?? _nextRoundHour();
     _minutes = job?.minutes ?? kDefaultMinutes;
+    _alert = job?.alertMinutes;
   }
 
   DateTime _nextRoundHour() {
@@ -133,6 +156,10 @@ class _EventEditorState extends State<EventEditor> {
 
     setState(() => _saving = true);
     final app = AppScope.read(context);
+
+    // Ask the platform at the moment somebody actually wants a reminder,
+    // rather than with a prompt on first launch that means nothing yet.
+    if (_alert != null) await app.enableAlerts();
     final job = widget.job;
     final kind = _kind.text.trim().isEmpty ? 'Other work' : _kind.text.trim();
 
@@ -160,6 +187,7 @@ class _EventEditorState extends State<EventEditor> {
           scheduledFor: _allDay ? dayOf(at) : at,
           // An all-day job has no length to speak of.
           minutes: _allDay ? null : _minutes,
+          alertMinutes: _alert,
         );
         if (added != null) made++;
       }
@@ -176,6 +204,7 @@ class _EventEditorState extends State<EventEditor> {
         'equipment': _equipment.text.trim(),
         'scheduledFor': _stored.toUtc().toIso8601String(),
         'minutes': _allDay ? null : _minutes,
+        'alertMinutes': _alert,
       });
     }
 
@@ -320,6 +349,10 @@ class _EventEditorState extends State<EventEditor> {
                   onRepeat: (r) => setState(() => _repeat = r),
                   onTimes: (n) => setState(() => _times = n),
                 ),
+              _AlertRow(
+                minutes: _alert,
+                onChanged: (m) => setState(() => _alert = m),
+              ),
             ],
           ),
           _Group(
@@ -571,6 +604,83 @@ class _KindRow extends StatelessWidget {
                       ),
                     ),
                   ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// When to be told about it.
+class _AlertRow extends StatelessWidget {
+  const _AlertRow({required this.minutes, required this.onChanged});
+
+  final int? minutes;
+  final ValueChanged<int?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Row(
+            children: [
+              SizedBox(width: 96, child: Text('Alert', style: t.secondary)),
+              Expanded(
+                child: Text(
+                  alertLabel(minutes),
+                  style: t.body.copyWith(fontSize: 15),
+                ),
+              ),
+              if (minutes != null)
+                Icon(
+                  Icons.notifications_active_rounded,
+                  size: 18,
+                  color: p.accent,
+                ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final (value, label) in kAlertChoices)
+                Semantics(
+                  button: true,
+                  selected: value == minutes,
+                  label: 'Alert $label',
+                  onTap: () => onChanged(value),
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    onTap: () => onChanged(value),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: value == minutes ? p.accent : p.fill,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        label,
+                        style: t.eventTitle.copyWith(
+                          fontSize: 12,
+                          color: value == minutes ? p.onAccent : p.label,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

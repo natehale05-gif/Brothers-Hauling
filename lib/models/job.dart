@@ -194,6 +194,7 @@ class Job {
     this.bookingId,
     this.scheduledFor,
     this.minutes,
+    this.alertMinutes,
     this.startedAt,
     this.finishedAt,
   });
@@ -297,6 +298,21 @@ class Job {
   /// without the rounding a Duration in microseconds invites.
   final int? minutes;
 
+  /// How long before it starts somebody wants telling, in minutes.
+  ///
+  /// Null is no alert; zero is "when it starts". Kept on the job rather than
+  /// on the device that set it, so dispatch saying "give them half an hour's
+  /// warning" reaches the driver who is actually going to do the work.
+  final int? alertMinutes;
+
+  /// The moment the alert is due, or null when there is nothing to fire.
+  DateTime? get alertAt {
+    final at = scheduledFor;
+    final before = alertMinutes;
+    if (at == null || before == null) return null;
+    return at.subtract(Duration(minutes: before));
+  }
+
   /// The website booking this came from, if it did.
   ///
   /// Kept so the same booking arriving twice — a retried poll, a relaunch
@@ -398,6 +414,7 @@ class Job {
     'bookingId': bookingId,
     'scheduledFor': scheduledFor?.toUtc().toIso8601String(),
     'minutes': minutes,
+    'alertMinutes': alertMinutes,
     'startedAt': startedAt?.toUtc().toIso8601String(),
     'finishedAt': finishedAt?.toUtc().toIso8601String(),
   };
@@ -461,6 +478,7 @@ class Job {
       progress: (json['progress'] as num?)?.toDouble().clamp(0.0, 1.0) ?? 0,
       bookingId: json['bookingId'] as String?,
       minutes: (json['minutes'] as num?)?.toInt(),
+      alertMinutes: (json['alertMinutes'] as num?)?.toInt(),
       scheduledFor: DateTime.tryParse(
         json['scheduledFor'] as String? ?? '',
       )?.toLocal(),
@@ -489,6 +507,7 @@ class Job {
     DateTime? scheduledFor,
     bool clearSchedule = false,
     int? minutes,
+    int? alertMinutes,
     DateTime? startedAt,
     DateTime? finishedAt,
   }) {
@@ -522,6 +541,7 @@ class Job {
       bookingId: bookingId ?? this.bookingId,
       scheduledFor: clearSchedule ? null : (scheduledFor ?? this.scheduledFor),
       minutes: minutes ?? this.minutes,
+      alertMinutes: alertMinutes ?? this.alertMinutes,
       startedAt: startedAt ?? this.startedAt,
       finishedAt: finishedAt ?? this.finishedAt,
     );

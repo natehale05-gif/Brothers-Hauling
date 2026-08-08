@@ -183,6 +183,12 @@ class _Detail extends StatelessWidget {
                           : '${job.address}, ${job.city}',
                     ),
                     _Row(label: 'Window', value: job.window),
+                    _Row(
+                      label: 'Alert',
+                      value: job.alertMinutes == null
+                          ? ''
+                          : alertLabel(job.alertMinutes),
+                    ),
                     _Row(label: 'Contact', value: job.contact),
                     _Row(label: 'Phone', value: job.phone),
                   ],

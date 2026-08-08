@@ -15,6 +15,7 @@ import '../models/time_entry.dart';
 import '../models/crew_member.dart';
 import '../models/job.dart';
 import '../models/role.dart';
+import '../services/alert_service.dart';
 import '../services/location_service.dart';
 import '../services/photo_service.dart';
 
@@ -52,11 +53,13 @@ class AppState extends ChangeNotifier {
     IdGenerator? idGenerator,
     ServerControl? server,
     AccountBook? accounts,
+    AlertService? alerts,
   }) : _prefs = store ?? MemoryStore(),
        // ignore: prefer_initializing_formals
        _server = server,
        _accounts = accounts ?? AccountBook(),
        _intake = intake ?? const NoIntakeSource(),
+       _alerts = alerts ?? SilentAlertService(),
        _location = location ?? const GeolocatorLocationService(),
        photos = photos ?? ImagePickerPhotoService(),
        _now = now ?? DateTime.now,
@@ -77,7 +80,13 @@ class AppState extends ChangeNotifier {
   SyncState get syncState => _board.syncState;
   Set<String> get unsyncedJobIds => _board.unsyncedJobIds;
 
-  void _onBoardChanged() => notifyListeners();
+  final AlertService _alerts;
+
+  void _onBoardChanged() {
+    // The board moved, so whatever the device is holding is now out of date.
+    unawaited(syncAlerts());
+    notifyListeners();
+  }
 
   /// Where website bookings come from. [NoIntakeSource] when none is wired up,
   /// which is a board that simply never gains a job on its own.
@@ -511,6 +520,36 @@ class AppState extends ChangeNotifier {
     return true;
   }
 
+  // ------------------------------------------------------------- reminders
+
+  /// What the device has been asked to buzz about, and when.
+  List<Alert> get alerts => _alerts.scheduled;
+
+  /// False once the phone has said no. The app says so rather than pretending
+  /// the reminders are set.
+  bool get alertsAllowed => _alertsAllowed;
+  bool _alertsAllowed = true;
+
+  /// False in a browser, which can only raise a reminder while the page is
+  /// open. Worth saying rather than letting somebody close a tab expecting to
+  /// be told about a nine o'clock.
+  bool get alertsSurviveClosing => _alerts.firesWhenClosed;
+
+  /// Asks the platform for permission, then reconciles.
+  Future<bool> enableAlerts() async {
+    _alertsAllowed = await _alerts.ensureAllowed();
+    await syncAlerts();
+    notifyListeners();
+    return _alertsAllowed;
+  }
+
+  /// Brings the device's reminders into line with the board.
+  ///
+  /// Called on every board change rather than on the edit that caused it: a
+  /// job can move because somebody else moved it and it synced here, and a
+  /// reminder that only tracked local edits would go off at the old time.
+  Future<void> syncAlerts() => _alerts.sync(alertsFor(jobs, _now()));
+
   // ------------------------------------------------ writing from the calendar
 
   /// Books a new job, and hands back the job as it landed.
@@ -533,6 +572,7 @@ class AppState extends ChangeNotifier {
     int billed = 0,
     DateTime? scheduledFor,
     int? minutes,
+    int? alertMinutes,
   }) async {
     if (!canEditJobs) {
       showToast('Only an owner can add a job.');
@@ -561,6 +601,7 @@ class AppState extends ChangeNotifier {
       billed: billed,
       scheduledFor: scheduledFor,
       minutes: minutes,
+      alertMinutes: alertMinutes,
     );
 
     final ok = await _board.apply(
@@ -1169,6 +1210,7 @@ class AppState extends ChangeNotifier {
   @override
   void dispose() {
     _board.removeListener(_onBoardChanged);
+    _alerts.dispose();
     _ticker?.cancel();
     _toastTimer?.cancel();
     _stopLocation();

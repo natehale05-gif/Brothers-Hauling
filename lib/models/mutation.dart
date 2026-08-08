@@ -375,6 +375,7 @@ class EditJob extends JobMutation {
     'hazards',
     'scheduledFor',
     'minutes',
+    'alertMinutes',
   };
 
   @override
@@ -436,6 +437,7 @@ class EditJob extends JobMutation {
     'window' => 'the time window',
     'scheduledFor' => 'the day it happens',
     'minutes' => 'how long it runs',
+    'alertMinutes' => 'the reminder',
     'access' => 'the access notes',
     'hazards' => 'the hazards',
     _ => 'the $field',

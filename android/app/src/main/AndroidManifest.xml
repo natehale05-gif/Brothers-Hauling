@@ -5,6 +5,10 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <!-- Before/after photos. -->
     <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Job reminders. POST_NOTIFICATIONS comes in from the plugin's own
+         manifest; this is the one that makes a reminder survive a reboot,
+         which matters when the alert is set the night before. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <!-- Works on tablets and Chromebooks without GPS hardware; the app falls

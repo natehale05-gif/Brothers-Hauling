@@ -81,6 +81,13 @@ async function boot(browser, viewport) {
   // to Intl.Locale, which rejects it, and the app dies before its first frame.
   // No real browser reports a tag like that.
   const page = await browser.newPage({ viewport, locale: 'en-US' });
+  // Stands in for the user saying yes to the notification prompt. Headless
+  // Chromium refuses by default, which would make the reminder check assert
+  // the browser's answer rather than the app's behaviour.
+  await page
+    .context()
+    .grantPermissions(['notifications'])
+    .catch(() => {});
   const errors = [];
   page.on('pageerror', (e) => errors.push('page error: ' + e.message));
   page.on('requestfailed', (r) => {
@@ -315,6 +322,35 @@ function check(label, ok, detail = '') {
         await axContains(page, /Gravel delivery for Skyline Ranch/),
       );
       await press(page, 'Done');
+
+      // ---- reminders ----------------------------------------------------
+      // A browser cannot hand a future notification to anything that outlives
+      // the page, so the app raises them itself while the page is open. Either
+      // way the reminder has to be set, and the panel has to say so.
+      await press(page, 'New job');
+      await page.keyboard.type('Kings Valley pickup');
+      await page.waitForTimeout(400);
+      // The alert row is below the fold of a long form, and a Flutter list
+      // does not scroll for the browser's own scrollIntoView.
+      await page.mouse.wheel(0, 900);
+      await page.waitForTimeout(700);
+      // At the time, not a day before: the form opens the job later today, so
+      // a day's warning would already have gone by and nothing would be set.
+      await press(page, 'Alert At the time');
+      await press(page, 'Add');
+      await press(page, 'Calendars');
+      const panel = await page.locator('flt-semantics').evaluateAll((nodes) =>
+        nodes
+          .map((n) => (n.textContent || '').replace(/\s+/g, ' ').trim())
+          .filter((t) => /[Rr]eminder/.test(t)),
+      );
+      check(
+        'a reminder is set, and the app says when',
+        await axContains(page, /reminder(s)? set\. The next is/),
+        panel.join(' | ').slice(0, 200),
+      );
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(800);
 
       check('no page errors', errors.length === 0, errors.join('; '));
       await page.close();

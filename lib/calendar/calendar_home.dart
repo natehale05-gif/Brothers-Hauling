@@ -388,6 +388,76 @@ class ViewSwitcher extends StatelessWidget {
   }
 }
 
+/// What the device has been asked to buzz about.
+///
+/// Here rather than in a settings screen the app does not have, and worth
+/// showing at all because a reminder that was refused is indistinguishable
+/// from one that simply has not gone off yet.
+class _AlertsRow extends StatelessWidget {
+  const _AlertsRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
+    final app = AppScope.of(context);
+    final set = app.alerts.length;
+
+    final String status;
+    if (!app.alertsAllowed) {
+      status = 'This device has turned reminders off.';
+    } else if (set == 0) {
+      status =
+          'No reminders set. Add one to a job to be told before it '
+          'starts.';
+    } else {
+      status =
+          '$set ${set == 1 ? 'reminder' : 'reminders'} set. The next is '
+          '${shortDate(app.alerts.first.at)} at '
+          '${clockLabel(app.alerts.first.at)}.';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                app.alertsAllowed
+                    ? Icons.notifications_active_rounded
+                    : Icons.notifications_off_rounded,
+                size: 18,
+                color: app.alertsAllowed ? p.accent : p.secondaryLabel,
+              ),
+              const SizedBox(width: 8),
+              Text('Reminders', style: t.bodyStrong.copyWith(fontSize: 15)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Semantics(
+            liveRegion: true,
+            child: Text(status, style: t.secondary.copyWith(fontSize: 13)),
+          ),
+          if (!app.alertsAllowed)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: app.enableAlerts,
+                style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                child: Text(
+                  'Turn reminders on',
+                  style: t.body.copyWith(fontSize: 15, color: p.accent),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 /// The calendars list — which colour sets are drawn.
 Future<void> showCalendarsSheet(BuildContext context) {
   final cal = CalendarScope.read(context);
@@ -409,69 +479,79 @@ class _CalendarsSheet extends StatelessWidget {
     final cal = CalendarScope.of(context);
 
     return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: Text('Calendars', style: t.navTitle),
-          ),
-          for (final calendar in WorkCalendar.values)
-            Semantics(
-              button: true,
-              checked: cal.isVisible(calendar),
-              label:
-                  '${calendar.label}, '
-                  '${cal.isVisible(calendar) ? 'shown' : 'hidden'}',
-              onTap: () => cal.toggleCalendar(calendar),
-              excludeSemantics: true,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
+      // Scrolls, because a bottom sheet is only ever given part of the screen
+      // and this one grew a reminders panel. At the largest text the app
+      // allows it is taller than the room a short phone has for it.
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: Text('Calendars', style: t.navTitle),
+            ),
+            for (final calendar in WorkCalendar.values)
+              Semantics(
+                button: true,
+                checked: cal.isVisible(calendar),
+                label:
+                    '${calendar.label}, '
+                    '${cal.isVisible(calendar) ? 'shown' : 'hidden'}',
                 onTap: () => cal.toggleCalendar(calendar),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 20,
-                        height: 20,
-                        decoration: BoxDecoration(
-                          color: cal.isVisible(calendar)
-                              ? calendar.colour
-                              : Colors.transparent,
-                          border: Border.all(color: calendar.colour, width: 2),
-                          shape: BoxShape.circle,
+                excludeSemantics: true,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => cal.toggleCalendar(calendar),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: cal.isVisible(calendar)
+                                ? calendar.colour
+                                : Colors.transparent,
+                            border: Border.all(
+                              color: calendar.colour,
+                              width: 2,
+                            ),
+                            shape: BoxShape.circle,
+                          ),
+                          child: cal.isVisible(calendar)
+                              ? const Icon(
+                                  Icons.check_rounded,
+                                  size: 14,
+                                  color: Colors.white,
+                                )
+                              : null,
                         ),
-                        child: cal.isVisible(calendar)
-                            ? const Icon(
-                                Icons.check_rounded,
-                                size: 14,
-                                color: Colors.white,
-                              )
-                            : null,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(child: Text(calendar.label, style: t.body)),
-                    ],
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(calendar.label, style: t.body)),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: TextButton(
-              onPressed: cal.showAllCalendars,
-              child: Text(
-                'Show all',
-                style: t.body.copyWith(fontSize: 15, color: p.accent),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: TextButton(
+                onPressed: cal.showAllCalendars,
+                child: Text(
+                  'Show all',
+                  style: t.body.copyWith(fontSize: 15, color: p.accent),
+                ),
               ),
             ),
-          ),
-        ],
+            const Divider(height: 24),
+            const _AlertsRow(),
+          ],
+        ),
       ),
     );
   }
