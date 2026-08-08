@@ -89,23 +89,43 @@ nowhere to draw that. Rather than lose it, the list view carries a **Not
 scheduled yet** section at the top — a job quietly filed under today is a job
 that gets missed tomorrow, and one omitted from the grid entirely is worse.
 
+### Signing in
+
+The board is behind a login, because what the app shows depends entirely on
+who is looking.
+
+| | Sees |
+| --- | --- |
+| **Admin** | Everything, and is the only one who books, corrects or deletes a job |
+| **Manager** | The board and what a job bills at, but cannot rewrite one |
+| **Employee** | The board and the job details. No money anywhere, ever |
+
+A session survives a relaunch, and is dropped if the account was removed or
+demoted while the app was closed — the level you had on the way out is not
+yours to keep. An owner hands out logins from **Logins**: tied to somebody
+already on the roster, so their jobs and hours are theirs the moment they sign
+in.
+
+Passwords are PBKDF2-HMAC-SHA256 with a per-account salt, compared in constant
+time. Only the hash is ever written; the owner runs the server and still
+cannot read what anybody typed.
+
+**A device nobody has set up makes itself three sample logins** — one per
+level, matched to the sample roster — because a fresh install with no way in
+is an app nobody can open. The password is printed on the sign-in screen
+rather than hidden in the source, and both that screen and the Logins screen
+keep saying which accounts are still on it until somebody replaces them.
+Default credentials nobody mentions again are the hazard; these are the
+opposite of quiet.
+
 ### What the calendar cannot reach yet
 
-The rebuild replaced the dispatch UI, not the machinery underneath it. Roles
-and what each may see, hiring and promotion, the hours a job clocks up, live
-crew tracking, before/after photos and the movement log are all still in
-`lib/state` and `lib/models`, still enforced, and still covered by tests — but
-the calendar has no way in to any of them yet.
-
-Nothing in the calendar signs anybody in, which has one visible consequence:
-with no role set the board is treated as this device's own, so anything can be
-booked or changed on it and no money is shown. Enter a role — which is what
-happens the moment a crew syncs to somebody's laptop — and the old rules bite
-again: only an owner edits, and only a manager or an owner sees what a job
-bills at.
-
-They are the next things to build on top of this, not things that were thrown
-away.
+The rebuild replaced the dispatch UI, not the machinery underneath it. Hiring
+and promotion, the hours a job clocks up, live crew tracking, before/after
+photos and the movement log are all still in `lib/state` and `lib/models`,
+still enforced, and still covered by tests — but the calendar has no way in to
+any of them yet. They are the next things to build on top of this, not things
+that were thrown away.
 
 ### Working with no signal
 
@@ -167,7 +187,7 @@ flutter analyze
 flutter test
 ```
 
-**336 tests**, in fifteen files:
+**364 tests**, in sixteen files:
 
 | File | Covers |
 | --- | --- |
@@ -177,6 +197,7 @@ flutter test
 | `test/calendar_view_test.dart` | Every view rendered and driven: taps, the keyboard, the job sheet, undated work, and 1.6× text on a 320pt screen |
 | `test/calendar_edit_test.dart` | Booking, correcting and deleting a job; the drag and stretch gestures; the recurrence maths; and search |
 | `test/alerts_test.dart` | When a reminder is due, what it says, which ones a board is owed, and that the device is told again whenever a job moves |
+| `test/sign_in_test.dart` | Signing in at each level, a wrong password saying nothing useful, sessions across a relaunch, revocation and demotion, and handing out a login |
 | `test/app_state_test.dart` | The pipeline itself — claiming, accepting, stage transitions, the photo gate, movement/ETA maths, money roll-ups |
 | `test/serialization_test.dart` | Everything that is persisted or sent, round-tripped through real JSON, plus what happens when the stored data is malformed |
 | `test/outbox_test.dart` | The offline queue — ordering, backoff, giving up, surviving the process dying |
@@ -356,6 +377,11 @@ Apple Calendar itself is set in — because there the engine can reach it.
 The web build **self-hosts CanvasKit** (`web/flutter_bootstrap.js`). By default
 Flutter fetches it from `gstatic.com` at runtime, which means the app doesn't
 start at all on a network that can't reach it.
+
+The Calendars sheet also carries what this device is doing: whether anything
+is still waiting to be sent, and — for an owner on a platform that can listen
+on a port — the switch that serves the board to the crew, with the addresses
+to type in.
 
 It also renders into a **host element** (`#app`) rather than into the page.
 Left to itself the engine sizes the app from the layout viewport, which on a
