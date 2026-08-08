@@ -244,11 +244,17 @@ List<Placed> placeEvents(List<CalendarEvent> events, DateTime day) {
 ///
 /// Order comes from [WorkCalendar.values] rather than from what happens to
 /// start first, so a column does not change place when a job moves.
+///
+/// All-day work counts. It is never drawn in the hour grid, but it is drawn in
+/// the band above it, and the two have to agree on what the columns are — a
+/// kind that is only ever booked as "sometime Thursday" still needs somewhere
+/// to sit, and its column standing empty below the band is the honest picture
+/// of a day with nothing timed in it.
 List<WorkCalendar> calendarsOn(List<CalendarEvent> events, DateTime day) {
-  final timed = events.where((e) => !e.allDay && e.onDay(day));
+  final onDay = events.where((e) => e.onDay(day));
   return [
     for (final calendar in WorkCalendar.values)
-      if (timed.any((e) => e.calendar == calendar)) calendar,
+      if (onDay.any((e) => e.calendar == calendar)) calendar,
   ];
 }
 
@@ -264,6 +270,11 @@ List<WorkCalendar> calendarsOn(List<CalendarEvent> events, DateTime day) {
 /// each other, so a column splits again inside itself — which is why the
 /// fractions are worked out here rather than left to lane arithmetic that
 /// assumes every column is the same width.
+///
+/// A kind whose only work today is all-day gets a column with nothing in it.
+/// That is deliberate: the band above the grid draws that job over this
+/// column, and it would sit over the wrong kind if the grid quietly dropped
+/// the empty one.
 List<Placed> placeByCalendar(List<CalendarEvent> events, DateTime day) {
   final timed = events.where((e) => !e.allDay && e.onDay(day)).toList();
   if (timed.isEmpty) return const [];

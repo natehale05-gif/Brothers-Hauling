@@ -341,13 +341,32 @@ void main() {
       }
     });
 
-    test('all-day work is not given a column', () {
+    test('all-day work is never drawn in the hour grid', () {
       final events = eventsFrom([
         job('whenever', at: DateTime(2026, 8, 6)),
         job('nine', at: DateTime(2026, 8, 6, 9)),
       ]);
       expect(placeByCalendar(events, day).map((p) => p.event.id), ['nine']);
       expect(calendarsOn(events, day), hasLength(1));
+    });
+
+    test('a kind booked only for the day still gets its column', () {
+      // The band above the grid draws it, and the two have to line up.
+      final events = eventsFrom([
+        job('whenever', type: 'Junk removal', at: DateTime(2026, 8, 6)),
+        job('nine', type: 'Debris haul', at: DateTime(2026, 8, 6, 9)),
+      ]);
+      expect(calendarsOn(events, day), [
+        WorkCalendar.debris,
+        WorkCalendar.junk,
+      ]);
+
+      // The timed job takes the debris column — the left half — and leaves
+      // the junk column empty rather than spreading across the whole day.
+      final placed = placeByCalendar(events, day);
+      expect(placed, hasLength(1));
+      expect(placed.single.left, closeTo(0, 0.0001));
+      expect(placed.single.width, closeTo(0.5, 0.0001));
     });
 
     test('an empty day has no columns at all', () {

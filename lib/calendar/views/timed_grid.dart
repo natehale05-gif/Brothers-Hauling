@@ -492,26 +492,94 @@ class EventBlock extends StatelessWidget {
 
 /// The band above the hour grid, for work with a day but no time.
 class AllDayBand extends StatelessWidget {
-  const AllDayBand({super.key, required this.days, required this.events});
+  const AllDayBand({
+    super.key,
+    required this.days,
+    required this.events,
+    this.kinds,
+  });
 
   final List<DateTime> days;
   final List<CalendarEvent> events;
 
+  /// Lay one day's all-day work out in a column per kind, lining up with the
+  /// grid underneath, instead of stacking it into one wide list.
+  ///
+  /// Null in a week view, whose columns are already the days and which has no
+  /// width left to divide again.
+  final List<WorkCalendar>? kinds;
+
   @override
   Widget build(BuildContext context) {
-    final p = CalPalette.of(context);
-    final t = CalText.of(context);
-    final cal = CalendarScope.of(context);
+    final columns = kinds;
+    if (columns != null && days.length == 1) {
+      // No all-day work, no band — not an empty strip with a label on it.
+      if (_allDayOn(days.single).isEmpty) return const SizedBox.shrink();
+      return _shell(context, _byKind(days.single, columns));
+    }
 
     final rows = <DateTime, List<CalendarEvent>>{
-      for (final day in days)
-        day: [
-          for (final event in events)
-            if (event.allDay && event.onDay(day)) event,
-        ],
+      for (final day in days) day: _allDayOn(day),
     };
     final deepest = rows.values.fold(0, (m, l) => l.length > m ? l.length : m);
     if (deepest == 0) return const SizedBox.shrink();
+
+    return _shell(context, [
+      for (final day in days)
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 2),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final event in rows[day]!) AllDayChip(event: event),
+                // Keeps every column the same height when one day has more
+                // all-day work than its neighbours.
+                for (var i = rows[day]!.length; i < deepest; i++)
+                  const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ),
+    ]);
+  }
+
+  List<CalendarEvent> _allDayOn(DateTime day) => [
+    for (final event in events)
+      if (event.allDay && event.onDay(day)) event,
+  ];
+
+  /// One day's all-day work, a column per kind.
+  ///
+  /// The columns are the same ones the grid below is drawn in, edge gutter and
+  /// all, so a job booked as "sometime Thursday" sits over the hours its own
+  /// kind of work would have run in. Two of the same kind still stack, because
+  /// they are the same column — but that is one bar over another bar of the
+  /// same colour, which reads as two of a thing rather than as a wall.
+  List<Widget> _byKind(DateTime day, List<WorkCalendar> columns) {
+    final onDay = _allDayOn(day);
+    return [
+      for (final kind in columns)
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final event in onDay)
+                  if (event.calendar == kind) AllDayChip(event: event),
+              ],
+            ),
+          ),
+        ),
+      const SizedBox(width: kEdgeGutter),
+    ];
+  }
+
+  /// The gutter label and the rule underneath, around whatever the columns are.
+  Widget _shell(BuildContext context, List<Widget> columns) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
 
     return Container(
       decoration: BoxDecoration(
@@ -536,49 +604,48 @@ class AllDayBand extends StatelessWidget {
               ),
             ),
           ),
-          for (final day in days)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final event in rows[day]!)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 2, right: 2),
-                      child: Semantics(
-                        button: true,
-                        label: 'All day. ${event.spoken}',
-                        onTap: () => cal.openEvent(event.id),
-                        excludeSemantics: true,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => cal.openEvent(event.id),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: event.colour,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(
-                              event.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: t.eventTitle.copyWith(color: Colors.white),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  // Keeps every column the same height when one day has more
-                  // all-day work than its neighbours.
-                  for (var i = rows[day]!.length; i < deepest; i++)
-                    const SizedBox(height: 20),
-                ],
-              ),
-            ),
+          ...columns,
         ],
+      ),
+    );
+  }
+}
+
+/// One all-day job, as a solid bar.
+class AllDayChip extends StatelessWidget {
+  const AllDayChip({super.key, required this.event});
+
+  final CalendarEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = CalText.of(context);
+    final cal = CalendarScope.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Semantics(
+        button: true,
+        label: 'All day. ${event.spoken}',
+        onTap: () => cal.openEvent(event.id),
+        excludeSemantics: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => cal.openEvent(event.id),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: event.colour,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              event.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: t.eventTitle.copyWith(color: Colors.white),
+            ),
+          ),
+        ),
       ),
     );
   }

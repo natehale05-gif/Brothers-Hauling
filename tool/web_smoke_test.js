@@ -358,6 +358,12 @@ function check(label, ok, detail = '') {
       // shell has no Notification API at all, and the app says so rather than
       // pretending. So this asserts what the app owns — the alert is stored,
       // and the panel states one of the two truthful answers.
+      // On a day that has not happened yet. The form opens a job at the next
+      // working hour of whatever day is showing, and once the working day is
+      // over that is this morning — an alert already in the past, which the
+      // app is right to drop and which would fail this check for a reason
+      // that has nothing to do with the app.
+      await press(page, 'Next');
       await press(page, 'New job');
       await page.keyboard.type('Kings Valley pickup');
       await page.waitForTimeout(400);

@@ -14,6 +14,12 @@ Job openJob(String id, {String type = 'Debris haul', int at = 9}) => job(
   at: DateTime(2026, 8, 6, at),
 ).copyWith(status: JobStatus.open);
 
+/// Booked for the pinned day with no time on it — the all-day band.
+Job allDayJob(String id, {String type = 'Debris haul'}) =>
+    job(id, type: type, at: DateTime(2026, 8, 6)).copyWith(
+      status: JobStatus.open,
+    );
+
 void main() {
   group('taking a job on', () {
     for (final role in Role.values) {
@@ -212,6 +218,93 @@ void main() {
         isTrue,
         reason: 'the columns do not overlap',
       );
+    });
+
+    testWidgets('all-day work sits in columns rather than stacking', (
+      tester,
+    ) async {
+      await pumpApp(
+        tester,
+        view: CalView.day,
+        jobs: [allDayJob('HL-1', type: 'Junk removal'), allDayJob('HL-2')],
+      );
+
+      final chips = find.byType(AllDayChip);
+      expect(chips, findsNWidgets(2));
+      final first = tester.getRect(chips.at(0));
+      final second = tester.getRect(chips.at(1));
+
+      expect(
+        first.top,
+        closeTo(second.top, 1),
+        reason: 'side by side, not one under the other',
+      );
+      expect(first.left, isNot(closeTo(second.left, 1)));
+    });
+
+    testWidgets('an all-day job lines up over its own column', (tester) async {
+      await pumpApp(
+        tester,
+        view: CalView.day,
+        jobs: [
+          // Debris comes first in the calendar's order, so the timed job holds
+          // the left column and the all-day junk job belongs over the right.
+          openJob('HL-1', type: 'Debris haul', at: 9),
+          allDayJob('HL-2', type: 'Junk removal'),
+        ],
+      );
+
+      final chip = tester.getRect(find.byType(AllDayChip));
+      final block = tester.getRect(find.byType(EventBlock));
+      expect(
+        chip.left,
+        greaterThan(block.right),
+        reason: 'the junk column is to the right of the debris one',
+      );
+    });
+
+    testWidgets('two of the same kind share one column', (tester) async {
+      await pumpApp(
+        tester,
+        view: CalView.day,
+        jobs: [allDayJob('HL-1'), allDayJob('HL-2')],
+      );
+
+      final chips = find.byType(AllDayChip);
+      expect(chips, findsNWidgets(2));
+      final first = tester.getRect(chips.at(0));
+      final second = tester.getRect(chips.at(1));
+      expect(first.left, closeTo(second.left, 1));
+      expect(first.bottom, lessThanOrEqualTo(second.top + 1));
+    });
+
+    testWidgets('a day with nothing all-day has no band', (tester) async {
+      await pumpApp(
+        tester,
+        view: CalView.day,
+        jobs: [openJob('HL-1', at: 9)],
+      );
+
+      expect(find.text('all-day'), findsNothing);
+      expect(find.byType(AllDayChip), findsNothing);
+    });
+
+    testWidgets('a week view still stacks its all-day work by day', (
+      tester,
+    ) async {
+      await pumpApp(
+        tester,
+        view: CalView.week,
+        jobs: [allDayJob('HL-1', type: 'Junk removal'), allDayJob('HL-2')],
+      );
+
+      // A week column is a day, so two jobs on the same day stack in it.
+      final chips = find.byType(AllDayChip);
+      expect(chips, findsNWidgets(2));
+      final first = tester.getRect(chips.at(0));
+      final second = tester.getRect(chips.at(1));
+      expect(first.left, closeTo(second.left, 1));
+      expect(first.bottom, lessThanOrEqualTo(second.top + 1));
     });
 
     testWidgets('a week view still packs by collision, not by kind', (

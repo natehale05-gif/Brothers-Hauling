@@ -168,7 +168,7 @@ class _OneDay extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AllDayBand(days: [day], events: onDay),
+        AllDayBand(days: [day], events: onDay, kinds: kinds),
         // One kind needs no naming; the colour says it.
         if (kinds.length > 1) CalendarColumnHeader(kinds: kinds),
         Expanded(
