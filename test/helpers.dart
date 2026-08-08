@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:haul_board/calendar/calendar_state.dart';
 import 'package:haul_board/data/intake.dart';
 import 'package:haul_board/main.dart';
-import 'package:haul_board/screens/home_shell.dart';
 import 'package:haul_board/models/job.dart';
 import 'package:haul_board/models/role.dart';
 import 'package:haul_board/services/link_service.dart';
 import 'package:haul_board/services/location_service.dart';
 import 'package:haul_board/services/photo_service.dart';
 import 'package:haul_board/state/app_state.dart';
-import 'package:haul_board/widgets/hold_button.dart';
-import 'package:haul_board/widgets/job_card.dart';
 
 /// What a pumped app hands back so a test can drive it from either end.
 class Harness {
-  Harness({required this.state, required this.links, required this.photos});
+  Harness({
+    required this.state,
+    required this.calendar,
+    required this.links,
+    required this.photos,
+  });
 
   final AppState state;
+  final CalendarState calendar;
   final RecordingLinkService links;
   final FakePhotoService photos;
 }
@@ -24,36 +28,38 @@ class Harness {
 Job jobIn(AppState state, String id) =>
     state.jobs.firstWhere((j) => j.id == id);
 
-/// Pumps enough frames for transitions and dialogs to finish.
+/// A fixed "now", so "today" means the same thing on every run.
 ///
-/// [WidgetTester.pumpAndSettle] can't be used here: the "we're hearing from
-/// this driver" pulse is a deliberately endless animation, so settling never
-/// completes while a live crew member is on screen.
+/// A calendar is the one kind of app where a test that reads the wall clock is
+/// guaranteed to fail on some particular Tuesday.
+final DateTime kTestNow = DateTime(2026, 8, 6, 9, 30);
+
+/// Pumps enough frames for transitions and sheets to finish.
+///
+/// [WidgetTester.pumpAndSettle] cannot be used while anything is animating
+/// forever — and it also never settles against the calendar's own minute
+/// ticker unless that is switched off.
 Future<void> settle(WidgetTester tester, {int frames = 8}) async {
   for (var i = 0; i < frames; i++) {
     await tester.pump(const Duration(milliseconds: 120));
   }
 }
 
-/// Boots the app with every platform service faked out, at a chosen window
-/// size and accessibility setting.
+/// Boots the calendar with every platform service faked out.
 ///
-/// The default 420x900 is a phone; pass a wider [size] for the tablet and
-/// desktop layouts.
+/// The clock is pinned and the minute ticker switched off, so a test drives
+/// time rather than waiting on it.
 Future<Harness> pumpApp(
   WidgetTester tester, {
   Role? role,
   Size size = const Size(420, 900),
   double textScale = 1.0,
-  bool disableAnimations = false,
-  bool accessibleNavigation = false,
+  CalView view = CalView.month,
+  DateTime? now,
   RecordingLinkService? links,
   FakePhotoService? photos,
   List<Job>? jobs,
-
-  /// Defaults to dark, which is what the app ships as. Pass light to run a
-  /// check against the other palette.
-  ThemeMode themeMode = ThemeMode.dark,
+  ThemeMode themeMode = ThemeMode.light,
   IntakeSource? intake,
 }) async {
   tester.view
@@ -61,114 +67,57 @@ Future<Harness> pumpApp(
     ..devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
 
-  final resolvedLinks = links ?? RecordingLinkService();
-  final resolvedPhotos = photos ?? FakePhotoService();
+  final clock = now ?? kTestNow;
+  final recordedLinks = links ?? RecordingLinkService();
+  final fakePhotos = photos ?? FakePhotoService();
+
   final state = AppState(
     jobs: jobs,
-    intake: intake,
     location: const SimulatedLocationService(),
-    photos: resolvedPhotos,
-    // No background timers: a ticker or a toast still pending when the test
-    // ends is a failure, and a rig that moves mid-assertion is a flake.
+    photos: fakePhotos,
     autoAdvance: false,
     toastDuration: null,
-    now: () => DateTime(2026, 8, 2, 9, 5),
+    intake: intake,
+    now: () => clock,
   );
   addTearDown(state.dispose);
-
+  state.setThemeMode(themeMode);
   if (role != null) state.enter(role);
-  await state.setThemeMode(themeMode);
+
+  final calendar = CalendarState(
+    now: () => clock,
+    view: view,
+    // No ticker: a periodic timer never lets the tester settle.
+    tick: Duration.zero,
+  );
+  addTearDown(calendar.dispose);
 
   await tester.pumpWidget(
     MediaQuery(
-      data: MediaQueryData(
-        size: size,
-        textScaler: TextScaler.linear(textScale),
-        disableAnimations: disableAnimations,
-        accessibleNavigation: accessibleNavigation,
+      // Built from the view rather than from nothing. A bare MediaQueryData
+      // reports a zero-sized screen, and MaterialApp honours the one it finds
+      // above it — which silently collapses anything sized against the window,
+      // the job sheet included.
+      data: MediaQueryData.fromView(
+        tester.view,
+      ).copyWith(textScaler: TextScaler.linear(textScale)),
+      child: BrothersHaulingApp(
+        // A fresh key every pump. Without one, pumping the app a second time
+        // in the same test reuses the first State — which holds its own
+        // AppState — and the state this call just built is silently ignored.
+        key: UniqueKey(),
+        state: state,
+        calendar: calendar,
+        links: recordedLinks,
       ),
-      child: BrothersHaulingApp(state: state, links: resolvedLinks),
     ),
   );
   await settle(tester);
 
-  return Harness(state: state, links: resolvedLinks, photos: resolvedPhotos);
-}
-
-/// Scrolls a lazily-built list until [target] exists and is on screen.
-///
-/// The job card is a [ListView], so blocks below the fold aren't in the tree at
-/// all until they scroll into range — [reveal] can't find what isn't built.
-Future<void> scrollTo(WidgetTester tester, Finder target) async {
-  await tester.scrollUntilVisible(
-    target,
-    240,
-    scrollable: find.byType(Scrollable).first,
-    maxScrolls: 60,
+  return Harness(
+    state: state,
+    calendar: calendar,
+    links: recordedLinks,
+    photos: fakePhotos,
   );
-  await settle(tester);
 }
-
-/// Scrolls [target] into the viewport before interacting with it.
-Future<void> reveal(WidgetTester tester, Finder target) async {
-  await tester.ensureVisible(target);
-  await settle(tester);
-}
-
-/// Presses and holds [target] long enough to commit.
-///
-/// The pumps are deliberately separate: the tap recognizer only reports the
-/// press-down once its disambiguation deadline passes, and the fill's
-/// [AnimationController] doesn't start counting until the frame after that.
-/// One long pump would leave the hold barely begun.
-Future<void> holdToCommit(
-  WidgetTester tester,
-  Finder target, {
-  Duration hold = const Duration(milliseconds: 1000),
-}) async {
-  await reveal(tester, target);
-  final gesture = await tester.startGesture(tester.getCenter(target));
-  await tester.pump(const Duration(milliseconds: 150)); // press registers
-  await tester.pump(const Duration(milliseconds: 16)); // fill starts counting
-  await tester.pump(hold);
-  await tester.pump(const Duration(milliseconds: 16));
-  await gesture.up();
-  await settle(tester);
-}
-
-/// Presses [target] and lets go immediately — the "I tapped instead of held"
-/// case, which should ask rather than commit.
-Future<void> tapAndRelease(WidgetTester tester, Finder target) async {
-  await reveal(tester, target);
-  final gesture = await tester.startGesture(tester.getCenter(target));
-  await tester.pump(const Duration(milliseconds: 150));
-  await tester.pump(const Duration(milliseconds: 120));
-  await gesture.up();
-  await settle(tester);
-}
-
-/// Taps [target] after scrolling it into view.
-Future<void> tapVisible(WidgetTester tester, Finder target) async {
-  await reveal(tester, target);
-  await tester.tap(target);
-  await settle(tester);
-}
-
-/// Switches tabs through the bottom bar, the way a driver would.
-Future<void> tapTab(WidgetTester tester, HaulTab tab) async {
-  await tester.tap(
-    find.descendant(
-      of: find.byType(HaulBottomTabs),
-      matching: find.text(tab.label.toUpperCase()),
-    ),
-  );
-  await settle(tester);
-}
-
-/// The hold control on the card showing [jobId].
-Finder holdButtonFor(String jobId) => find
-    .descendant(
-      of: find.ancestor(of: find.text(jobId), matching: find.byType(JobCard)),
-      matching: find.byType(HoldButton),
-    )
-    .first;

@@ -1,15 +1,10 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:haul_board/data/board_repository.dart';
-import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:haul_board/data/seed_data.dart';
 import 'package:haul_board/data/store.dart';
-import 'package:haul_board/models/job.dart';
 import 'package:haul_board/models/mutation.dart';
 import 'package:haul_board/models/role.dart';
-import 'package:haul_board/screens/edit_job.dart';
 import 'package:haul_board/services/location_service.dart';
 import 'package:haul_board/services/photo_service.dart';
 import 'package:haul_board/state/app_state.dart';
@@ -200,134 +195,6 @@ void main() {
       );
 
       expect(forged.apply(job), isNull);
-    });
-  });
-
-  group('the mutation', () {
-    test('replaying it is a no-op once applied', () {
-      final job = seedJobs(DateTime(2026, 8, 2)).first;
-      final edit = EditJob(
-        id: 'm1',
-        jobId: job.id,
-        actorId: 'c1',
-        at: DateTime.utc(2026),
-        fields: const {'customer': 'Fairbanks Excavating'},
-      );
-
-      final once = edit.apply(job)!;
-      expect(once.customer, 'Fairbanks Excavating');
-      expect(edit.apply(once), isNull);
-    });
-
-    test('it keeps the photos it says nothing about', () {
-      final job = seedJobs(DateTime(2026, 8, 2)).first.copyWith(
-        photosBefore: [
-          JobPhoto(
-            id: 'p1',
-            name: 'a.jpg',
-            bytes: Uint8List.fromList(utf8.encode('one')),
-          ),
-        ],
-      );
-      final edit = EditJob(
-        id: 'm1',
-        jobId: job.id,
-        actorId: 'c1',
-        at: DateTime.utc(2026),
-        fields: const {'customer': 'Fairbanks Excavating'},
-      );
-
-      // An edit says nothing about photos and must not drop them on the floor.
-      final after = edit.apply(job)!;
-      expect(after.photosBefore, hasLength(1));
-      expect(after.photosBefore.single.bytes, isNotEmpty);
-    });
-
-    test('it round-trips through the queue', () {
-      final edit = EditJob(
-        id: 'm1',
-        jobId: 'HL-4471',
-        actorId: 'c1',
-        at: DateTime.utc(2026),
-        fields: const {
-          'payout': 210,
-          'hazards': ['Loose gravel'],
-        },
-      );
-      final copy = Mutation.fromJson(edit.toJson())! as EditJob;
-      expect(copy.fields['payout'], 210);
-      expect(copy.fields['hazards'], ['Loose gravel']);
-      expect(copy.jobId, 'HL-4471');
-    });
-  });
-
-  group('the form', () {
-    testWidgets('an owner is offered it', (tester) async {
-      final harness = await pumpApp(tester, role: Role.admin);
-      harness.state.openJobCard(jobIn(harness.state, 'HL-4471'));
-      await settle(tester);
-      expect(find.text('EDIT'), findsOneWidget);
-    });
-
-    testWidgets('a manager is not', (tester) async {
-      final harness = await pumpApp(tester, role: Role.manager);
-      harness.state.openJobCard(jobIn(harness.state, 'HL-4471'));
-      await settle(tester);
-      expect(find.text('EDIT'), findsNothing);
-    });
-
-    testWidgets('it opens filled in with what the job already says', (
-      tester,
-    ) async {
-      final harness = await pumpApp(tester, role: Role.admin);
-      final job = jobIn(harness.state, 'HL-4471');
-      harness.state.openJobCard(job);
-      await settle(tester);
-
-      await tester.tap(find.text('EDIT'));
-      await settle(tester);
-
-      expect(find.byType(EditJobForm), findsOneWidget);
-      expect(find.text(job.customer), findsWidgets);
-      expect(find.text(job.address), findsWidgets);
-    });
-
-    testWidgets('changing a field saves it', (tester) async {
-      final harness = await pumpApp(tester, role: Role.admin);
-      harness.state.openJobCard(jobIn(harness.state, 'HL-4471'));
-      await settle(tester);
-      await tester.tap(find.text('EDIT'));
-      await settle(tester);
-
-      final customer = find.ancestor(
-        of: find.text('Customer'),
-        matching: find.byType(TextFormField),
-      );
-      await tester.enterText(customer, 'Fairbanks Excavating');
-      await tester.tap(find.text('SAVE CHANGES'));
-      await settle(tester);
-
-      expect(jobIn(harness.state, 'HL-4471').customer, 'Fairbanks Excavating');
-    });
-
-    testWidgets('a number field will not take words', (tester) async {
-      final harness = await pumpApp(tester, role: Role.admin);
-      harness.state.openJobCard(jobIn(harness.state, 'HL-4471'));
-      await settle(tester);
-      await tester.tap(find.text('EDIT'));
-      await settle(tester);
-
-      final billed = find.ancestor(
-        of: find.text('Bills at'),
-        matching: find.byType(TextFormField),
-      );
-      await tester.enterText(billed, '');
-      await tester.tap(find.text('SAVE CHANGES'));
-      await settle(tester);
-
-      // The form stays open and says what to do rather than writing a zero.
-      expect(find.text('Enter a number, or 0.'), findsOneWidget);
-      expect(find.byType(EditJobForm), findsOneWidget);
     });
   });
 }

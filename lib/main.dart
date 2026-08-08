@@ -5,12 +5,13 @@ import 'data/board_repository.dart';
 import 'data/intake.dart';
 import 'data/server_control.dart';
 import 'data/store.dart';
-import 'screens/home_shell.dart';
+import 'calendar/calendar_home.dart';
+import 'calendar/calendar_state.dart';
+import 'calendar/calendar_theme.dart';
 import 'services/link_service.dart';
 import 'services/location_service.dart';
 import 'services/photo_service.dart';
 import 'state/app_state.dart';
-import 'theme/haul_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -87,11 +88,13 @@ class BrothersHaulingApp extends StatefulWidget {
   const BrothersHaulingApp({
     super.key,
     this.state,
+    this.calendar,
     this.links = const UrlLauncherLinkService(),
   });
 
   /// Injected by tests. Production builds get the real services.
   final AppState? state;
+  final CalendarState? calendar;
   final LinkService links;
 
   @override
@@ -106,12 +109,16 @@ class _BrothersHaulingAppState extends State<BrothersHaulingApp> {
         photos: ImagePickerPhotoService(),
       );
 
+  late final CalendarState _calendar = widget.calendar ?? CalendarState();
+
   /// Only dispose what this widget created.
   late final bool _ownsState = widget.state == null;
+  late final bool _ownsCalendar = widget.calendar == null;
 
   @override
   void dispose() {
     if (_ownsState) _state.dispose();
+    if (_ownsCalendar) _calendar.dispose();
     super.dispose();
   }
 
@@ -127,11 +134,9 @@ class _BrothersHaulingAppState extends State<BrothersHaulingApp> {
         builder: (context, _) => MaterialApp(
           title: 'Brothers Hauling',
           debugShowCheckedModeBanner: false,
-          // Two full palettes, not one with a switch in it. Dark is what a cab
-          // at 5 AM needs; light is what a yard at noon needs, where a dark
-          // screen is a mirror. Both clear WCAG AA on every pairing.
-          theme: buildHaulTheme(HaulPalette.light),
-          darkTheme: buildHaulTheme(HaulPalette.dark),
+          // The two iOS appearances, drawn with the real system colours.
+          theme: buildCalendarTheme(CalPalette.light),
+          darkTheme: buildCalendarTheme(CalPalette.dark),
           themeMode: _state.themeMode,
           builder: (context, child) {
             // Honour the OS text size, but stop runaway scaling — desktop lets
@@ -144,7 +149,7 @@ class _BrothersHaulingAppState extends State<BrothersHaulingApp> {
               child: child!,
             );
           },
-          home: HomeShell(links: widget.links),
+          home: CalendarScope(state: _calendar, child: const CalendarHome()),
         ),
       ),
     );

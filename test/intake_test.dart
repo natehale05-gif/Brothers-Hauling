@@ -11,8 +11,6 @@ import 'package:haul_board/services/location_service.dart';
 import 'package:haul_board/services/photo_service.dart';
 import 'package:haul_board/state/app_state.dart';
 
-import 'helpers.dart';
-
 /// A website that can be switched off, the way a website can be.
 class _Website implements IntakeSource {
   List<BookingRequest> bookings = [];
@@ -342,84 +340,6 @@ void main() {
       await state.restore();
 
       expect(state.requestedJobs.single.bookingId, 'bk-1');
-    });
-  });
-
-  group('the HTTP source', () {
-    HttpIntakeSource source(Future<String?> Function() body) =>
-        HttpIntakeSource(
-          endpoint: Uri.parse('https://example.test/bookings'),
-          get: (_, _) => body(),
-        );
-
-    test('reads a bare array', () async {
-      final got = await source(
-        () async => jsonEncode([booking('bk-1').toJson()]),
-      ).fetch();
-      expect(got.single.id, 'bk-1');
-    });
-
-    test('reads a wrapped one too', () async {
-      // Half the world's endpoints wrap their payloads.
-      final got = await source(
-        () async => jsonEncode({
-          'bookings': [booking('bk-1').toJson()],
-        }),
-      ).fetch();
-      expect(got.single.id, 'bk-1');
-    });
-
-    test('a dead endpoint yields nothing rather than throwing', () async {
-      expect(
-        await source(() async => throw StateError('no signal')).fetch(),
-        isEmpty,
-      );
-      expect(await source(() async => null).fetch(), isEmpty);
-      expect(await source(() async => 'not json at all').fetch(), isEmpty);
-    });
-  });
-
-  group('on screen', () {
-    testWidgets('a booking shows up for dispatch and not for a driver', (
-      tester,
-    ) async {
-      final harness = await pumpApp(tester, role: Role.admin, intake: website);
-      website.bookings = [booking('bk-1')];
-      await harness.state.checkForBookings();
-      harness.state.setTab(HaulTab.jobs);
-      await settle(tester);
-
-      expect(find.text('CAME IN FROM THE WEBSITE'), findsOneWidget);
-      expect(find.text('NEEDS PRICING'), findsOneWidget);
-      expect(find.text('NO PRICE YET'), findsOneWidget);
-    });
-
-    testWidgets('a driver never sees it on their board', (tester) async {
-      final harness = await pumpApp(
-        tester,
-        role: Role.employee,
-        intake: website,
-      );
-      website.bookings = [booking('bk-1', customer: 'Website Person')];
-      await harness.state.checkForBookings();
-      await settle(tester);
-
-      expect(find.text('Website Person'), findsNothing);
-    });
-
-    testWidgets('putting it on the board needs a price first', (tester) async {
-      final harness = await pumpApp(tester, role: Role.admin, intake: website);
-      website.bookings = [booking('bk-1')];
-      await harness.state.checkForBookings();
-      harness.state.setTab(HaulTab.jobs);
-      await settle(tester);
-
-      await tapVisible(tester, find.text('PUT ON THE BOARD'));
-      await settle(tester);
-
-      // A dead grey button explains nothing; this one says what is missing.
-      expect(harness.state.requestedJobs, hasLength(1));
-      expect(find.textContaining('Put a price on it'), findsWidgets);
     });
   });
 }

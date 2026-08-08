@@ -1,0 +1,392 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../state/app_state.dart';
+import 'calendar_state.dart';
+import 'calendar_theme.dart';
+import 'date_math.dart';
+import 'event.dart';
+import 'event_sheet.dart';
+import 'views/day_view.dart';
+import 'views/list_view.dart';
+import 'views/month_view.dart';
+import 'views/week_view.dart';
+import 'views/year_view.dart';
+
+/// The calendar, whole.
+///
+/// One nav bar, one view at a time, a segmented control to change which. The
+/// shape is Apple Calendar's: title on the left, actions on the right, Today
+/// at the bottom, and the view you were on remembered as you move around.
+class CalendarHome extends StatelessWidget {
+  const CalendarHome({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final cal = CalendarScope.of(context);
+    final app = AppScope.of(context);
+    final events = cal.visible(app.jobs);
+
+    return Shortcuts(
+      shortcuts: const {
+        SingleActivator(LogicalKeyboardKey.arrowLeft): _StepIntent(-1),
+        SingleActivator(LogicalKeyboardKey.arrowRight): _StepIntent(1),
+        SingleActivator(LogicalKeyboardKey.keyT): _TodayIntent(),
+        SingleActivator(LogicalKeyboardKey.escape): _CloseIntent(),
+      },
+      child: Actions(
+        actions: {
+          _StepIntent: CallbackAction<_StepIntent>(
+            onInvoke: (i) {
+              cal.step(i.by);
+              return null;
+            },
+          ),
+          _TodayIntent: CallbackAction<_TodayIntent>(
+            onInvoke: (_) {
+              cal.goToToday();
+              return null;
+            },
+          ),
+          _CloseIntent: CallbackAction<_CloseIntent>(
+            onInvoke: (_) {
+              cal.closeEvent();
+              return null;
+            },
+          ),
+        },
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
+            backgroundColor: p.bg,
+            body: SafeArea(
+              bottom: false,
+              child: Stack(
+                children: [
+                  Column(
+                    children: [
+                      const CalendarNavBar(),
+                      Expanded(child: _Body(events: events)),
+                      const ViewSwitcher(),
+                    ],
+                  ),
+                  if (cal.openEventId != null)
+                    EventSheet(
+                      event: events
+                          .where((e) => e.id == cal.openEventId)
+                          .firstOrNull,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StepIntent extends Intent {
+  const _StepIntent(this.by);
+
+  final int by;
+}
+
+class _TodayIntent extends Intent {
+  const _TodayIntent();
+}
+
+class _CloseIntent extends Intent {
+  const _CloseIntent();
+}
+
+class _Body extends StatelessWidget {
+  const _Body({required this.events});
+
+  final List<CalendarEvent> events;
+
+  @override
+  Widget build(BuildContext context) {
+    final cal = CalendarScope.of(context);
+    return switch (cal.view) {
+      CalView.day => DayView(events: events),
+      CalView.week => WeekView(events: events),
+      CalView.month => MonthView(events: events),
+      CalView.year => YearView(events: events),
+      CalView.list => ScheduleView(events: events),
+    };
+  }
+}
+
+/// Title, arrows, Today, and the calendars button.
+class CalendarNavBar extends StatelessWidget {
+  const CalendarNavBar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
+    final cal = CalendarScope.of(context);
+    final onToday = sameDay(cal.focused, cal.today);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 6, 6, 6),
+      decoration: BoxDecoration(
+        color: p.bg,
+        border: Border(bottom: BorderSide(color: p.separator, width: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Semantics(
+              header: true,
+              liveRegion: true,
+              child: Text(
+                cal.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: t.navTitle.copyWith(fontSize: 20),
+              ),
+            ),
+          ),
+          _BarButton(
+            icon: Icons.chevron_left_rounded,
+            tooltip: 'Previous',
+            onTap: () => cal.step(-1),
+          ),
+          if (!onToday)
+            Semantics(
+              button: true,
+              label: 'Back to today',
+              onTap: cal.goToToday,
+              excludeSemantics: true,
+              child: TextButton(
+                onPressed: cal.goToToday,
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(0, 44),
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  foregroundColor: p.accent,
+                ),
+                child: Text(
+                  'Today',
+                  style: t.body.copyWith(fontSize: 15, color: p.accent),
+                ),
+              ),
+            ),
+          _BarButton(
+            icon: Icons.chevron_right_rounded,
+            tooltip: 'Next',
+            onTap: () => cal.step(1),
+          ),
+          _BarButton(
+            icon: Icons.tune_rounded,
+            tooltip: 'Calendars',
+            onTap: () => showCalendarsSheet(context),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BarButton extends StatelessWidget {
+  const _BarButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    return Semantics(
+      button: true,
+      label: tooltip,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: IconButton(
+        onPressed: onTap,
+        tooltip: tooltip,
+        iconSize: 24,
+        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+        icon: Icon(icon, color: p.accent),
+      ),
+    );
+  }
+}
+
+/// Day / Week / Month / Year / List, as a segmented control.
+class ViewSwitcher extends StatelessWidget {
+  const ViewSwitcher({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
+    final cal = CalendarScope.of(context);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 6, 10, 10),
+      decoration: BoxDecoration(
+        color: p.bg,
+        border: Border(top: BorderSide(color: p.separator, width: 0.5)),
+      ),
+      // Apple's segmented control is a fixed size sitting in the middle of the
+      // bar, not a thing that grows to fill a desktop window. On a phone the
+      // window is narrower than the cap, so it fills the width as it should.
+      alignment: Alignment.center,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480, minHeight: 34),
+        child: Container(
+          height: 34,
+          decoration: BoxDecoration(
+            color: p.fill,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          padding: const EdgeInsets.all(2),
+          child: Row(
+            children: [
+              for (final view in CalView.values)
+                Expanded(
+                  child: Semantics(
+                    button: true,
+                    selected: cal.view == view,
+                    label:
+                        '${view.label} view, '
+                        '${CalView.values.indexOf(view) + 1} of '
+                        '${CalView.values.length}',
+                    onTap: () => cal.setView(view),
+                    excludeSemantics: true,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => cal.setView(view),
+                      child: Container(
+                        decoration: cal.view == view
+                            ? BoxDecoration(
+                                color: p.card,
+                                borderRadius: BorderRadius.circular(7),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.12),
+                                    blurRadius: 2,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                              )
+                            : null,
+                        alignment: Alignment.center,
+                        child: Text(
+                          view.label,
+                          style: t.secondary.copyWith(
+                            fontSize: 13,
+                            color: p.label,
+                            fontWeight: cal.view == view
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The calendars list — which colour sets are drawn.
+Future<void> showCalendarsSheet(BuildContext context) {
+  final cal = CalendarScope.read(context);
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: CalPalette.of(context).groupedBg,
+    showDragHandle: true,
+    builder: (_) => CalendarScope(state: cal, child: const _CalendarsSheet()),
+  );
+}
+
+class _CalendarsSheet extends StatelessWidget {
+  const _CalendarsSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
+    final cal = CalendarScope.of(context);
+
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: Text('Calendars', style: t.navTitle),
+          ),
+          for (final calendar in WorkCalendar.values)
+            Semantics(
+              button: true,
+              checked: cal.isVisible(calendar),
+              label:
+                  '${calendar.label}, '
+                  '${cal.isVisible(calendar) ? 'shown' : 'hidden'}',
+              onTap: () => cal.toggleCalendar(calendar),
+              excludeSemantics: true,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => cal.toggleCalendar(calendar),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: cal.isVisible(calendar)
+                              ? calendar.colour
+                              : Colors.transparent,
+                          border: Border.all(color: calendar.colour, width: 2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: cal.isVisible(calendar)
+                            ? const Icon(
+                                Icons.check_rounded,
+                                size: 14,
+                                color: Colors.white,
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text(calendar.label, style: t.body)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: TextButton(
+              onPressed: cal.showAllCalendars,
+              child: Text(
+                'Show all',
+                style: t.body.copyWith(fontSize: 15, color: p.accent),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

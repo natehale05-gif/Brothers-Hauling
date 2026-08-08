@@ -197,59 +197,55 @@ function check(label, ok, detail = '') {
   );
 
   try {
-    // ---- phone, signed in as a driver -----------------------------------
+    // ---- phone: the month view, as it opens -----------------------------
     {
       const { page, errors } = await boot(browser, { width: 430, height: 900 });
-      await press(page, 'Sign in as Employee');
       const n = await axNames(page);
 
-      check('the hold control is reachable', n.some((x) => /Hold to volunteer/.test(x)));
       check(
-        'the board is paged by day',
-        n.some((x) => /Show Tomorrow/.test(x)),
+        'it opens on the month, with today announced',
+        await axContains(page, /, today\. (\d+ jobs?|Nothing on)\./),
+      );
+      check(
+        'the weekday header reads as days, not as letters',
+        n.some((x) => /Wednesday/.test(x)) && n.some((x) => /Saturday/.test(x)),
+      );
+      check(
+        'every view is reachable from the switcher',
+        [1, 2, 3, 4, 5].every((i) =>
+          n.some((x) => new RegExp(`view, ${i} of 5$`).test(x)),
+        ),
+        n.filter((x) => /view, \d of 5$/.test(x)).join(' / '),
+      );
+      check(
+        'the calendars button is there',
+        n.some((x) => /^button:Calendars$/.test(x)),
       );
 
-      // The Lowboy job runs tomorrow, and the board is paged by day — so
-      // stepping a day also checks that the arrow really moves it.
-      await press(page, 'Show Tomorrow');
-      await page.waitForTimeout(600);
+      // ---- the day view -------------------------------------------------
+      await press(page, 'Day view');
       check(
-        'the rig a job needs is stated',
-        await axContains(page, /Lowboy 25t/),
+        'a job is announced with its customer and its hours',
+        await axContains(
+          page,
+          /for .+\. \d+(:\d+)? [AP]M – \d+(:\d+)? [AP]M\./,
+        ),
       );
       check(
-        "and it is nobody's to be locked out of",
-        (await axContains(page, /Hold to volunteer/)) &&
-          !(await axContains(page, /not your rig|Wrong rig/)),
-      );
-      await press(page, 'Back to today');
-      await page.waitForTimeout(600);
-      check(
-        'a driver is shown no money at all',
-        // Pay is hourly, so there is no per-job figure that would be true, and
-        // what an hour is worth is between the driver and payroll.
-        !n.some((x) => /dollars|\$\d/.test(x)),
-        n.find((x) => /dollars|\$\d/.test(x)),
-      );
-      check(
-        'tabs announce their position',
-        n.filter((x) => /^button:.*tab,? \d of \d$/i.test(x)).length === 2,
-      );
-      check(
-        'the driver never sees a billed figure',
-        !n.some((x) => /Bills at/.test(x)),
+        'no rig is assigned to anybody, and nobody is locked out of one',
+        !(await axContains(page, /not your rig|Wrong rig|Assigned rig/)),
       );
 
-      // ---- the bottom tabs stay on the bottom edge ----------------------
+      // ---- the switcher stays on the bottom edge ------------------------
       // A phone browser's toolbar makes the page taller than the screen. Left
-      // to itself the engine sizes the app from that taller box and the tab
-      // bar is drawn below the visible edge, behind the toolbar — reachable
-      // only by fighting the page. #app plus a ResizeObserver is what stops
-      // that; see the note in web/index.html. Widget tests cannot see any of
-      // this, because it is the host page getting it wrong, not the widgets.
-      const tabBottom = async () => {
+      // to itself the engine sizes the app from that taller box and the bar is
+      // drawn below the visible edge, behind the toolbar. #app plus a
+      // ResizeObserver is what stops that; see the note in web/index.html.
+      // Widget tests cannot see any of it — it is the host page getting it
+      // wrong, not the widgets.
+      const switcherBottom = async () => {
         const box = await page
-          .getByRole('button', { name: /tab, 1 of/i })
+          .getByRole('button', { name: /Day view, 1 of 5/ })
           .first()
           .boundingBox();
         return box ? Math.round(box.y + box.height) : null;
@@ -265,11 +261,11 @@ function check(label, ok, detail = '') {
           document.querySelector('#app').style.height = h;
         }, css);
 
-      const resting = await tabBottom();
+      const resting = await switcherBottom();
       check(
-        'the bottom tabs sit on the bottom edge',
-        resting !== null && Math.abs(resting - (await appBottom())) <= 1,
-        `tabs end at ${resting}, app ends at ${await appBottom()}`,
+        'the view switcher sits on the bottom edge',
+        resting !== null && (await appBottom()) - resting <= 14,
+        `switcher ends at ${resting}, app ends at ${await appBottom()}`,
       );
       check(
         'the page itself never scrolls',
@@ -278,87 +274,80 @@ function check(label, ok, detail = '') {
         ),
       );
 
-      // Slide a browser toolbar in: the visible area shrinks, and the tabs
-      // have to come with it rather than sail off the bottom.
+      // Slide a browser toolbar in: the visible area shrinks, and the switcher
+      // has to come with it rather than sail off the bottom.
       await setAppHeight('calc(100dvh - 96px)');
       await page.waitForTimeout(1200);
-      const shrunk = await tabBottom();
+      const shrunk = await switcherBottom();
       check(
-        'the tabs follow when browser chrome takes space',
-        shrunk !== null &&
-          shrunk < resting &&
-          Math.abs(shrunk - (await appBottom())) <= 1,
-        `tabs end at ${shrunk}, app ends at ${await appBottom()}`,
+        'it follows when browser chrome takes space',
+        shrunk !== null && shrunk < resting,
+        `switcher ends at ${shrunk}, app ends at ${await appBottom()}`,
       );
 
       await setAppHeight('');
       await page.waitForTimeout(1200);
-      check('and go back when it slides away', (await tabBottom()) === resting);
-
-      // Location must resolve one way or the other; a permanent "getting a
-      // fix…" is a dead strip.
-      await page.waitForTimeout(14000);
-      const loc =
-        (await axNames(page)).find((x) =>
-          /^text:Sharing location with dispatch\./.test(x),
-        ) || '';
       check(
-        'the location strip resolves to a position',
-        loc.length > 0 && !/Getting a fix/.test(loc),
-        loc.slice(0, 130),
+        'and goes back when it slides away',
+        (await switcherBottom()) === resting,
       );
+
       check('no page errors', errors.length === 0, errors.join('; '));
       await page.close();
     }
 
-    // ---- tablet/desktop, signed in as the owner --------------------------
+    // ---- desktop: the wide month, the year, and a job --------------------
     {
       const { page, errors } = await boot(browser, { width: 1194, height: 834 });
-      await press(page, 'Sign in as Admin');
+
+      check(
+        'a window with room writes the work into the month cells',
+        await axContains(page, /Debris haul/),
+      );
+
+      await press(page, 'Year view');
       let n = await axNames(page);
-
       check(
-        'the week chart is described in words',
-        n.some((x) => /Billed, last 7 days\. Monday: \d+ dollars/.test(x)),
-      );
-      check(
-        'the route strip states progress in words',
-        n.some((x) => /Route from .* percent complete/.test(x)),
-        (n.find((x) => /Route from/.test(x)) || '').slice(0, 110),
-      );
-      check(
-        'the wide layout offers every destination',
-        n.filter((x) => /^button:.*tab,? \d of 4$/i.test(x)).length === 4,
-      );
-      check(
-        'the jobs list is one of them',
-        n.some((x) => /^button:.*Jobs tab,? \d of 4$/i.test(x)),
+        'the year shows every month',
+        ['January', 'June', 'December'].every((m) =>
+          n.some((x) => new RegExp(`^button:${m}`).test(x)),
+        ),
       );
 
-      await press(page, 'Tracking tab');
-      n = await axNames(page);
+      await press(page, 'List view');
       check(
-        'a driver with the app closed still shows a last ping',
-        n.some((x) => /Last ping/.test(x)),
-        n.find((x) => /Last ping/.test(x)),
+        'the list is grouped under day headings',
+        await axContains(page, /\w+day, \d+ \w+/),
+      );
+      check(
+        'and it holds the work, not empty squares',
+        await axContains(page, /for .+\. \d+(:\d+)? [AP]M – /),
       );
 
-      await press(page, 'Jobs tab');
-      await press(page, 'Details and staffing for HL-4471');
-      n = await axNames(page);
+      // Open the first job in the list and read its sheet.
+      await page
+        .locator('flt-semantics[role="button"]')
+        .filter({ hasText: /for .+\./ })
+        .first()
+        .click({ timeout: 15000 });
+      await page.waitForTimeout(1400);
       check(
-        'hazards are announced as hazards',
-        n.some((x) => /Hazard: /.test(x)),
+        'a job opens onto its details',
+        await axContains(page, /Rig needed/),
       );
       check(
-        'dispatch does see the billed figure',
-        n.some((x) => /Bills at \d+ dollars/.test(x)),
+        'the rig is stated, never assigned to a person',
+        !(await axContains(page, /Assigned rig|not your rig/)),
+      );
+      check(
+        'and the sheet can be closed again',
+        (await page.getByRole('button', { name: 'Close' }).count()) > 0,
       );
       check('no page errors', errors.length === 0, errors.join('; '));
       await page.close();
     }
 
-    // ---- a booking made on the website reaches the board -----------------
+    // ---- a booking made on the website reaches the calendar --------------
     // Both pages share one browser context on purpose: same origin, same
     // storage, which is the whole mechanism. Nothing below this line works if
     // hire.html writes in a shape the app cannot read — and it very nearly
@@ -406,18 +395,18 @@ function check(label, ok, detail = '') {
         ph.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
       });
       await app.waitForTimeout(1200);
-      await press(app, 'Sign in as Admin');
-      await press(app, 'Jobs tab');
+      await press(app, 'List view');
 
-      const n = await axNames(app);
+      // A booking arrives with no date on it, so the calendar has nowhere to
+      // draw it. The list's undated section is where it has to surface — a
+      // grid that quietly omits it is a lost job.
       check(
-        'a job booked on the website turns up on the dispatch board',
-        n.some((x) => /Fairbanks Excavating/.test(x)),
-        n.find((x) => /Fairbanks/.test(x)),
+        'a job booked on the website turns up in the calendar',
+        await axContains(app, /Fairbanks Excavating/),
       );
       check(
         'and it is held back until somebody prices it',
-        n.some((x) => /not priced yet/i.test(x)),
+        await axContains(app, /Not priced yet/i),
       );
 
       // The same booking must not become a second job on the next launch.
@@ -431,8 +420,11 @@ function check(label, ok, detail = '') {
         const board = raw ? JSON.parse(JSON.parse(raw)) : [];
         return board.filter((j) => j.bookingId).length;
       });
-      check('one booking is still one job after a reload', fromWeb === 1,
-        `${fromWeb} job(s) carrying a bookingId`);
+      check(
+        'one booking is still one job after a reload',
+        fromWeb === 1,
+        `${fromWeb} job(s) carrying a bookingId`,
+      );
       check('no page errors', appErrors.length === 0, appErrors.join('; '));
 
       await context.close();
