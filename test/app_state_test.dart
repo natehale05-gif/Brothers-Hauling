@@ -20,17 +20,13 @@ Job jobById(AppState s, String id) => s.jobs.firstWhere((j) => j.id == id);
 
 void main() {
   group('sign in', () {
-    test('each role lands on its own first tab', () {
+    test('entering a role starts the shift', () async {
       final s = makeState();
 
       s.enter(Role.employee);
-      expect(s.tab, HaulTab.board);
-
-      s.enter(Role.manager);
-      expect(s.tab, HaulTab.jobs);
-
-      s.enter(Role.admin);
-      expect(s.tab, HaulTab.overview);
+      expect(s.role, Role.employee);
+      await Future<void>.delayed(Duration.zero);
+      expect(s.gps.state, GpsState.simulated);
 
       s.dispose();
     });
@@ -41,8 +37,9 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(s.gps.state, GpsState.simulated);
 
-      s.signOut();
+      await s.signOut();
       expect(s.role, isNull);
+      expect(s.session, isNull);
       expect(s.gps.state, GpsState.off);
       s.dispose();
     });
@@ -61,7 +58,6 @@ void main() {
       s.toggleEmployeeView();
       expect(s.canSeeMoney, isFalse);
       expect(s.employeeView, isTrue);
-      expect(s.navTabs, [HaulTab.board, HaulTab.mine]);
 
       s.dispose();
     });
@@ -80,7 +76,6 @@ void main() {
       expect(after.stage, 0);
       expect(after.events.single.label, 'Volunteered for this job');
       expect(after.events.single.time, '9:05 AM');
-      expect(s.tab, HaulTab.mine, reason: "lands on the driver's own list");
       expect(s.toast, contains('HL-4471'));
 
       s.dispose();

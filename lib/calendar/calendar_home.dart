@@ -8,6 +8,7 @@ import 'date_math.dart';
 import 'event.dart';
 import 'event_editor.dart';
 import 'event_sheet.dart';
+import 'logins.dart';
 import 'search.dart';
 import 'views/day_view.dart';
 import 'views/list_view.dart';
@@ -388,6 +389,80 @@ class ViewSwitcher extends StatelessWidget {
   }
 }
 
+/// Who is signed in, the way out, and the way to the logins.
+class _AccountRow extends StatelessWidget {
+  const _AccountRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
+    final app = AppScope.of(context);
+    final session = app.session;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            session == null
+                ? 'Signed in'
+                : '${session.username} · ${session.role.label}',
+            style: t.bodyStrong.copyWith(fontSize: 15),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            app.role?.blurb ?? '',
+            style: t.secondary.copyWith(fontSize: 13),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              if (app.canManageServer)
+                Semantics(
+                  button: true,
+                  label: 'Logins',
+                  onTap: () => showLogins(context),
+                  excludeSemantics: true,
+                  child: TextButton(
+                    onPressed: () => showLogins(context),
+                    style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                    child: Text(
+                      'Logins',
+                      style: t.body.copyWith(fontSize: 15, color: p.accent),
+                    ),
+                  ),
+                ),
+              if (app.canManageServer) const SizedBox(width: 16),
+              Semantics(
+                button: true,
+                label: 'Sign out',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  app.signOut();
+                },
+                excludeSemantics: true,
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    app.signOut();
+                  },
+                  style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                  child: Text(
+                    'Sign out',
+                    style: t.body.copyWith(fontSize: 15, color: p.accent),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// What the device has been asked to buzz about.
 ///
 /// Here rather than in a settings screen the app does not have, and worth
@@ -550,6 +625,8 @@ class _CalendarsSheet extends StatelessWidget {
             ),
             const Divider(height: 24),
             const _AlertsRow(),
+            const Divider(height: 24),
+            const _AccountRow(),
           ],
         ),
       ),

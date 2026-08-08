@@ -8,6 +8,7 @@ import 'data/store.dart';
 import 'calendar/calendar_home.dart';
 import 'calendar/calendar_state.dart';
 import 'calendar/calendar_theme.dart';
+import 'calendar/sign_in.dart';
 import 'services/alert_service.dart';
 import 'services/link_service.dart';
 import 'services/location_service.dart';
@@ -159,7 +160,11 @@ class _BrothersHaulingAppState extends State<BrothersHaulingApp> {
               child: child!,
             );
           },
-          home: CalendarScope(state: _calendar, child: const CalendarHome()),
+          // The board is what the signed-in person is allowed to see, so
+          // there is nothing sensible to draw before they have signed in.
+          home: _state.role == null
+              ? const SignInScreen()
+              : CalendarScope(state: _calendar, child: const CalendarHome()),
         ),
       ),
     );

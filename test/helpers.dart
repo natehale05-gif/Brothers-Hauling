@@ -52,7 +52,11 @@ Future<void> settle(WidgetTester tester, {int frames = 8}) async {
 /// time rather than waiting on it.
 Future<Harness> pumpApp(
   WidgetTester tester, {
-  Role? role,
+
+  /// Who is looking. Defaults to an owner, because the calendar is behind a
+  /// sign-in now and a test that pumped nobody would only ever see the login
+  /// box. Pass a role to check what somebody else is shown.
+  Role role = Role.admin,
   Size size = const Size(420, 900),
   double textScale = 1.0,
   CalView view = CalView.month,
@@ -85,7 +89,7 @@ Future<Harness> pumpApp(
   );
   addTearDown(state.dispose);
   state.setThemeMode(themeMode);
-  if (role != null) state.enter(role);
+  state.enter(role);
 
   final calendar = CalendarState(
     now: () => clock,

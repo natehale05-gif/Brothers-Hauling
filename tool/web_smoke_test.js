@@ -129,6 +129,24 @@ async function boot(browser, viewport) {
 }
 
 /**
+ * Signs in, because the board is behind a login now.
+ *
+ * A fresh device makes itself sample logins and prints the password on the
+ * screen, so this is what anybody opening the demo does — one tap on the level
+ * they want, then Sign in.
+ */
+async function signIn(page, level = 'Admin') {
+  await page.getByRole('button', { name: `Use the ${level} sample login` })
+    .first()
+    .click({ timeout: 15000 });
+  await page.waitForTimeout(500);
+  await page.getByRole('button', { name: 'Sign in', exact: false })
+    .first()
+    .click({ timeout: 15000 });
+  await page.waitForTimeout(1800);
+}
+
+/**
  * Flattens Flutter's semantics into `role:name` strings.
  *
  * Read straight off the semantics DOM rather than through
@@ -207,6 +225,17 @@ function check(label, ok, detail = '') {
     // ---- phone: the month view, as it opens -----------------------------
     {
       const { page, errors } = await boot(browser, { width: 430, height: 900 });
+
+      check(
+        'the board is behind a login',
+        await axContains(page, /Sign in to see the board/),
+      );
+      check(
+        'and a fresh device says how to get in',
+        await axContains(page, /Sample logins/),
+      );
+      await signIn(page);
+
       const n = await axNames(page);
 
       check(
@@ -368,6 +397,7 @@ function check(label, ok, detail = '') {
     // ---- desktop: the wide month, the year, and a job --------------------
     {
       const { page, errors } = await boot(browser, { width: 1194, height: 834 });
+      await signIn(page);
 
       check(
         'a window with room writes the work into the month cells',
@@ -464,6 +494,7 @@ function check(label, ok, detail = '') {
         ph.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
       });
       await app.waitForTimeout(1200);
+      await signIn(app);
       await press(app, 'List view');
 
       // A booking arrives with no date on it, so the calendar has nowhere to

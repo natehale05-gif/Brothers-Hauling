@@ -151,6 +151,7 @@ class Account {
     required this.crewId,
     required this.role,
     required this.password,
+    this.sample = false,
   });
 
   /// What they type to sign in. Compared case-insensitively and trimmed, so
@@ -164,10 +165,20 @@ class Account {
   final Role role;
   final PasswordHash password;
 
+  /// Made by the app so a fresh install has a way in, with a password printed
+  /// on the sign-in screen for anyone to read.
+  ///
+  /// The flag exists so the app can keep saying so — on the login box and on
+  /// the accounts screen — until somebody has actually replaced it. A sample
+  /// password that quietly becomes the real one is the whole problem with
+  /// shipping default credentials.
+  final bool sample;
+
   static String normalise(String username) => username.trim().toLowerCase();
 
   String get key => normalise(username);
 
+  /// A new password, and no longer a sample once somebody has chosen one.
   Account withPassword(String password) => Account(
     username: username,
     crewId: crewId,
@@ -180,6 +191,7 @@ class Account {
     'crewId': crewId,
     'role': role.name,
     'password': password.toJson(),
+    if (sample) 'sample': true,
   };
 
   static Account? fromJson(Map<String, Object?> json) {
@@ -200,6 +212,7 @@ class Account {
       crewId: crewId,
       role: named.first,
       password: hash,
+      sample: json['sample'] == true,
     );
   }
 }
@@ -245,6 +258,24 @@ class Session {
     );
   }
 }
+
+/// The logins a device makes for itself when nobody has set one up.
+///
+/// Matched to the sample roster the sample board is already about, so the
+/// three levels can actually be walked through on a fresh install or on the
+/// hosted demo. Every one is flagged [Account.sample] and the app says so on
+/// the login box until the password has been replaced.
+const List<(String, String, Role)> kSampleLogins = [
+  ('owner', 'c1', Role.admin),
+  ('manager', 'c2', Role.manager),
+  ('driver', 'c3', Role.employee),
+];
+
+/// The password all three sample logins start with.
+///
+/// Printed on the sign-in screen on purpose: a password nobody can read is a
+/// demo nobody can open, and one nobody is told about is a back door.
+const String kSamplePassword = 'hauling';
 
 /// Every account on this device, and the sessions handed out from it.
 ///

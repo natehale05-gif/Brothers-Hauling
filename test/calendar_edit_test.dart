@@ -241,10 +241,19 @@ void main() {
       expect(app.state.jobs.any((j) => j.id == 'HL-2'), isTrue);
     });
 
-    testWidgets('with nobody signed in the board is this device\'s own', (
+    testWidgets('a manager sees the work but cannot rewrite it', (
       tester,
     ) async {
-      final app = await pumpApp(tester, jobs: bookedJobs());
+      final app = await pumpApp(tester, jobs: bookedJobs(), role: Role.manager);
+
+      expect(app.state.canEditJobs, isFalse);
+      expect(find.bySemanticsLabel('New job'), findsNothing);
+      // The board is still theirs to read.
+      expect(find.text('Debris haul'), findsWidgets);
+    });
+
+    testWidgets('an owner can', (tester) async {
+      final app = await pumpApp(tester, jobs: bookedJobs(), role: Role.admin);
       expect(app.state.canEditJobs, isTrue);
       expect(find.bySemanticsLabel('New job'), findsOneWidget);
     });

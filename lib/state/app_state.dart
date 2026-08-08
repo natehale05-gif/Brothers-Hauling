@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter/widgets.dart';
@@ -18,21 +19,6 @@ import '../models/role.dart';
 import '../services/alert_service.dart';
 import '../services/location_service.dart';
 import '../services/photo_service.dart';
-
-/// Tabs, per role. Kept as an enum so a stale tab can never survive a role
-/// switch — [AppState.enter] always lands on one this role owns.
-enum HaulTab { board, mine, jobs, crew, tracking, overview }
-
-extension HaulTabLabel on HaulTab {
-  String get label => switch (this) {
-    HaulTab.board => 'Board',
-    HaulTab.mine => 'My jobs',
-    HaulTab.jobs => 'Jobs',
-    HaulTab.crew => 'Crew',
-    HaulTab.tracking => 'Tracking',
-    HaulTab.overview => 'Overview',
-  };
-}
 
 /// Everything the board knows. One [ChangeNotifier] rather than a state
 /// management package — the app has a single screen's worth of state and no
@@ -54,6 +40,7 @@ class AppState extends ChangeNotifier {
     ServerControl? server,
     AccountBook? accounts,
     AlertService? alerts,
+    this.sampleLogins = true,
   }) : _prefs = store ?? MemoryStore(),
        // ignore: prefer_initializing_formals
        _server = server,
@@ -69,6 +56,12 @@ class AppState extends ChangeNotifier {
            LocalBoardRepository(store: MemoryStore(), seed: jobs, now: now) {
     _board.addListener(_onBoardChanged);
   }
+
+  /// Whether a device with no accounts makes itself the sample ones.
+  ///
+  /// On by default, because a fresh install with no way in is an app nobody
+  /// can open. Tests turn it off when they want to drive the empty case.
+  final bool sampleLogins;
 
   /// The board is no longer a list this class owns. Every change goes through
   /// the repository as a recorded mutation, so it survives the app dying and
@@ -97,6 +90,7 @@ class AppState extends ChangeNotifier {
     await _board.load();
     await _restoreThemeMode();
     await _restoreAccounts();
+    await _restoreSession();
     // Anything booked while the app was closed is on the board before the
     // first frame, rather than appearing a second later.
     await checkForBookings();
@@ -105,6 +99,7 @@ class AppState extends ChangeNotifier {
   // ------------------------------------------- serving the crew from here
 
   static const _accountsKey = 'accounts.v1';
+  static const _sessionKey = 'session.v1';
 
   final ServerControl? _server;
 
@@ -139,7 +134,56 @@ class AppState extends ChangeNotifier {
   Future<void> _restoreAccounts() async {
     final stored = AccountBook.decode(await _prefs.readString(_accountsKey));
     _accounts.adopt(stored.accounts);
+
+    // A device nobody has set up gets a way in, matched to the sample roster
+    // the sample board is already about. Every one of them is flagged, and the
+    // app keeps saying so until somebody replaces the password.
+    if (_accounts.isEmpty && sampleLogins) {
+      for (final (username, crewId, role) in kSampleLogins) {
+        _accounts.put(
+          Account(
+            username: username,
+            crewId: crewId,
+            role: role,
+            password: PasswordHash.of(kSamplePassword),
+            sample: true,
+          ),
+        );
+      }
+      await _writeAccounts();
+    }
+
     notifyListeners();
+  }
+
+  /// Signs back in as whoever was signed in when the app last closed.
+  Future<void> _restoreSession() async {
+    final raw = await _prefs.readString(_sessionKey);
+    if (raw == null || raw.isEmpty) return;
+
+    try {
+      final json = jsonDecode(raw);
+      if (json is! Map) return;
+      final stored = Session.fromJson(json.cast<String, Object?>());
+      if (stored == null) return;
+
+      // The account has to still exist and still hold that role. Somebody
+      // demoted or removed while the app was closed does not get to keep the
+      // level they had on the way out.
+      final account = _accounts.accounts
+          .where((a) => a.key == Account.normalise(stored.username))
+          .firstOrNull;
+      if (account == null || account.role != stored.role) {
+        await _prefs.writeString(_sessionKey, '');
+        return;
+      }
+
+      _session = stored;
+      enter(stored.role);
+    } catch (_) {
+      // A session this build cannot read is a session nobody is signed in on.
+      await _prefs.writeString(_sessionKey, '');
+    }
   }
 
   Future<void> _writeAccounts() =>
@@ -320,7 +364,7 @@ class AppState extends ChangeNotifier {
   final Map<String, double> _progress = {};
 
   Role? _role;
-  HaulTab _tab = HaulTab.board;
+  Session? _session;
   String? _openJobId;
   String? _toast;
   Job? _closedJob;
@@ -339,7 +383,17 @@ class AppState extends ChangeNotifier {
   ];
 
   Role? get role => _role;
-  HaulTab get tab => _tab;
+
+  /// Who is signed in on this device, or null when nobody is.
+  Session? get session => _session;
+
+  /// True once somebody has a way in at all. False on a device nobody has set
+  /// up yet, which is the one state that offers to make the first account.
+  bool get hasAccounts => _accounts.accounts.isNotEmpty;
+
+  /// Logins still carrying the password the app printed on the login box.
+  List<Account> get sampleAccounts =>
+      _accounts.accounts.where((a) => a.sample).toList();
   String? get toast => _toast;
   Job? get closedJob => _closedJob;
   bool get asEmployee => _asEmployee;
@@ -352,8 +406,15 @@ class AppState extends ChangeNotifier {
   List<CrewMember> get drivers =>
       crew.where((c) => c.role == Role.employee).toList();
 
+  /// Who the app thinks you are — the roster entry the signed-in account is
+  /// tied to.
+  ///
+  /// Was a constant, with a comment promising that a real build would resolve
+  /// it from auth. It does now.
+  String get meId => _session?.crewId ?? kMeId;
+
   CrewMember get me => crew.firstWhere(
-    (c) => c.id == kMeId,
+    (c) => c.id == meId,
     // The roster is data now, and data can be edited. A board whose "me" has
     // been removed should not take the app down on the next frame.
     orElse: () => kCrew.firstWhere((c) => c.id == kMeId),
@@ -458,7 +519,7 @@ class AppState extends ChangeNotifier {
       if (known.contains(booking.id)) continue;
       final job = booking.toJob(_nextJobId());
       final ok = await _board.apply(
-        _stamp((id, at) => CreateJob(id: id, actorId: kMeId, at: at, job: job)),
+        _stamp((id, at) => CreateJob(id: id, actorId: meId, at: at, job: job)),
       );
       if (ok) {
         added++;
@@ -510,7 +571,7 @@ class AppState extends ChangeNotifier {
 
     final ok = await _board.apply(
       _stamp(
-        (id, at) => PublishJob(id: id, jobId: job.id, actorId: kMeId, at: at),
+        (id, at) => PublishJob(id: id, jobId: job.id, actorId: meId, at: at),
       ),
     );
     if (!ok) return false;
@@ -605,7 +666,7 @@ class AppState extends ChangeNotifier {
     );
 
     final ok = await _board.apply(
-      _stamp((id, at) => CreateJob(id: id, actorId: kMeId, at: at, job: job)),
+      _stamp((id, at) => CreateJob(id: id, actorId: meId, at: at, job: job)),
     );
     if (!ok) return null;
 
@@ -639,7 +700,7 @@ class AppState extends ChangeNotifier {
 
     final ok = await _board.apply(
       _stamp(
-        (id, at) => DeleteJob(id: id, actorId: kMeId, at: at, jobId: job.id),
+        (id, at) => DeleteJob(id: id, actorId: meId, at: at, jobId: job.id),
       ),
     );
     if (!ok) return false;
@@ -667,12 +728,10 @@ class AppState extends ChangeNotifier {
 
   /// Only an owner corrects a job, and not while standing in the crew's view.
   ///
-  /// With nobody signed in there is no crew to protect a record from: the
-  /// board is this device's own, the way a calendar on a phone is. The rule
-  /// bites the moment somebody enters a role, which is the moment the board
-  /// starts being shared.
-  bool get canEditJobs =>
-      (_role == null || _role == Role.admin) && !_asEmployee;
+  /// Was briefly relaxed to "anybody, when nobody is signed in", because
+  /// nothing could sign in and the calendar would otherwise have been
+  /// read-only. There is a login now, so the rule is the rule again.
+  bool get canEditJobs => _role == Role.admin && !_asEmployee;
 
   /// Applies dispatch's corrections to [job].
   ///
@@ -697,7 +756,7 @@ class AppState extends ChangeNotifier {
         (id, at) => EditJob(
           id: id,
           jobId: job.id,
-          actorId: kMeId,
+          actorId: meId,
           at: at,
           fields: allowed,
         ),
@@ -743,7 +802,7 @@ class AppState extends ChangeNotifier {
       notifyListeners();
       return false;
     }
-    if (member.id == kMeId) {
+    if (member.id == meId) {
       showToast('You cannot change your own access.');
       notifyListeners();
       return false;
@@ -754,7 +813,7 @@ class AppState extends ChangeNotifier {
       _stamp(
         (id, at) => SetCrewRole(
           id: id,
-          actorId: kMeId,
+          actorId: meId,
           at: at,
           crewId: member.id,
           role: role,
@@ -803,7 +862,7 @@ class AppState extends ChangeNotifier {
     final ok = await _board.apply(
       _stamp(
         (id, at) =>
-            AddCrewMember(id: id, actorId: kMeId, at: at, member: member),
+            AddCrewMember(id: id, actorId: meId, at: at, member: member),
       ),
     );
     if (!ok) return false;
@@ -832,7 +891,7 @@ class AppState extends ChangeNotifier {
   bool get canSeeMoney => (_role?.seesMoney ?? false) && !_asEmployee;
 
   List<Job> get myJobs => jobs
-      .where((j) => j.assignedTo == kMeId && j.status != JobStatus.done)
+      .where((j) => j.assignedTo == meId && j.status != JobStatus.done)
       .toList();
 
   List<Job> get openBoard =>
@@ -847,7 +906,7 @@ class AppState extends ChangeNotifier {
   List<Job> get doneAll =>
       jobs.where((j) => j.status == JobStatus.done).toList();
 
-  List<Job> get myDone => doneAll.where((j) => j.assignedTo == kMeId).toList();
+  List<Job> get myDone => doneAll.where((j) => j.assignedTo == meId).toList();
 
   /// Jobs with a driver actually between two stops right now.
   List<Job> get moving => jobs
@@ -903,46 +962,49 @@ class AppState extends ChangeNotifier {
   Duration get myHoursToday {
     final today = this.today;
     return timeEntries
-        .where((e) => e.crewId == kMeId && e.day == today)
+        .where((e) => e.crewId == meId && e.day == today)
         .fold(Duration.zero, (total, e) => total + e.workedBy(_now()));
   }
 
-  /// The tabs this role gets, in order.
-  List<HaulTab> get navTabs {
-    if (employeeView) return const [HaulTab.board, HaulTab.mine];
-    return switch (_role) {
-      Role.manager => const [HaulTab.jobs, HaulTab.crew, HaulTab.board],
-      // No separate day tab: Jobs is the day, paged. No separate hours tab
-      // either — hours are a fact about a person, so they sit on Crew with
-      // the person they belong to, and stay owner-only there.
-      Role.admin => const [
-        HaulTab.overview,
-        HaulTab.jobs,
-        HaulTab.tracking,
-        HaulTab.crew,
-      ],
-      _ => const [HaulTab.board, HaulTab.mine],
-    };
-  }
-
   // ---------------------------------------------------------------- writing
+
+  /// Takes a username and password and, if they match, signs in.
+  ///
+  /// The password is checked against a hash and then dropped; nothing here
+  /// holds it, writes it or sends it. What survives is a token, which is what
+  /// makes signing somebody out possible without knowing what they typed.
+  Future<bool> signIn(String username, String password) async {
+    final session = _accounts.signIn(username, password);
+    if (session == null) {
+      // Deliberately one message for both halves: saying "no such user" tells
+      // whoever is guessing which names are real.
+      showToast('That username and password do not match.');
+      notifyListeners();
+      return false;
+    }
+
+    _session = session;
+    await _prefs.writeString(_sessionKey, jsonEncode(session.toJson()));
+    enter(session.role);
+    return true;
+  }
 
   /// Sign in. Starts location reporting and the movement ticker; both stop
   /// again in [signOut] and [dispose].
   void enter(Role role) {
     _role = role;
     _asEmployee = false;
-    _tab = switch (role) {
-      Role.employee => HaulTab.board,
-      Role.manager => HaulTab.jobs,
-      Role.admin => HaulTab.overview,
-    };
     _startLocation();
     _startTicker();
     notifyListeners();
   }
 
-  void signOut() {
+  Future<void> signOut() async {
+    final token = _session?.token;
+    if (token != null) _accounts.signOut(token);
+    _session = null;
+    await _prefs.writeString(_sessionKey, '');
+
     _role = null;
     _openJobId = null;
     _closedJob = null;
@@ -954,17 +1016,8 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setTab(HaulTab tab) {
-    if (_tab == tab) return;
-    _tab = tab;
-    notifyListeners();
-  }
-
   void toggleEmployeeView() {
     _asEmployee = !_asEmployee;
-    _tab = _asEmployee
-        ? HaulTab.board
-        : (_role == Role.admin ? HaulTab.overview : HaulTab.jobs);
     notifyListeners();
   }
 
@@ -981,7 +1034,6 @@ class AppState extends ChangeNotifier {
 
   void dismissClosedJob() {
     _closedJob = null;
-    _tab = employeeView ? HaulTab.board : _tab;
     notifyListeners();
   }
 
@@ -996,7 +1048,7 @@ class AppState extends ChangeNotifier {
   Future<void> claim(Job job) async {
     final ok = await _board.apply(
       _stamp(
-        (id, at) => ClaimJob(id: id, jobId: job.id, actorId: kMeId, at: at),
+        (id, at) => ClaimJob(id: id, jobId: job.id, actorId: meId, at: at),
       ),
     );
     if (!ok) {
@@ -1009,7 +1061,6 @@ class AppState extends ChangeNotifier {
     _progress.remove(job.id);
     showToast("${job.id} is yours. Dispatch can see you're on it.");
     _openJobId = null;
-    _tab = HaulTab.mine;
     notifyListeners();
   }
 
@@ -1017,7 +1068,7 @@ class AppState extends ChangeNotifier {
   Future<void> accept(Job job) async {
     final ok = await _board.apply(
       _stamp(
-        (id, at) => AcceptJob(id: id, jobId: job.id, actorId: kMeId, at: at),
+        (id, at) => AcceptJob(id: id, jobId: job.id, actorId: meId, at: at),
       ),
     );
     if (!ok) {
@@ -1051,7 +1102,7 @@ class AppState extends ChangeNotifier {
         (id, at) => AdvanceStage(
           id: id,
           jobId: job.id,
-          actorId: kMeId,
+          actorId: meId,
           at: at,
           toStage: next,
         ),
@@ -1084,7 +1135,7 @@ class AppState extends ChangeNotifier {
   /// the moment the job was reopened. This answers the only question that
   /// matters — *is there still no before photo?* — every time it is asked.
   bool beforePhotoDue(Job job) =>
-      job.assignedTo == kMeId &&
+      job.assignedTo == meId &&
       job.status == JobStatus.active &&
       job.stage >= kOnSiteStage &&
       job.photosBefore.isEmpty &&
@@ -1103,7 +1154,7 @@ class AppState extends ChangeNotifier {
         (id, at) => AssignJob(
           id: id,
           jobId: job.id,
-          actorId: kMeId,
+          actorId: meId,
           at: at,
           driverId: crewId,
         ),
@@ -1129,7 +1180,7 @@ class AppState extends ChangeNotifier {
         (id, at) => AttachPhoto(
           id: id,
           jobId: job.id,
-          actorId: kMeId,
+          actorId: meId,
           at: at,
           photoId: shot.id,
           photoName: shot.name,
