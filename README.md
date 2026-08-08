@@ -1,132 +1,61 @@
 # Brothers Hauling
 
-The job pipeline for Brothers Hauling — three access levels, one board.
-A Flutter rebuild of the `haulboardv3` React prototype, running from the same
-codebase on **iPhone, iPad, Android, macOS, Windows, Linux and the web**.
+The job calendar for Brothers Hauling, built the way Apple Calendar is, running
+from one codebase on **iPhone, iPad, Android, macOS, Windows, Linux and the
+web**.
 
 **Try it:** https://natehale05-gif.github.io/Brothers-Hauling/ — no install, no
-sign-up. Pick any of the three access levels to see what that role sees.
+sign-up. Five views over the same days, and every job opens onto its details.
 
 ---
 
 ## What it does
 
-Three roles, one job pipeline:
+Five views over one set of days, and a job opens onto a sheet over whatever you
+were looking at rather than a screen you have to come back from.
 
-| Role | Sees |
+| View | Shows |
 | --- | --- |
-| **Admin** | Everything — money, hours and rates, live crew tracking, every job, hiring at any level |
-| **Manager** | What jobs bill at, who's staffed where, hiring drivers, plus the full employee view |
-| **Employee** | The board, job details, their own hours, and before / after photos |
+| **Day** | An hour grid, the week along the top, and a red line across now — only ever on today |
+| **Week** | Seven columns; work booked at the same hour sits side by side rather than on top of itself |
+| **Month** | Dots under the day numbers on a phone, with the chosen day listed below; give it a window and the jobs are written into the cells |
+| **Year** | Twelve small months, the current one named in red |
+| **List** | Forward from today, grouped under day headings |
 
-A driver takes a load off the board by **pressing and holding** a card — an
-accidental tap must not sign someone up for a job. From there the job walks
-through six stages (accepted → driving → loading → in transit → at disposal →
-closed), writing a movement log dispatch can read live. **A job cannot close
-without at least one before and one after photo.**
+The arrows step by whatever is on screen — a month view pages by months and a
+day view by days, because "next" has to mean what you are looking at. On a
+desktop the **left and right keys** do the same, **T** returns to today, and
+**Escape** closes an open job. "Today" is one tap away whenever you have left it.
 
-The moment a driver reaches the site the card asks for the before shot, at the
-top of the card rather than down beside the photo strips — by the time anyone
-scrolls that far the first load is already on the truck, and the "before" it was
-meant to capture no longer exists. Each slot takes as many shots as the job
-needs: the pile, the access, and the thing the customer will later swear was
-already broken.
+Work is grouped into **calendars** by the kind of job — debris, junk, gravel,
+bark, equipment — each with its own colour, and any of them can be switched off
+without touching the jobs themselves.
 
-Managers and admins can push a job at a specific driver, but the driver still
-has to accept it. Anyone above employee can flip into the employee view to see
-exactly what their crew sees, money hidden and all.
+### What a job needs, and who may take it
 
-### Hiring
+A job states **what rig it needs**. It does not assign one to a person and it
+does not stop anybody from answering. The crew know their own equipment better
+than a form does.
 
-Admins take on anyone; managers staff their own crew but cannot mint another
-manager, and nobody but an owner can make an owner. That rule lives in the state,
-not in the form — the form only offers what you may hand out, but submitting
-something else is refused anyway, because otherwise "add crew" is a privilege
-escalation with a friendly form on top of it. Anyone in the employee view gets
-what their crew gets: no hiring at all.
+### Work with no date
 
-A new hire starts off shift with the app closed, so nobody appears on the
-tracking board before they have installed the thing.
+A booking made on the website arrives with no day on it, and a calendar has
+nowhere to draw that. Rather than lose it, the list view carries a **Not
+scheduled yet** section at the top — a job quietly filed under today is a job
+that gets missed tomorrow, and one omitted from the grid entirely is worse.
 
-### Hiring us from the website
+### What the calendar cannot reach yet
 
-A booking made on the website turns into a job on the dispatch board.
+The rebuild replaced the dispatch UI, not the machinery underneath it. Roles and
+what each may see, hiring and promotion, the hours a job clocks up, live crew
+tracking, before/after photos, the movement log and editing a job are all still
+in `lib/state` and `lib/models`, still enforced, and still covered by tests —
+but the calendar has no way in to any of them yet. Money is a case in point: a
+job's billed figure is shown in its details **only** to a manager or an owner,
+and since nothing in the calendar signs anybody in, nothing currently shows it.
 
-`BookingRequest` is the wire contract, and it is deliberately small: a customer
-knows what they want moved and where from, and knows none of the things the app
-needs to run the job. Mileage, equipment and money are left blank rather than
-guessed — a made-up figure looks exactly like a real one on the board.
-
-So a booking lands as **requested**, not open. Dispatch fills in the details and
-puts a price on it, and only then does it reach the crew; an unpriced job on the
-driver board is a job somebody can volunteer for at nothing a load. That rule is
-enforced in the mutation as well as the screen, because the queue outlives the
-screen.
-
-Every booking carries the website's own id, and the job keeps it. The same
-booking arriving down a second poll, or after a relaunch mid-sync, is the same
-job rather than a second one.
-
-**Try it:** open [`hire.html`](https://natehale05-gif.github.io/Brothers-Hauling/hire.html),
-book a haul, then open the board and sign in as Admin. The demo page is served
-from the same origin as the app, so the booking lands in the storage the board
-reads — no server, but a real round trip rather than a mocked one. Pointing at a
-live backend is `HttpIntakeSource` in `main.dart` and nothing else in the app.
-
-### The day
-
-Dispatch gets a **Day** tab: every job for one day on a grid, sorted the way the
-day actually happens. Swipe left and right on a phone; on a desktop there are
-arrows either side of the date and the **left/right keys** do the same thing —
-a mouse has nothing to swipe with, and a keyboard user cannot swipe at all.
-"Today" is always one tap away.
-
-The grid is sized by tile width rather than a breakpoint, so it is one column on
-a phone and three or four across a desktop window on its own.
-
-A job with no day is not parked on today. It sits in its own **No day set**
-bucket, because a job quietly filed under today is a job that gets missed
-tomorrow. An owner sets the day from the edit form, and leaving it blank is a
-real answer for a booking nobody has committed to yet.
-
-### Correcting a job
-
-An owner can edit every detail of a job — customer, address, access notes,
-hazards, the load, the window, the mileage and all three money figures — from
-the job card. Managers and drivers cannot, and neither can an owner standing in
-the employee view.
-
-The edit carries **only the fields that changed**, not the whole job. Sending
-the whole thing would mean an edit made offline quietly reverting whatever the
-driver did to the same job in the meantime — the stage they reached, the photos
-they filed — the moment it replayed.
-
-Status, stage, the assignee, the photos and the movement log are missing from
-the editable set on purpose: they are the record of what happened in the field,
-and an edit form is not the place to rewrite it. That list is enforced in the
-mutation as well as at the call site, because the queue outlives an app upgrade.
-Every edit writes itself into the movement log, so dispatch changing what a job
-pays is something the driver can see afterwards.
-
-### Hours, and what drivers are not shown
-
-Pay is hourly, so there is no per-job "your cut" — and **a driver is never shown
-a money figure anywhere in the app**. Not their rate, not a job's price, not a
-running total. What an hour is worth is between them and payroll, and an app
-that announces it to whoever picks the phone up is not doing anyone a favour.
-They see their time; that is the part that is theirs to check.
-
-The clock is not a timer. There is nothing to start and nothing to forget to
-stop: **taking a job on starts it and closing the job stops it**, stamped by the
-same mutations that move the job. So a shift worked in a dead zone is already on
-the timesheet by the time the phone finds signal, and there is no stopwatch left
-running overnight. A timesheet built beside the jobs would be a second record of
-the same thing, and two records of the same thing disagree.
-
-The owner gets an **Hours** tab: everyone's total, who is on the clock right
-now, and each person opened up job by job with the times either side. Rates live
-there too — a rate nobody has set reads as "no rate", never as free labour.
-Managers do not see any of it.
+They are the next things to build on top of this, not things that were thrown
+away.
 
 ### Working with no signal
 
@@ -151,19 +80,6 @@ reads "saved on this phone", not "saved".
 There is still no server — the send step currently succeeds as soon as a change
 is durable, which is what makes the demo above persist across a reload. Pointing
 it at a real backend means implementing one function.
-
-### Location, stated plainly
-
-Position is shared with dispatch **only while the app is open**. There is no
-background location permission on any platform, and the driver's screen says so
-in a strip that never scrolls away. When the app closes, dispatch keeps the last
-known ping so nobody simply vanishes off the board.
-
-If location is denied, unavailable, or the permission prompt goes unanswered for
-12 seconds, the app falls back to a simulated yard position and says so, rather
-than sitting on a spinner forever.
-
----
 
 ## Running it
 
@@ -201,32 +117,33 @@ flutter analyze
 flutter test
 ```
 
-**518 tests**, in fifteen files:
+**281 tests**, in thirteen files:
 
 | File | Covers |
 | --- | --- |
-| `test/app_state_test.dart` | The pipeline itself — claiming, accepting, stage transitions, the photo gate, movement/ETA maths, rig matching, money roll-ups |
-| `test/widget_flow_test.dart` | End-to-end journeys per role, the hold gesture, money visibility, directions and dialling, layout switching, every `TargetPlatform` |
-| `test/layout_test.dart` | Every tab and every job card across six device sizes at normal and 1.6× text — 122 combinations, each asserting nothing overflows |
-| `test/accessibility_test.dart` | Contrast maths, Flutter's four accessibility guidelines on every screen, screen reader labels, keyboard control, reduced motion |
+| `test/date_math_test.dart` | The arithmetic under every grid — six-row months, week starts, month paging that lands on February rather than March |
+| `test/calendar_event_test.dart` | Reading a job as an event, which calendar it belongs to, and the lane packing that keeps two jobs at nine o'clock from being drawn on top of each other |
+| `test/calendar_state_test.dart` | What is on screen — stepping per view, focus versus selection, titles, hiding a calendar |
+| `test/calendar_view_test.dart` | Every view rendered and driven: taps, the keyboard, the job sheet, undated work, and 1.6× text on a 320pt screen |
+| `test/app_state_test.dart` | The pipeline itself — claiming, accepting, stage transitions, the photo gate, movement/ETA maths, money roll-ups |
 | `test/serialization_test.dart` | Everything that is persisted or sent, round-tripped through real JSON, plus what happens when the stored data is malformed |
 | `test/outbox_test.dart` | The offline queue — ordering, backoff, giving up, surviving the process dying |
 | `test/board_repository_test.dart` | A shift worked with no signal: applied locally, kept across relaunch, delivered in order when signal returns |
-| `test/sync_ui_test.dart` | That the app never tells a driver their work landed when it has not |
-| `test/theme_test.dart` | The appearance choice — that it cycles, persists, repaints, and says which mode is on |
+| `test/sync_server_test.dart` | The owner's machine as the server — private logins, hashed passwords, a real socket |
+| `test/server_state_test.dart` | Who may run a server, and what the accounts book does and does not keep |
 | `test/photos_test.dart` | Many shots per slot, the on-site prompt, and that a board written by the previous build still loads |
-| `test/crew_test.dart` | Who may hire whom, that the rule is enforced in the state rather than the form, and that a new hire survives a relaunch |
-| `test/edit_job_test.dart` | That an owner can correct every detail, that nobody else can, and that an edit cannot rewrite what the driver did |
-| `test/hours_test.dart` | The clock starting and stopping with the job, the timesheet maths, and that a driver is never shown a figure |
-| `test/day_board_test.dart` | The day grid — which day is showing, what lands on it, the arrows, the keys, the swipe, and that the grid widens with the window |
-| `test/intake_test.dart` | The booking contract, that the same booking never lands twice, that a dead website doesn't take the board down, and that nothing reaches a driver unpriced |
+| `test/crew_test.dart` | Who may hire whom, and that the rule is enforced in the state rather than the form |
+| `test/edit_job_test.dart` | That an edit carries only what changed, and cannot rewrite what the driver did |
+| `test/hours_test.dart` | The clock starting and stopping with the job, and the timesheet maths |
+| `test/intake_test.dart` | The booking contract, that the same booking never lands twice, and that nothing reaches a driver unpriced |
 
 ### Browser smoke test
 
 Widget tests say nothing about whether the compiled bundle actually boots in a
 browser at the base href GitHub Pages serves it from. `tool/web_smoke_test.js`
-drives the real artifact through Chromium — signing in, reading the accessibility
-tree the way a screen reader would, and failing on any console error:
+drives the real artifact through Chromium — moving through the views, reading
+the accessibility tree the way a screen reader would, following a booking from
+the website form into the calendar, and failing on any console error:
 
 ```bash
 flutter build web --release --base-href "/Brothers-Hauling/"
@@ -243,33 +160,26 @@ bundle that doesn't boot never reaches the site.
 
 Not a pass at the end — it shaped the widgets.
 
-- **Hold-to-commit has three paths.** Press and hold; hold Enter or Space on a
-  focused control; or, when a screen reader or reduced-motion setting is
-  detected, a single activation opens a confirmation dialog instead. Nobody has
-  to sustain a gesture to take a job.
-- **Nothing means anything by colour alone.** The stage rail announces
-  "Stage 3 of 5, Loading". The route strip announces "Route from Yard to
-  Monmouth, 42 percent complete, 11 min out". The week chart announces every
-  day's figure. A dimmed job card also carries a chip reading "Lowboy 25t — not
-  your rig".
-- **Every colour pairing clears WCAG AA (4.5:1) in both light and dark**,
-  including translucent chips measured against the blend they actually sit on.
-  Flutter's four guidelines are also run over every screen in *both* palettes,
-  because the contrast guideline reads the pixels that were really painted —
-  which is how a hardcoded near-black scrim behind now-dark light-mode text got
-  caught.
-- **Money reads as a phrase**, not an orphaned number: "Your cut, 168 dollars".
-- **Toasts are announced** to screen readers and are transparent to pointers, so
-  a confirmation can never eat a tap meant for the button underneath it.
-- **48pt minimum hit targets** everywhere — Material's 48 and iOS's 44 at once,
-  and enough for gloves.
-- **Text scales to 1.6×** without a single overflow, verified across six device
-  sizes.
-- **Reduced motion is respected**: the live-ping pulse stops, the rig snaps
-  instead of gliding, and the hold control switches to the dialog.
-- **Full keyboard control** with a hi-vis focus ring; Escape closes a job card or
-  the closed-job screen.
-- Disabled controls **say why** they're disabled instead of greying out silently.
+- **Nothing means anything by colour alone.** A coloured block announces
+  "Junk removal for Harrison St rental in Corvallis. 9 AM – 11 AM." A day in the
+  month grid announces "Thursday, 6 August, today. 3 jobs." — and when the cell
+  is wide enough to list them, so does its label. A day with no work says
+  "Nothing on" rather than falling silent.
+- **The weekday header is read in full.** Two of the seven letters are "S";
+  position carries the difference for the eye, and the header announces
+  "Saturday" and "Sunday" for everyone else.
+- **The view switcher states position**: "Month view, 3 of 5".
+- **The all-day gutter label is hidden from screen readers**, because each chip
+  in the band already announces "All day" and hearing it twice before the job
+  helps nobody.
+- **Every colour pairing clears WCAG AA (4.5:1) in both light and dark**, drawn
+  with the real iOS system colours in both appearances.
+- **44pt minimum hit targets** on every control in the bar.
+- **Text scales to 1.6×** without a single overflow — every view, on a 320pt
+  screen, asserted in `test/calendar_view_test.dart`.
+- **Full keyboard control**: left/right step, **T** returns to today, **Escape**
+  closes an open job.
+- The title is a **live region**, so paging months announces where you landed.
 
 ---
 
@@ -279,12 +189,17 @@ Not a pass at the end — it shaped the widgets.
 lib/
   main.dart              app shell, theme wiring, text-scale clamp
   models/                Job, CrewMember, Role — plain data, no Flutter imports
-  data/seed_data.dart    today's board
-  state/app_state.dart   one ChangeNotifier; AppScope exposes it
+  data/                  the store, the outbox, the repository, the sync server
+  state/app_state.dart   the domain: one ChangeNotifier, AppScope exposes it
   services/              everything platform-specific, behind an interface
-  theme/haul_theme.dart  the palette and type scale, as tokens
-  widgets/               the reusable pieces (hold button, route strip, …)
-  screens/               role gate, adaptive shell, job card, the tabs
+  calendar/
+    date_math.dart       days, weeks, month grids — pure, and tested alone
+    event.dart           a Job as a calendar draws it, and the lane packing
+    calendar_state.dart  what is on screen; never leaves the device
+    calendar_theme.dart  the iOS palette and type ramp, as tokens
+    calendar_home.dart   nav bar, view switcher, calendars sheet
+    event_sheet.dart     a job, opened over the calendar
+    views/               day, week, month, year, list, and the hour grid
 ```
 
 Two decisions worth knowing:
@@ -295,16 +210,27 @@ missing a capability (no camera on a desktop, no location provider on Linux)
 falls through inside the service, and tests inject stand-ins instead of mocking
 platform channels.
 
-**One layout, two shapes.** Under 900pt the app uses bottom tabs and the job
-card takes over the screen. Above it, a navigation rail with the job card in a
-permanent side pane — so an iPad or a desktop window isn't a stretched phone.
-Same widgets either way; only the chrome differs.
+**One layout, sized by what fits, not by a breakpoint list.** The month view
+measures its own cells: too small for anything but dots and the chosen day is
+listed underneath, the way an iPhone does it; big enough to hold two lines and
+the jobs are written into the cells and the list goes away, the way a Mac does
+it. Same widgets either way — an iPad or a desktop window isn't a stretched
+phone.
 
-State is a single `ChangeNotifier` reached through an `InheritedNotifier`. No
-state-management package: the app has one screen's worth of state, and every
-dependency is a dependency that can break a Windows or Linux build.
+**Two states, kept apart.** `AppState` is the domain — jobs, crew, the outbox,
+the server — and is the thing that syncs. `CalendarState` is which day is on
+screen, which view is chosen, which calendars are hidden: facts about this
+device at this moment, and nothing in it ever leaves it. Both are plain
+`ChangeNotifier`s reached through an `InheritedNotifier`. No state-management
+package: every dependency is a dependency that can break a Windows or Linux
+build.
 
 ### Brand
+
+The app itself is drawn in **iOS's own system colours** — systemRed for today
+and the now-line, the system greys for labels and rules — because a calendar
+that looks like the OS is the whole point of the exercise. The brand palette
+below is what the icon, the boot splash and the booking site are built from.
 
 The palette is not eyeballed off the logo — three colours are sampled straight
 out of `assets/branding/app_icon_source.png` and used as-is:
@@ -325,30 +251,23 @@ Two knock-on changes fell out of it. The alert colour moved to a pink-red
 reading as "different" once the accent is orange. And the neutrals lost their
 blue cast — the icon's black is neutral, so the surfaces are too.
 
-The role gate draws the icon's lockup in type (`lib/widgets/brand_mark.dart`)
-rather than shipping it as an image: crisp at any size, and nothing added to
-the web payload.
+The boot splash draws the icon's lockup in type (`web/index.html`) rather than
+shipping it as an image: crisp at any size, and nothing added to the web
+payload.
 
 ### Light and dark
 
 Dark is what a cab at 5 AM needs. Light is what a yard at noon needs, where a
-dark screen is just a mirror. Both ship; the toggle sits in the top bar and on
-the sign-in screen, and the choice is remembered on the device.
+dark screen is just a mirror. Both ship and the choice is remembered on the
+device; the default follows the phone, because someone who has already set
+their device has said everything they mean to say about it.
 
-The default follows the phone rather than forcing either one — someone who has
-already set their device has said everything they mean to say about it. The
-control cycles through *follow my device → light → dark* rather than being a
-two-way switch, because "follow my device" is a real answer and has to stay
-reachable after you have overridden it once.
-
-Light is **not** the dark palette on a white card. The icon's orange manages
-3.3:1 on white, which is not a text colour by any reading of AA. Each accent in
-the light palette is the same hue walked down in value until it clears 4.8:1
-both on the darkest surface it can land on and on its own tinted chip; the vivid
-orange survives as a *fill*, where light ink sits on top of it rather than
-beside it. The tinted chips are also much thinner on light, because a tint
-darkens the chip either way — which hands a light label headroom on dark, and
-takes it away from a dark label on light.
+Both palettes are the real iOS system values rather than one derived from the
+other — systemRed is `#FF3B30` on light and `#FF453A` on dark for a reason, and
+a calendar that dimmed the light one would stop looking like the OS it is
+imitating. A job's colour is used untinted for its text and at 18% for its
+fill, so the block reads at a glance even when it is too short for its own
+title.
 
 ### App icon
 
@@ -373,8 +292,11 @@ what clips "HAULING" off the bottom under a circular mask.
 
 `geolocator`, `url_launcher`, `image_picker` — all three ship implementations
 for all six targets. Fonts (Archivo, Archivo Black, DM Mono) are **bundled**
-rather than fetched, so the app renders identically offline; the prototype
-pulled them from Google Fonts on every load.
+rather than fetched. That matters more than it looks: name no font at all and
+Flutter fetches Roboto from `gstatic.com` at boot, so the web build paints its
+entire layout with no text in it until the download lands, and stays wordless
+offline. Apple platforms still get the system face — SF Pro, which is what
+Apple Calendar itself is set in — because there the engine can reach it.
 
 The web build **self-hosts CanvasKit** (`web/flutter_bootstrap.js`). By default
 Flutter fetches it from `gstatic.com` at runtime, which means the app doesn't
@@ -384,10 +306,10 @@ It also renders into a **host element** (`#app`) rather than into the page.
 Left to itself the engine sizes the app from the layout viewport, which on a
 phone browser is the tall "toolbar retracted" height — so the bottom tab bar
 gets drawn below the visible edge, behind the browser toolbar, and a driver has
-to fight the page to reach it. No CSS on `<html>` can correct that, because
+to fight the page to reach it. The view switcher sits exactly there. No CSS on `<html>` can correct that, because
 `documentElement.clientHeight` reports the tall viewport whatever the stylesheet
 says. Given a host element the engine measures *that box* instead and watches it
-with a `ResizeObserver`, so sizing it in `dvh` units pins the tabs to the bottom
+with a `ResizeObserver`, so sizing it in `dvh` units pins the switcher to the bottom
 edge and re-lays-out when the toolbar slides in or out. The smoke test asserts
 it, since no widget test can see a host page getting it wrong.
 
