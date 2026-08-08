@@ -43,6 +43,7 @@ without touching the jobs themselves.
 | **Search** | Over every field; a result jumps to the day it is on |
 | **Go to** | Tap the title to jump somewhere too far off to page to |
 | **Repeat** | Daily, weekly, fortnightly, monthly or yearly, a set number of times |
+| **Alert** | At the time, or fifteen minutes to a day before it starts |
 
 Long-press before a block moves, deliberately: a calendar you can knock a job
 off by brushing it while scrolling is worse than one you cannot drag at all.
@@ -60,6 +61,20 @@ form is not the place to erase it.
 Every one of these goes through the same mutations and the same outbox as the
 rest of the board, so a job booked in a dead zone is on the board before the
 phone finds signal.
+
+### Reminders
+
+An alert lives **on the job**, not on the device that set it, so dispatch
+saying "give them half an hour's warning" reaches the driver who is going to
+do the work. Each device schedules its own from whatever the board says and
+re-reconciles every time the board moves — which is what makes a job somebody
+else dragged to the afternoon stop buzzing at its old time. Reminders already
+gone by are never scheduled, and a closed job never buzzes at all.
+
+The web is the odd one out. A browser cannot hand a future notification to
+anything that outlives the page, so there the app raises them itself while the
+page is open. The Calendars sheet says which of the two is happening rather
+than letting somebody close a tab expecting to be told about a nine o'clock.
 
 ### What a job needs, and who may take it
 
@@ -152,7 +167,7 @@ flutter analyze
 flutter test
 ```
 
-**316 tests**, in fourteen files:
+**336 tests**, in fifteen files:
 
 | File | Covers |
 | --- | --- |
@@ -161,6 +176,7 @@ flutter test
 | `test/calendar_state_test.dart` | What is on screen — stepping per view, focus versus selection, titles, hiding a calendar |
 | `test/calendar_view_test.dart` | Every view rendered and driven: taps, the keyboard, the job sheet, undated work, and 1.6× text on a 320pt screen |
 | `test/calendar_edit_test.dart` | Booking, correcting and deleting a job; the drag and stretch gestures; the recurrence maths; and search |
+| `test/alerts_test.dart` | When a reminder is due, what it says, which ones a board is owed, and that the device is told again whenever a job moves |
 | `test/app_state_test.dart` | The pipeline itself — claiming, accepting, stage transitions, the photo gate, movement/ETA maths, money roll-ups |
 | `test/serialization_test.dart` | Everything that is persisted or sent, round-tripped through real JSON, plus what happens when the stored data is malformed |
 | `test/outbox_test.dart` | The offline queue — ordering, backoff, giving up, surviving the process dying |
@@ -329,8 +345,8 @@ what clips "HAULING" off the bottom under a circular mask.
 
 ### Dependencies
 
-`geolocator`, `url_launcher`, `image_picker` — all three ship implementations
-for all six targets. Fonts (Archivo, Archivo Black, DM Mono) are **bundled**
+`geolocator`, `url_launcher`, `image_picker`, `flutter_local_notifications`
+and `timezone` — all of them ship implementations for all six targets. Fonts (Archivo, Archivo Black, DM Mono) are **bundled**
 rather than fetched. That matters more than it looks: name no font at all and
 Flutter fetches Roboto from `gstatic.com` at boot, so the web build paints its
 entire layout with no text in it until the download lands, and stays wordless
