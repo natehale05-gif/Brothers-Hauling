@@ -190,6 +190,10 @@ List<Job> seedJobs(DateTime now) => [
     assignedTo: 'c2',
     stage: 1,
     progress: 0.42,
+    // The same moment the log opens with. The hours are these stamps — a job
+    // whose log says somebody accepted it at 7:48 and whose timesheet says
+    // they have worked no minutes is two records of one morning disagreeing.
+    startedAt: _today(7, 48),
     events: [
       JobEvent(
         at: _today(7, 48),
@@ -227,6 +231,8 @@ List<Job> seedJobs(DateTime now) => [
     assignedTo: 'c3',
     stage: 5,
     progress: 1,
+    startedAt: _today(8, 10),
+    finishedAt: _today(9, 40),
     events: [
       JobEvent(
         at: _today(8, 10),

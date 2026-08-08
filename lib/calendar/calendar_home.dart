@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../state/app_state.dart';
 import 'calendar_state.dart';
 import 'calendar_theme.dart';
+import 'crew_screen.dart';
 import 'date_math.dart';
 import 'event.dart';
 import 'event_editor.dart';
@@ -420,6 +421,22 @@ class _AccountRow extends StatelessWidget {
           const SizedBox(height: 6),
           Row(
             children: [
+              if (app.canTrackCrew)
+                Semantics(
+                  button: true,
+                  label: 'Crew',
+                  onTap: () => showCrew(context),
+                  excludeSemantics: true,
+                  child: TextButton(
+                    onPressed: () => showCrew(context),
+                    style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                    child: Text(
+                      'Crew',
+                      style: t.body.copyWith(fontSize: 15, color: p.accent),
+                    ),
+                  ),
+                ),
+              if (app.canTrackCrew) const SizedBox(width: 16),
               if (app.canManageServer)
                 Semantics(
                   button: true,

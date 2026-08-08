@@ -8,6 +8,7 @@ import 'calendar_theme.dart';
 import 'date_math.dart';
 import 'event.dart';
 import 'event_editor.dart';
+import 'price_sheet.dart';
 
 /// One job, opened from the calendar.
 ///
@@ -90,6 +91,12 @@ class _Detail extends StatelessWidget {
     final app = AppScope.of(context);
     final job = event.job;
     final worker = crewById(job.assignedTo);
+    // How many controls the header carries, and how wide the words on them
+    // grow, both move — so the room for a label is measured rather than
+    // guessed at one screen size.
+    final tight =
+        MediaQuery.sizeOf(context).width <
+        300 * MediaQuery.textScalerOf(context).scale(14) / 14;
 
     return SafeArea(
       top: false,
@@ -110,28 +117,34 @@ class _Detail extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    event.calendar.label,
-                    style: t.secondary.copyWith(color: event.colour),
-                  ),
-                ),
-                if (app.canEditJobs)
-                  Semantics(
-                    button: true,
-                    label: 'Edit job',
-                    onTap: () => showEventEditor(context, job: job),
-                    excludeSemantics: true,
-                    child: TextButton(
-                      onPressed: () => showEventEditor(context, job: job),
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size(0, 44),
-                      ),
-                      child: Text(
-                        'Edit',
-                        style: t.body.copyWith(fontSize: 15, color: p.accent),
-                      ),
+                // The kind of work gives way to the buttons on a narrow
+                // screen at large text. The dot beside it is the same fact in
+                // a shape that always fits, and the sheet says it again in
+                // words a line further down.
+                if (!tight)
+                  Expanded(
+                    child: Text(
+                      event.calendar.label,
+                      style: t.secondary.copyWith(color: event.colour),
                     ),
+                  )
+                else
+                  const Spacer(),
+                if (app.canPriceJobs)
+                  _HeaderAction(
+                    word: 'Price',
+                    spoken: 'Price job',
+                    icon: Icons.attach_money_rounded,
+                    tight: tight,
+                    onTap: () => showPriceSheet(context, job),
+                  ),
+                if (app.canEditJobs)
+                  _HeaderAction(
+                    word: 'Edit',
+                    spoken: 'Edit job',
+                    icon: Icons.edit_rounded,
+                    tight: tight,
+                    onTap: () => showEventEditor(context, job: job),
                   ),
                 Semantics(
                   button: true,
@@ -222,7 +235,22 @@ class _Detail extends StatelessWidget {
                     ),
                     _Row(label: 'Driver', value: worker?.name ?? 'Nobody yet'),
                     if (app.canSeeMoney)
-                      _Row(label: 'Bills at', value: '\$${job.billed}'),
+                      _Row(
+                        label: 'Bills at',
+                        value: job.billed == 0
+                            ? 'Not priced yet'
+                            : '\$${job.billed}',
+                      ),
+                    if (app.canSeeMoney && job.dumpFee > 0)
+                      _Row(label: 'Disposal', value: '\$${job.dumpFee}'),
+                    // Only once both halves are known. "$395 before labour" on
+                    // a job with no tip fee entered is the same number twice
+                    // dressed up as arithmetic.
+                    if (app.canSeeMoney && job.billed > 0 && job.dumpFee > 0)
+                      _Row(
+                        label: 'Before labour',
+                        value: '\$${job.beforeLabour}',
+                      ),
                   ],
                 ),
                 if (job.access.trim().isNotEmpty)
@@ -241,6 +269,55 @@ class _Detail extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// A word in the sheet's header, or the icon it falls back to.
+///
+/// Two words and a close button do not fit 320 points at large text, and a
+/// header that overflows is worse than one that speaks in symbols. What a
+/// screen reader hears does not change either way.
+class _HeaderAction extends StatelessWidget {
+  const _HeaderAction({
+    required this.word,
+    required this.spoken,
+    required this.icon,
+    required this.tight,
+    required this.onTap,
+  });
+
+  final String word;
+  final String spoken;
+  final IconData icon;
+  final bool tight;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
+
+    return Semantics(
+      button: true,
+      label: spoken,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: tight
+          ? IconButton(
+              onPressed: onTap,
+              tooltip: spoken,
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              icon: Icon(icon, color: p.accent),
+            )
+          : TextButton(
+              onPressed: onTap,
+              style: TextButton.styleFrom(minimumSize: const Size(0, 44)),
+              child: Text(
+                word,
+                style: t.body.copyWith(fontSize: 15, color: p.accent),
+              ),
+            ),
     );
   }
 }
@@ -269,6 +346,49 @@ class _TakeIt extends StatelessWidget {
       // Nothing to do, but say why when the reason is a rule rather than the
       // job simply being somebody else's.
       if (job.needsPricing) {
+        // Somebody who can price it gets the way out, not just the news.
+        if (app.canPriceJobs) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Semantics(
+                  button: true,
+                  label:
+                      'Put a price on it. It came in from the website and '
+                      'nobody can take it on until it has one.',
+                  onTap: () => showPriceSheet(context, job),
+                  excludeSemantics: true,
+                  child: FilledButton(
+                    onPressed: () => showPriceSheet(context, job),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: p.accent,
+                      foregroundColor: p.onAccent,
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    child: Text(
+                      'Put a price on it',
+                      style: t.bodyStrong.copyWith(
+                        fontSize: 16,
+                        color: p.onAccent,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                ExcludeSemantics(
+                  child: Text(
+                    'It came in from the website and nobody can take it on '
+                    'until it has one.',
+                    textAlign: TextAlign.center,
+                    style: t.secondary.copyWith(fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
         return Padding(
           padding: const EdgeInsets.fromLTRB(32, 0, 32, 16),
           child: Text(

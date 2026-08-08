@@ -15,10 +15,11 @@ Job openJob(String id, {String type = 'Debris haul', int at = 9}) => job(
 ).copyWith(status: JobStatus.open);
 
 /// Booked for the pinned day with no time on it — the all-day band.
-Job allDayJob(String id, {String type = 'Debris haul'}) =>
-    job(id, type: type, at: DateTime(2026, 8, 6)).copyWith(
-      status: JobStatus.open,
-    );
+Job allDayJob(String id, {String type = 'Debris haul'}) => job(
+  id,
+  type: type,
+  at: DateTime(2026, 8, 6),
+).copyWith(status: JobStatus.open);
 
 void main() {
   group('taking a job on', () {
@@ -226,7 +227,10 @@ void main() {
       await pumpApp(
         tester,
         view: CalView.day,
-        jobs: [allDayJob('HL-1', type: 'Junk removal'), allDayJob('HL-2')],
+        jobs: [
+          allDayJob('HL-1', type: 'Junk removal'),
+          allDayJob('HL-2'),
+        ],
       );
 
       final chips = find.byType(AllDayChip);
@@ -279,11 +283,7 @@ void main() {
     });
 
     testWidgets('a day with nothing all-day has no band', (tester) async {
-      await pumpApp(
-        tester,
-        view: CalView.day,
-        jobs: [openJob('HL-1', at: 9)],
-      );
+      await pumpApp(tester, view: CalView.day, jobs: [openJob('HL-1', at: 9)]);
 
       expect(find.text('all-day'), findsNothing);
       expect(find.byType(AllDayChip), findsNothing);
@@ -295,7 +295,10 @@ void main() {
       await pumpApp(
         tester,
         view: CalView.week,
-        jobs: [allDayJob('HL-1', type: 'Junk removal'), allDayJob('HL-2')],
+        jobs: [
+          allDayJob('HL-1', type: 'Junk removal'),
+          allDayJob('HL-2'),
+        ],
       );
 
       // A week column is a day, so two jobs on the same day stack in it.

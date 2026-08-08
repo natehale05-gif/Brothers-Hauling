@@ -13,6 +13,7 @@ import 'calendar_state.dart';
 import 'calendar_theme.dart';
 import 'date_math.dart';
 import 'event.dart';
+import 'form_bits.dart';
 
 /// How long a new job runs unless somebody says otherwise.
 const int kDefaultMinutes = 120;
@@ -84,6 +85,8 @@ class _EventEditorState extends State<EventEditor> {
   late final TextEditingController _access;
   late final TextEditingController _equipment;
   late final TextEditingController _kind;
+  late final TextEditingController _billed;
+  late final TextEditingController _dumpFee;
 
   late bool _allDay;
   late DateTime _starts;
@@ -107,6 +110,14 @@ class _EventEditorState extends State<EventEditor> {
     _access = TextEditingController(text: job?.access ?? '');
     _equipment = TextEditingController(text: job?.equipment ?? '');
     _kind = TextEditingController(text: job?.type ?? '');
+    // Empty rather than "0": a job nobody has priced has no price, and a
+    // nought in the box says somebody decided on one.
+    _billed = TextEditingController(
+      text: (job?.billed ?? 0) == 0 ? '' : '${job!.billed}',
+    );
+    _dumpFee = TextEditingController(
+      text: (job?.dumpFee ?? 0) == 0 ? '' : '${job!.dumpFee}',
+    );
 
     final at = job?.scheduledFor ?? widget.startAt;
     // A job stored at midnight is a day booking with no time — the same rule
@@ -135,6 +146,8 @@ class _EventEditorState extends State<EventEditor> {
       _access,
       _equipment,
       _kind,
+      _billed,
+      _dumpFee,
     ]) {
       c.dispose();
     }
@@ -184,6 +197,8 @@ class _EventEditorState extends State<EventEditor> {
           phone: _phone.text,
           access: _access.text,
           equipment: _equipment.text,
+          billed: dollarsFrom(_billed.text),
+          dumpFee: dollarsFrom(_dumpFee.text),
           scheduledFor: _allDay ? dayOf(at) : at,
           // An all-day job has no length to speak of.
           minutes: _allDay ? null : _minutes,
@@ -202,6 +217,8 @@ class _EventEditorState extends State<EventEditor> {
         'phone': _phone.text.trim(),
         'access': _access.text.trim(),
         'equipment': _equipment.text.trim(),
+        'billed': dollarsFrom(_billed.text),
+        'dumpFee': dollarsFrom(_dumpFee.text),
         'scheduledFor': _stored.toUtc().toIso8601String(),
         'minutes': _allDay ? null : _minutes,
         'alertMinutes': _alert,
@@ -285,9 +302,9 @@ class _EventEditorState extends State<EventEditor> {
       body: ListView(
         padding: const EdgeInsets.only(top: 8, bottom: 32),
         children: [
-          _Group(
+          FormGroup(
             children: [
-              _FieldRow(
+              FormRow(
                 label: 'Customer',
                 controller: _customer,
                 hint: 'Who the job is for',
@@ -296,15 +313,15 @@ class _EventEditorState extends State<EventEditor> {
               _KindRow(controller: _kind, onChanged: () => setState(() {})),
             ],
           ),
-          _Group(
+          FormGroup(
             children: [
-              _FieldRow(
+              FormRow(
                 label: 'Address',
                 controller: _address,
                 hint: 'Where to go',
               ),
-              _FieldRow(label: 'Town', controller: _city, hint: ''),
-              _FieldRow(
+              FormRow(label: 'Town', controller: _city, hint: ''),
+              FormRow(
                 label: 'Phone',
                 controller: _phone,
                 hint: '',
@@ -312,7 +329,7 @@ class _EventEditorState extends State<EventEditor> {
               ),
             ],
           ),
-          _Group(
+          FormGroup(
             children: [
               _SwitchRow(
                 label: 'All-day',
@@ -355,15 +372,37 @@ class _EventEditorState extends State<EventEditor> {
               ),
             ],
           ),
-          _Group(
+          // Whoever opens this form can already price — an owner. Guarded
+          // anyway rather than assumed, so widening who may edit a job later
+          // does not quietly hand out the money with it.
+          if (app.canPriceJobs)
+            FormGroup(
+              children: [
+                FormRow(
+                  label: 'Bills at',
+                  controller: _billed,
+                  hint: 'What the customer pays',
+                  prefix: '\$',
+                  keyboard: TextInputType.number,
+                ),
+                FormRow(
+                  label: 'Disposal',
+                  controller: _dumpFee,
+                  hint: 'What the tip charges',
+                  prefix: '\$',
+                  keyboard: TextInputType.number,
+                ),
+              ],
+            ),
+          FormGroup(
             children: [
-              _FieldRow(
+              FormRow(
                 label: 'Rig needed',
                 controller: _equipment,
                 // Stated, never enforced — see the rig decision.
                 hint: 'What it takes to do the job',
               ),
-              _FieldRow(
+              FormRow(
                 label: 'Notes',
                 controller: _access,
                 hint: 'Gate codes, where not to back down',
@@ -407,101 +446,6 @@ class _EventEditorState extends State<EventEditor> {
                 style: t.secondary,
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-/// An inset grouped table, the way iOS draws one.
-class _Group extends StatelessWidget {
-  const _Group({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = CalPalette.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: p.card,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          children: [
-            for (var i = 0; i < children.length; i++) ...[
-              children[i],
-              if (i < children.length - 1)
-                Padding(
-                  padding: const EdgeInsets.only(left: 16),
-                  child: Divider(
-                    height: 0.5,
-                    thickness: 0.5,
-                    color: p.hairline,
-                  ),
-                ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FieldRow extends StatelessWidget {
-  const _FieldRow({
-    required this.label,
-    required this.controller,
-    required this.hint,
-    this.lines = 1,
-    this.autofocus = false,
-    this.keyboard,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final String hint;
-  final int lines;
-  final bool autofocus;
-  final TextInputType? keyboard;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = CalPalette.of(context);
-    final t = CalText.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 14),
-            child: SizedBox(width: 96, child: Text(label, style: t.secondary)),
-          ),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              autofocus: autofocus,
-              maxLines: lines,
-              minLines: 1,
-              keyboardType: keyboard,
-              textCapitalization: TextCapitalization.sentences,
-              style: t.body.copyWith(fontSize: 15),
-              decoration: InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                hintText: hint,
-                hintStyle: t.body.copyWith(
-                  fontSize: 15,
-                  color: p.tertiaryLabel,
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
         ],
       ),
     );

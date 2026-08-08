@@ -558,8 +558,8 @@ class AppState extends ChangeNotifier {
   /// Refused while it still pays nothing: an unpriced job on the board is a job
   /// someone can volunteer for at nothing a load.
   Future<bool> publishJob(Job job) async {
-    if (!canEditJobs) {
-      showToast('Only an owner can put a job on the board.');
+    if (!canPriceJobs) {
+      showToast('Only an owner or a manager can put a job on the board.');
       notifyListeners();
       return false;
     }
@@ -631,6 +631,7 @@ class AppState extends ChangeNotifier {
     String equipment = '',
     String window = '',
     int billed = 0,
+    int dumpFee = 0,
     DateTime? scheduledFor,
     int? minutes,
     int? alertMinutes,
@@ -655,7 +656,7 @@ class AppState extends ChangeNotifier {
       weight: '',
       equipment: equipment.trim(),
       disposal: '',
-      dumpFee: 0,
+      dumpFee: dumpFee,
       window: window.trim(),
       miles: 0,
       deadhead: 0,
@@ -732,6 +733,56 @@ class AppState extends ChangeNotifier {
   /// nothing could sign in and the calendar would otherwise have been
   /// read-only. There is a login now, so the rule is the rule again.
   bool get canEditJobs => _role == Role.admin && !_asEmployee;
+
+  /// Who may put a number on a job.
+  ///
+  /// Deliberately wider than [canEditJobs]. A manager runs the day: they are
+  /// the one on the phone when a quote turns out to be wrong, and a yard where
+  /// only the owner can price is a yard where work sits unpriced until he gets
+  /// back. What a manager still cannot do is rewrite the job around the price
+  /// — the address, the day and the rig stay the owner's.
+  bool get canPriceJobs =>
+      (_role == Role.admin || _role == Role.manager) && !_asEmployee;
+
+  /// Sets what a job bills at, and what the tip charges to take it.
+  ///
+  /// Its own write path rather than a corner of [editJob], because the two are
+  /// allowed to different people and a permission that depends on which keys
+  /// happen to be in a map is a permission nobody can check by reading it.
+  Future<bool> priceJob(
+    Job job, {
+    required int billed,
+    required int dumpFee,
+  }) async {
+    if (!canPriceJobs) {
+      showToast('Only an owner or a manager can price a job.');
+      notifyListeners();
+      return false;
+    }
+    if (billed < 0 || dumpFee < 0) {
+      showToast('A price cannot be less than nothing.');
+      notifyListeners();
+      return false;
+    }
+
+    final ok = await _board.apply(
+      _stamp(
+        (id, at) => EditJob(
+          id: id,
+          jobId: job.id,
+          actorId: meId,
+          at: at,
+          fields: {'billed': billed, 'dumpFee': dumpFee},
+        ),
+      ),
+    );
+    // Nothing differed — the price was already this. Not a failure.
+    if (!ok) return false;
+
+    showToast('${job.id} bills at \$$billed.');
+    notifyListeners();
+    return true;
+  }
 
   /// Applies dispatch's corrections to [job].
   ///
@@ -956,6 +1007,40 @@ class AppState extends ChangeNotifier {
 
   /// Only an owner sees what anybody is paid — including their own figure.
   bool get canSeeHoursAndPay => _role == Role.admin && !_asEmployee;
+
+  /// Only an owner watches the whole crew.
+  ///
+  /// A manager staffs the day and prices the work; "where is everybody right
+  /// now, and what have they put in this week" is a different question, and it
+  /// is the owner's. Same rule as the pay figures, and for the same reason.
+  bool get canTrackCrew => _role == Role.admin && !_asEmployee;
+
+  /// The job this person has in hand — the one they are on, or have been
+  /// pushed and not yet answered. Null when their hands are empty.
+  ///
+  /// One job, not a list: a driver runs one load at a time, and a screen that
+  /// says otherwise is showing a bug rather than a busy morning.
+  Job? jobInHand(CrewMember member) {
+    for (final job in _board.jobs) {
+      if (job.assignedTo != member.id) continue;
+      if (job.status == JobStatus.active || job.status == JobStatus.assigned) {
+        return job;
+      }
+    }
+    return null;
+  }
+
+  /// This person's hours since midnight, counting a job still running.
+  Duration hoursToday(CrewMember member) {
+    final today = this.today;
+    return timeEntries
+        .where((e) => e.crewId == member.id && e.day == today)
+        .fold(Duration.zero, (total, e) => total + e.workedBy(_now()));
+  }
+
+  /// Everyone with a job actually in their hands right now.
+  List<CrewMember> get working =>
+      crew.where((c) => jobInHand(c) != null).toList();
 
   /// The driver's own hours. No money attached: what they are owed is payroll's
   /// business, and the app is not where somebody finds out their rate.

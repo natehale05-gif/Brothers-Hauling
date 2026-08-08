@@ -243,11 +243,54 @@ void main() {
       expect(state.openBoard.map((j) => j.bookingId), contains('bk-1'));
     });
 
-    test('only an owner may publish', () async {
+    test('a manager can price one and put it on the board', () async {
       final state = await withBooking(role: Role.manager);
-      final ok = await state.publishJob(state.requestedJobs.single);
-      expect(ok, isFalse);
-      expect(state.toast, contains('Only an owner'));
+      expect(state.canPriceJobs, isTrue);
+
+      await state.priceJob(
+        state.requestedJobs.single,
+        billed: 360,
+        dumpFee: 40,
+      );
+      expect(await state.publishJob(state.requestedJobs.single), isTrue);
+
+      final published = state.openBoard.firstWhere(
+        (j) => j.bookingId == 'bk-1',
+      );
+      expect(published.billed, 360);
+      expect(published.dumpFee, 40);
+    });
+
+    test('a driver may do neither', () async {
+      final state = await withBooking(role: Role.employee);
+      expect(state.canPriceJobs, isFalse);
+
+      expect(
+        await state.priceJob(
+          state.requestedJobs.single,
+          billed: 360,
+          dumpFee: 0,
+        ),
+        isFalse,
+      );
+      expect(state.toast, contains('owner or a manager'));
+      expect(await state.publishJob(state.requestedJobs.single), isFalse);
+      expect(state.requestedJobs, hasLength(1));
+    });
+
+    test('a manager standing in the crew view gets the crew view', () async {
+      final state = await withBooking(role: Role.manager);
+      state.toggleEmployeeView();
+
+      expect(state.canPriceJobs, isFalse);
+      expect(
+        await state.priceJob(
+          state.requestedJobs.single,
+          billed: 360,
+          dumpFee: 0,
+        ),
+        isFalse,
+      );
     });
 
     test('the mutation refuses an unpriced publish on replay too', () {
