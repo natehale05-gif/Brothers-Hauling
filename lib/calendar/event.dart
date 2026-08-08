@@ -165,7 +165,13 @@ List<CalendarEvent> eventsOn(List<CalendarEvent> events, DateTime day) {
 /// grouped into runs that overlap transitively, then each run is divided into
 /// as many lanes as its worst pile-up needs.
 class Placed {
-  const Placed({required this.event, required this.lane, required this.lanes});
+  const Placed({
+    required this.event,
+    required this.lane,
+    required this.lanes,
+    this.leftOverride,
+    this.widthOverride,
+  });
 
   final CalendarEvent event;
 
@@ -175,8 +181,15 @@ class Placed {
   /// How many columns the group was split into.
   final int lanes;
 
-  double get left => lane / lanes;
-  double get width => 1 / lanes;
+  /// Set only when a layout divides the width unevenly — a column per kind of
+  /// work, where one kind may be split again inside its own column and another
+  /// may not. Even lanes leave these null and derive their fractions from
+  /// [lane] and [lanes].
+  final double? leftOverride;
+  final double? widthOverride;
+
+  double get left => leftOverride ?? lane / lanes;
+  double get width => widthOverride ?? 1 / lanes;
 }
 
 /// Lays timed events out into lanes so overlapping work sits side by side.
@@ -224,5 +237,57 @@ List<Placed> placeEvents(List<CalendarEvent> events, DateTime day) {
   }
   flush();
 
+  return out;
+}
+
+/// The kinds of work on a day, in the calendar's own order.
+///
+/// Order comes from [WorkCalendar.values] rather than from what happens to
+/// start first, so a column does not change place when a job moves.
+List<WorkCalendar> calendarsOn(List<CalendarEvent> events, DateTime day) {
+  final timed = events.where((e) => !e.allDay && e.onDay(day));
+  return [
+    for (final calendar in WorkCalendar.values)
+      if (timed.any((e) => e.calendar == calendar)) calendar,
+  ];
+}
+
+/// Lays a day out with a column per kind of work.
+///
+/// Different from [placeEvents], which only splits a column when two jobs
+/// actually collide. Here every kind gets its own column whether or not
+/// anything overlaps, so a day reads across as well as down: all the gravel is
+/// one line of the page, all the junk another, and a glance says what sort of
+/// day it is before you have read a single time.
+///
+/// Two jobs of the same kind at the same time still cannot be drawn on top of
+/// each other, so a column splits again inside itself — which is why the
+/// fractions are worked out here rather than left to lane arithmetic that
+/// assumes every column is the same width.
+List<Placed> placeByCalendar(List<CalendarEvent> events, DateTime day) {
+  final timed = events.where((e) => !e.allDay && e.onDay(day)).toList();
+  if (timed.isEmpty) return const [];
+
+  final kinds = calendarsOn(events, day);
+  final columnWidth = 1 / kinds.length;
+
+  final out = <Placed>[];
+  for (var i = 0; i < kinds.length; i++) {
+    final column = [
+      for (final event in timed)
+        if (event.calendar == kinds[i]) event,
+    ];
+    for (final slot in placeEvents(column, day)) {
+      out.add(
+        Placed(
+          event: slot.event,
+          lane: i,
+          lanes: kinds.length,
+          leftOverride: i * columnWidth + slot.lane * columnWidth / slot.lanes,
+          widthOverride: columnWidth / slot.lanes,
+        ),
+      );
+    }
+  }
   return out;
 }

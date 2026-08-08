@@ -140,6 +140,7 @@ class DayColumn extends StatelessWidget {
     required this.day,
     required this.events,
     this.compact = false,
+    this.byCalendar = false,
   });
 
   final DateTime day;
@@ -148,10 +149,17 @@ class DayColumn extends StatelessWidget {
   /// A week view's columns are narrow, so the block shows less.
   final bool compact;
 
+  /// A column per kind of work rather than one shared column that only splits
+  /// where jobs collide. The day view reads across as well as down this way;
+  /// a week view has no room for it, its columns already being the days.
+  final bool byCalendar;
+
   @override
   Widget build(BuildContext context) {
     final cal = CalendarScope.of(context);
-    final placed = placeEvents(events, day);
+    final placed = byCalendar
+        ? placeByCalendar(events, day)
+        : placeEvents(events, day);
     final isToday = sameDay(day, cal.today);
     final now = cal.now;
 
@@ -570,6 +578,61 @@ class AllDayBand extends StatelessWidget {
                 ],
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Names the columns a day has been split into, and rules between them.
+///
+/// Without it the columns are unlabelled and their number changes with the
+/// day, which is the difference between a layout that tells you something and
+/// one you have to decode. A day of one kind needs no header, and the caller
+/// leaves it out rather than this drawing nothing — one place decides.
+class CalendarColumnHeader extends StatelessWidget {
+  const CalendarColumnHeader({super.key, required this.kinds});
+
+  final List<WorkCalendar> kinds;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: p.separator, width: 0.5)),
+      ),
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          const SizedBox(width: kGutterWidth),
+          for (final kind in kinds)
+            Expanded(
+              child: Semantics(
+                label: '${kind.label} column',
+                excludeSemantics: true,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(height: 2, color: kind.colour),
+                      const SizedBox(height: 3),
+                      Text(
+                        kind.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: t.weekdayHeader.copyWith(color: kind.colour),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(width: kEdgeGutter),
         ],
       ),
     );

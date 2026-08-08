@@ -1044,6 +1044,21 @@ class AppState extends ChangeNotifier {
   Mutation _stamp(Mutation Function(String id, DateTime at) build) =>
       build(_ids.next('mut'), _now());
 
+  /// Whether this job is there for the taking, by whoever is signed in.
+  ///
+  /// Open, unpriced work excepted, and not already somebody's. Deliberately
+  /// not narrowed by level: an owner who drives is an ordinary thing in a
+  /// yard this size, and the standing decision is that nothing about a rig or
+  /// a job locks a person out of answering.
+  bool canTake(Job job) =>
+      role != null && job.status == JobStatus.open && !job.needsPricing;
+
+  /// Whether this job is waiting on a yes from the person signed in.
+  bool canAccept(Job job) =>
+      role != null &&
+      job.status == JobStatus.assigned &&
+      job.assignedTo == meId;
+
   /// Driver takes an unclaimed job off the board.
   Future<void> claim(Job job) async {
     final ok = await _board.apply(

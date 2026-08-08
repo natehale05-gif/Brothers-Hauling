@@ -239,6 +239,123 @@ void main() {
     });
   });
 
+  group('a column per kind of work', () {
+    final day = DateTime(2026, 8, 6);
+
+    List<CalendarEvent> booked(List<(String, String, int, int)> spans) => [
+      for (final (id, kind, from, to) in spans)
+        CalendarEvent(
+          job: job(id, type: kind),
+          start: DateTime(2026, 8, 6, from),
+          end: DateTime(2026, 8, 6, to),
+          calendar: WorkCalendar.of(job(id, type: kind)),
+          allDay: false,
+        ),
+    ];
+
+    test('one kind takes the whole width', () {
+      final placed = placeByCalendar(
+        booked([('a', 'Debris haul', 7, 9), ('b', 'Debris haul', 11, 13)]),
+        day,
+      );
+      expect(placed, hasLength(2));
+      expect(placed.every((p) => p.width == 1), isTrue);
+      expect(placed.every((p) => p.left == 0), isTrue);
+    });
+
+    test('two kinds split it, whatever hour they are at', () {
+      // The whole point: these never overlap in time, and still get their own
+      // columns.
+      final placed = placeByCalendar(
+        booked([('a', 'Debris haul', 7, 9), ('b', 'Junk removal', 14, 16)]),
+        day,
+      );
+      final byId = {for (final p in placed) p.event.id: p};
+      expect(byId['a']!.left, 0);
+      expect(byId['a']!.width, 0.5);
+      expect(byId['b']!.left, 0.5);
+      expect(byId['b']!.width, 0.5);
+    });
+
+    test('every job of a kind shares that kind\'s column', () {
+      final placed = placeByCalendar(
+        booked([
+          ('a', 'Debris haul', 7, 9),
+          ('b', 'Debris haul', 10, 12),
+          ('c', 'Junk removal', 8, 10),
+        ]),
+        day,
+      );
+      final byId = {for (final p in placed) p.event.id: p};
+      expect(byId['a']!.left, byId['b']!.left);
+      expect(byId['c']!.left, isNot(byId['a']!.left));
+    });
+
+    test('the column order follows the calendar, not who starts first', () {
+      // Junk is booked first but gravel comes earlier in the calendar's order,
+      // so a job moving must not shuffle the columns.
+      final placed = placeByCalendar(
+        booked([
+          ('late', 'Bark & soil', 7, 9),
+          ('early', 'Junk removal', 8, 10),
+        ]),
+        day,
+      );
+      final byId = {for (final p in placed) p.event.id: p};
+      expect(byId['early']!.left, lessThan(byId['late']!.left));
+    });
+
+    test('two of the same kind at once split that column again', () {
+      final placed = placeByCalendar(
+        booked([
+          ('a', 'Debris haul', 9, 11),
+          ('b', 'Debris haul', 9, 11),
+          ('c', 'Junk removal', 9, 11),
+        ]),
+        day,
+      );
+      final byId = {for (final p in placed) p.event.id: p};
+      // The debris column is half the width, split in two again.
+      expect(byId['a']!.width, closeTo(0.25, 0.0001));
+      expect(byId['b']!.width, closeTo(0.25, 0.0001));
+      // Junk keeps its whole column, because nothing collides in it.
+      expect(byId['c']!.width, closeTo(0.5, 0.0001));
+      expect(byId['a']!.left, isNot(byId['b']!.left));
+    });
+
+    test('nothing is ever drawn off the right edge', () {
+      final placed = placeByCalendar(
+        booked([
+          ('a', 'Debris haul', 7, 9),
+          ('b', 'Junk removal', 8, 10),
+          ('c', 'Gravel delivery', 9, 11),
+          ('d', 'Bark & soil', 10, 12),
+          ('e', 'Equipment move', 11, 13),
+        ]),
+        day,
+      );
+      expect(placed, hasLength(5));
+      for (final p in placed) {
+        expect(p.left + p.width, lessThanOrEqualTo(1.0001));
+        expect(p.left, greaterThanOrEqualTo(0));
+      }
+    });
+
+    test('all-day work is not given a column', () {
+      final events = eventsFrom([
+        job('whenever', at: DateTime(2026, 8, 6)),
+        job('nine', at: DateTime(2026, 8, 6, 9)),
+      ]);
+      expect(placeByCalendar(events, day).map((p) => p.event.id), ['nine']);
+      expect(calendarsOn(events, day), hasLength(1));
+    });
+
+    test('an empty day has no columns at all', () {
+      expect(placeByCalendar(const [], day), isEmpty);
+      expect(calendarsOn(const [], day), isEmpty);
+    });
+  });
+
   test('what a screen reader hears instead of a rectangle', () {
     final event = CalendarEvent.of(
       job(

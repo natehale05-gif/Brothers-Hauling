@@ -423,7 +423,9 @@ void main() {
       app.calendar.openEvent('HL-2');
       await settle(tester);
 
-      expect(find.text('HL-2'), findsOneWidget);
+      // The customer is the sheet's title, so it is on screen whatever the
+      // text size does to everything under it.
+      expect(find.text('Harrison St rental'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
 

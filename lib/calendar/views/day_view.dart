@@ -163,11 +163,14 @@ class _OneDay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final onDay = eventsOn(events, day);
+    final kinds = calendarsOn(onDay, day);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AllDayBand(days: [day], events: onDay),
+        // One kind needs no naming; the colour says it.
+        if (kinds.length > 1) CalendarColumnHeader(kinds: kinds),
         Expanded(
           child: SingleChildScrollView(
             // Shared across pages so swiping to tomorrow keeps the same hour
@@ -196,7 +199,7 @@ class _OneDay extends StatelessWidget {
                     right: kEdgeGutter,
                     top: 0,
                     bottom: 0,
-                    child: DayColumn(day: day, events: onDay),
+                    child: DayColumn(day: day, events: onDay, byCalendar: true),
                   ),
                 ],
               ),

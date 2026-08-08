@@ -173,6 +173,11 @@ class _Detail extends StatelessWidget {
                     style: t.secondary,
                   ),
                 ),
+                // Before the details, not after them. Somebody opening an
+                // open job is deciding whether to take it; making them scroll
+                // past the material and the dump fee to find the button is
+                // the wrong way round.
+                _TakeIt(job: job),
                 _Group(
                   rows: [
                     _Row(label: 'Job', value: job.id),
@@ -232,6 +237,96 @@ class _Detail extends StatelessWidget {
                     ],
                   ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Taking a job on, or saying yes to one pushed at you.
+///
+/// The whole point of the pipeline: dispatch puts work on the board and
+/// somebody answers for it. Nothing here narrows by level — an owner who
+/// drives is ordinary in a yard this size, and the standing decision is that
+/// nothing about a job locks a person out of taking it.
+class _TakeIt extends StatelessWidget {
+  const _TakeIt({required this.job});
+
+  final Job job;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
+    final app = AppScope.of(context);
+
+    final take = app.canTake(job);
+    final accept = app.canAccept(job);
+
+    if (!take && !accept) {
+      // Nothing to do, but say why when the reason is a rule rather than the
+      // job simply being somebody else's.
+      if (job.needsPricing) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(32, 0, 32, 16),
+          child: Text(
+            'Nobody can take this on until it has a price. It came in from '
+            'the website and dispatch has not been through it yet.',
+            textAlign: TextAlign.center,
+            style: t.secondary.copyWith(fontSize: 13),
+          ),
+        );
+      }
+      return const SizedBox.shrink();
+    }
+
+    final label = accept ? 'Accept this job' : 'Take this job';
+    final because = accept
+        ? 'Dispatch pushed this at you. Saying yes starts your clock.'
+        : 'Taking it on starts your clock and tells dispatch you are on it.';
+
+    Future<void> go() async {
+      if (accept) {
+        await app.accept(job);
+      } else {
+        await app.claim(job);
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            button: true,
+            // The line underneath is part of what this button means, and it
+            // ends up in the same node either way — so it is said once, in
+            // order, rather than arriving as an unattached sentence.
+            label: '$label. $because',
+            onTap: go,
+            excludeSemantics: true,
+            child: FilledButton(
+              onPressed: go,
+              style: FilledButton.styleFrom(
+                backgroundColor: p.accent,
+                foregroundColor: p.onAccent,
+                minimumSize: const Size.fromHeight(48),
+              ),
+              child: Text(
+                label,
+                style: t.bodyStrong.copyWith(fontSize: 16, color: p.onAccent),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          ExcludeSemantics(
+            child: Text(
+              because,
+              textAlign: TextAlign.center,
+              style: t.secondary.copyWith(fontSize: 13),
             ),
           ),
         ],

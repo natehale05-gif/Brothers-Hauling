@@ -16,11 +16,19 @@ were looking at rather than a screen you have to come back from.
 
 | View | Shows |
 | --- | --- |
-| **Day** | An hour grid, the week along the top, and a red line across now — only ever on today |
+| **Day** | An hour grid with **a column per kind of work**, the week along the top, and a red line across now — only ever on today |
 | **Week** | Seven columns; work booked at the same hour sits side by side rather than on top of itself |
 | **Month** | Dots under the day numbers on a phone, with the chosen day listed below; give it a window and the jobs are written into the cells |
 | **Year** | Twelve small months, the current one named in red |
 | **List** | Forward from today, grouped under day headings |
+
+The day view does not pack by collision the way a calendar usually does. Every
+kind of work gets its own column whether or not anything overlaps, so a day
+reads across as well as down: all the gravel is one line of the page, all the
+junk another, and a glance says what sort of day it is before you have read a
+single time. Two jobs of the same kind at the same hour still cannot be drawn
+on top of each other, so a column splits again inside itself. The week view
+keeps the ordinary packing — its columns are already the days.
 
 The arrows step by whatever is on screen — a month view pages by months and a
 day view by days, because "next" has to mean what you are looking at. On a
@@ -30,6 +38,20 @@ desktop the **left and right keys** do the same, **T** returns to today, and
 Work is grouped into **calendars** by the kind of job — debris, junk, gravel,
 bark, equipment — each with its own colour, and any of them can be switched off
 without touching the jobs themselves.
+
+### Taking a job on
+
+Dispatch puts work on the board and somebody answers for it. A job nobody has
+taken offers **Take this job**; one pushed at you offers **Accept this job**,
+and either starts your clock. Both sit above the details rather than under
+them — somebody opening an open job is deciding whether to take it, not
+reading the dump fee.
+
+Nothing here narrows by level. An owner who drives is ordinary in a yard this
+size, and the standing decision is that nothing about a job locks a person out
+of answering for it. The one thing that does hold work back is a price: a
+booking that came in from the website says so rather than offering a button
+that would sign somebody up at nothing a load.
 
 ### Booking, changing and moving work
 
@@ -187,7 +209,7 @@ flutter analyze
 flutter test
 ```
 
-**364 tests**, in sixteen files:
+**384 tests**, in seventeen files:
 
 | File | Covers |
 | --- | --- |
@@ -198,6 +220,7 @@ flutter test
 | `test/calendar_edit_test.dart` | Booking, correcting and deleting a job; the drag and stretch gestures; the recurrence maths; and search |
 | `test/alerts_test.dart` | When a reminder is due, what it says, which ones a board is owed, and that the device is told again whenever a job moves |
 | `test/sign_in_test.dart` | Signing in at each level, a wrong password saying nothing useful, sessions across a relaunch, revocation and demotion, and handing out a login |
+| `test/taking_jobs_test.dart` | Taking an open job and accepting a pushed one, at every level; the unpriced case; and the day view's column per kind |
 | `test/app_state_test.dart` | The pipeline itself — claiming, accepting, stage transitions, the photo gate, movement/ETA maths, money roll-ups |
 | `test/serialization_test.dart` | Everything that is persisted or sent, round-tripped through real JSON, plus what happens when the stored data is malformed |
 | `test/outbox_test.dart` | The offline queue — ordering, backoff, giving up, surviving the process dying |
