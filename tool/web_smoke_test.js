@@ -324,9 +324,11 @@ function check(label, ok, detail = '') {
       await press(page, 'Done');
 
       // ---- reminders ----------------------------------------------------
-      // A browser cannot hand a future notification to anything that outlives
-      // the page, so the app raises them itself while the page is open. Either
-      // way the reminder has to be set, and the panel has to say so.
+      // The alert itself is a field on the job and syncs with it. Whether the
+      // device can actually raise one is the browser's business: a headless
+      // shell has no Notification API at all, and the app says so rather than
+      // pretending. So this asserts what the app owns — the alert is stored,
+      // and the panel states one of the two truthful answers.
       await press(page, 'New job');
       await page.keyboard.type('Kings Valley pickup');
       await page.waitForTimeout(400);
@@ -338,16 +340,23 @@ function check(label, ok, detail = '') {
       // a day's warning would already have gone by and nothing would be set.
       await press(page, 'Alert At the time');
       await press(page, 'Add');
-      await press(page, 'Calendars');
-      const panel = await page.locator('flt-semantics').evaluateAll((nodes) =>
-        nodes
-          .map((n) => (n.textContent || '').replace(/\s+/g, ' ').trim())
-          .filter((t) => /[Rr]eminder/.test(t)),
-      );
+
+      const alerted = await page.evaluate(() => {
+        const raw = window.localStorage.getItem('flutter.board.v1');
+        const board = raw ? JSON.parse(JSON.parse(raw)) : [];
+        return board.filter((j) => j.alertMinutes != null).length;
+      });
       check(
-        'a reminder is set, and the app says when',
-        await axContains(page, /reminder(s)? set\. The next is/),
-        panel.join(' | ').slice(0, 200),
+        'an alert set in the form is stored on the job',
+        alerted === 1,
+        `${alerted} job(s) carrying an alert`,
+      );
+
+      await press(page, 'Calendars');
+      check(
+        'and the app says plainly what the device will do about it',
+        (await axContains(page, /reminder(s)? set\. The next is/)) ||
+          (await axContains(page, /turned reminders off/)),
       );
       await page.keyboard.press('Escape');
       await page.waitForTimeout(800);
