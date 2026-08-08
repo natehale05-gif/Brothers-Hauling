@@ -31,6 +31,36 @@ Work is grouped into **calendars** by the kind of job — debris, junk, gravel,
 bark, equipment — each with its own colour, and any of them can be switched off
 without touching the jobs themselves.
 
+### Booking, changing and moving work
+
+| | |
+| --- | --- |
+| **Add** | The + in the bar, or tap the hour you want in the day or week view |
+| **Edit** | Edit on a job's sheet — the same form it was booked on |
+| **Delete** | From the editor, with a confirmation |
+| **Move** | Long-press a block and drag it, snapped to the quarter hour |
+| **Stretch** | Take its bottom edge and pull to change how long it runs |
+| **Search** | Over every field; a result jumps to the day it is on |
+| **Go to** | Tap the title to jump somewhere too far off to page to |
+| **Repeat** | Daily, weekly, fortnightly, monthly or yearly, a set number of times |
+
+Long-press before a block moves, deliberately: a calendar you can knock a job
+off by brushing it while scrolling is worse than one you cannot drag at all.
+
+A **repeat writes a real job per occurrence** rather than one job claiming to
+happen six times. Each haul has its own driver, its own hours and its own
+photos, and a virtual occurrence has nowhere to put any of them. The cost is
+that a repeat cannot later be edited as a series, so the Repeat row is offered
+when booking and not when correcting rather than pretending otherwise.
+
+**Deleting is refused for work that has been started.** The movement log, the
+hours and the photos are the record of what happened in the field, and an edit
+form is not the place to erase it.
+
+Every one of these goes through the same mutations and the same outbox as the
+rest of the board, so a job booked in a dead zone is on the board before the
+phone finds signal.
+
 ### What a job needs, and who may take it
 
 A job states **what rig it needs**. It does not assign one to a person and it
@@ -46,13 +76,18 @@ that gets missed tomorrow, and one omitted from the grid entirely is worse.
 
 ### What the calendar cannot reach yet
 
-The rebuild replaced the dispatch UI, not the machinery underneath it. Roles and
-what each may see, hiring and promotion, the hours a job clocks up, live crew
-tracking, before/after photos, the movement log and editing a job are all still
-in `lib/state` and `lib/models`, still enforced, and still covered by tests —
-but the calendar has no way in to any of them yet. Money is a case in point: a
-job's billed figure is shown in its details **only** to a manager or an owner,
-and since nothing in the calendar signs anybody in, nothing currently shows it.
+The rebuild replaced the dispatch UI, not the machinery underneath it. Roles
+and what each may see, hiring and promotion, the hours a job clocks up, live
+crew tracking, before/after photos and the movement log are all still in
+`lib/state` and `lib/models`, still enforced, and still covered by tests — but
+the calendar has no way in to any of them yet.
+
+Nothing in the calendar signs anybody in, which has one visible consequence:
+with no role set the board is treated as this device's own, so anything can be
+booked or changed on it and no money is shown. Enter a role — which is what
+happens the moment a crew syncs to somebody's laptop — and the old rules bite
+again: only an owner edits, and only a manager or an owner sees what a job
+bills at.
 
 They are the next things to build on top of this, not things that were thrown
 away.
@@ -117,7 +152,7 @@ flutter analyze
 flutter test
 ```
 
-**281 tests**, in thirteen files:
+**316 tests**, in fourteen files:
 
 | File | Covers |
 | --- | --- |
@@ -125,6 +160,7 @@ flutter test
 | `test/calendar_event_test.dart` | Reading a job as an event, which calendar it belongs to, and the lane packing that keeps two jobs at nine o'clock from being drawn on top of each other |
 | `test/calendar_state_test.dart` | What is on screen — stepping per view, focus versus selection, titles, hiding a calendar |
 | `test/calendar_view_test.dart` | Every view rendered and driven: taps, the keyboard, the job sheet, undated work, and 1.6× text on a 320pt screen |
+| `test/calendar_edit_test.dart` | Booking, correcting and deleting a job; the drag and stretch gestures; the recurrence maths; and search |
 | `test/app_state_test.dart` | The pipeline itself — claiming, accepting, stage transitions, the photo gate, movement/ETA maths, money roll-ups |
 | `test/serialization_test.dart` | Everything that is persisted or sent, round-tripped through real JSON, plus what happens when the stored data is malformed |
 | `test/outbox_test.dart` | The offline queue — ordering, backoff, giving up, surviving the process dying |
@@ -177,8 +213,11 @@ Not a pass at the end — it shaped the widgets.
 - **44pt minimum hit targets** on every control in the bar.
 - **Text scales to 1.6×** without a single overflow — every view, on a 320pt
   screen, asserted in `test/calendar_view_test.dart`.
-- **Full keyboard control**: left/right step, **T** returns to today, **Escape**
-  closes an open job.
+- **Full keyboard control**: left/right step, **T** returns to today, **N**
+  books a job, **⌘F** searches, **Escape** closes an open job.
+- **Every gesture has a keyboard or a form behind it.** A block can be dragged
+  to a new hour, but the same move is a field in the editor — nobody has to
+  land a drag to reschedule a job.
 - The title is a **live region**, so paging months announces where you landed.
 
 ---
