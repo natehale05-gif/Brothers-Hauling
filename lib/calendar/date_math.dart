@@ -150,6 +150,62 @@ String hourLabel(int hour) {
   return hour < 12 ? '$hour AM' : '${hour - 12} PM';
 }
 
+/// How often a booking comes back around.
+enum Repeat {
+  never('Never'),
+  daily('Every day'),
+  weekly('Every week'),
+  fortnightly('Every 2 weeks'),
+  monthly('Every month'),
+  yearly('Every year');
+
+  const Repeat(this.label);
+
+  final String label;
+}
+
+/// Every moment a repeating booking lands on, [from] included.
+///
+/// Bounded twice on purpose — a count and an end date — because an unbounded
+/// repeat in a system that writes a real job per occurrence is a system that
+/// fills a disk. Monthly walks by calendar months rather than by 30 days, so
+/// the 31st of a short month clamps instead of sliding into the next one.
+List<DateTime> repeatDates(
+  DateTime from,
+  Repeat rule, {
+  int count = 1,
+  DateTime? until,
+}) {
+  if (rule == Repeat.never || count <= 1) return [from];
+
+  final out = <DateTime>[];
+  for (var i = 0; i < count; i++) {
+    final at = switch (rule) {
+      Repeat.never => from,
+      Repeat.daily => from.add(Duration(days: i)),
+      Repeat.weekly => from.add(Duration(days: 7 * i)),
+      Repeat.fortnightly => from.add(Duration(days: 14 * i)),
+      Repeat.monthly => addMonths(from, i),
+      Repeat.yearly => addMonths(from, 12 * i),
+    };
+    if (until != null && dayOf(at).isAfter(dayOf(until))) break;
+    out.add(at);
+  }
+  return out;
+}
+
+/// A sensible hour to open a new booking on [day] at.
+///
+/// The next round hour when the day is today and the yard is still working,
+/// eight in the morning otherwise — a job booked for next Tuesday wants to
+/// start in Tuesday's working day, not at whatever o'clock it is now.
+DateTime startOfWorking(DateTime day, DateTime now, {int opensAt = 8}) {
+  if (sameDay(day, now) && now.hour >= opensAt && now.hour < 17) {
+    return DateTime(day.year, day.month, day.day, now.hour + 1);
+  }
+  return DateTime(day.year, day.month, day.day, opensAt);
+}
+
 /// "Thursday, 6 August" — the day view's title.
 String longDay(DateTime at) => '${weekdayName(at)}, ${at.day} ${monthName(at)}';
 

@@ -292,6 +292,30 @@ function check(label, ok, detail = '') {
         (await switcherBottom()) === resting,
       );
 
+      // ---- booking a job from the calendar ------------------------------
+      // The whole write path in one go: the form opens on the day showing,
+      // the job goes through the outbox onto the board, and the calendar
+      // draws it. Widget tests cover each step; only this proves the
+      // compiled bundle does all of them in a browser.
+      await press(page, 'New job');
+      await page.keyboard.type('Skyline Ranch');
+      await page.waitForTimeout(400);
+      await press(page, 'Gravel delivery calendar');
+      await press(page, 'Add');
+      check(
+        'a job booked in the calendar turns up on it',
+        await axContains(page, /Skyline Ranch/),
+      );
+
+      await press(page, 'Search');
+      await page.keyboard.type('skyline');
+      await page.waitForTimeout(900);
+      check(
+        'and search finds it',
+        await axContains(page, /Gravel delivery for Skyline Ranch/),
+      );
+      await press(page, 'Done');
+
       check('no page errors', errors.length === 0, errors.join('; '));
       await page.close();
     }

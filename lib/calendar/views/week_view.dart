@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../state/app_state.dart';
 import '../calendar_state.dart';
 import '../calendar_theme.dart';
 import '../date_math.dart';
 import '../event.dart';
+import '../event_editor.dart';
 import 'timed_grid.dart';
 
 /// How far either way the week pager runs.
@@ -118,10 +120,24 @@ class _OneWeek extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              child: DayColumn(
-                                day: day,
-                                events: eventsOn(events, day),
-                                compact: true,
+                              child: Stack(
+                                children: [
+                                  if (AppScope.of(context).canEditJobs)
+                                    Positioned.fill(
+                                      child: NewJobSlot(
+                                        day: day,
+                                        onNew: (at) => showEventEditor(
+                                          context,
+                                          startAt: at,
+                                        ),
+                                      ),
+                                    ),
+                                  DayColumn(
+                                    day: day,
+                                    events: eventsOn(events, day),
+                                    compact: true,
+                                  ),
+                                ],
                               ),
                             ),
                           ),

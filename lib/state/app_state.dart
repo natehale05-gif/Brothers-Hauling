@@ -511,10 +511,127 @@ class AppState extends ChangeNotifier {
     return true;
   }
 
+  // ------------------------------------------------ writing from the calendar
+
+  /// Books a new job, and hands back the job as it landed.
+  ///
+  /// The id is minted here rather than by the caller so two jobs written in
+  /// the same second cannot collide, and the whole thing goes through the same
+  /// outbox as everything else — a job written in a dead zone is on the board
+  /// before the phone finds signal.
+  Future<Job?> addJob({
+    required String type,
+    required String customer,
+    String address = '',
+    String city = '',
+    String contact = '',
+    String phone = '',
+    String access = '',
+    String material = '',
+    String equipment = '',
+    String window = '',
+    int billed = 0,
+    DateTime? scheduledFor,
+    int? minutes,
+  }) async {
+    if (!canEditJobs) {
+      showToast('Only an owner can add a job.');
+      notifyListeners();
+      return null;
+    }
+
+    final job = Job(
+      id: _nextJobId(),
+      type: type.trim(),
+      customer: customer.trim(),
+      address: address.trim(),
+      city: city.trim(),
+      contact: contact.trim(),
+      phone: phone.trim(),
+      access: access.trim(),
+      material: material.trim(),
+      volume: '',
+      weight: '',
+      equipment: equipment.trim(),
+      disposal: '',
+      dumpFee: 0,
+      window: window.trim(),
+      miles: 0,
+      deadhead: 0,
+      billed: billed,
+      scheduledFor: scheduledFor,
+      minutes: minutes,
+    );
+
+    final ok = await _board.apply(
+      _stamp((id, at) => CreateJob(id: id, actorId: kMeId, at: at, job: job)),
+    );
+    if (!ok) return null;
+
+    showToast('${job.id} added.');
+    notifyListeners();
+    return job;
+  }
+
+  /// Takes a job off the board for good.
+  ///
+  /// Deliberately not offered for work a driver has already started: the
+  /// movement log, the hours and the photos are the record of what happened,
+  /// and deleting the job is not the way to correct a mistake on it.
+  bool canDelete(Job job) =>
+      canEditJobs &&
+      job.startedAt == null &&
+      job.status != JobStatus.active &&
+      job.status != JobStatus.done;
+
+  Future<bool> deleteJob(Job job) async {
+    if (!canEditJobs) {
+      showToast('Only an owner can delete a job.');
+      notifyListeners();
+      return false;
+    }
+    if (!canDelete(job)) {
+      showToast('${job.id} has been worked — it cannot be deleted.');
+      notifyListeners();
+      return false;
+    }
+
+    final ok = await _board.apply(
+      _stamp(
+        (id, at) => DeleteJob(id: id, actorId: kMeId, at: at, jobId: job.id),
+      ),
+    );
+    if (!ok) return false;
+
+    showToast('${job.id} deleted.');
+    notifyListeners();
+    return true;
+  }
+
+  /// Moves a job to a new moment, and optionally changes how long it runs.
+  ///
+  /// One call rather than two edits so a drag across the grid is a single
+  /// entry in the log and a single thing to undo.
+  Future<bool> rescheduleJob(
+    Job job, {
+    required DateTime? startsAt,
+    int? minutes,
+  }) => editJob(job, {
+    // Null is a real value here — it is how a job goes back to having no day.
+    'scheduledFor': startsAt?.toUtc().toIso8601String(),
+    'minutes': ?minutes,
+  });
+
   // -------------------------------------------------------- editing a job
 
   /// Only an owner corrects a job, and not while standing in the crew's view.
-  bool get canEditJobs => _role == Role.admin && !_asEmployee;
+  ///
+  /// With nobody signed in there is no crew to protect a record from: the
+  /// board is this device's own, the way a calendar on a phone is. The rule
+  /// bites the moment somebody enters a role, which is the moment the board
+  /// starts being shared.
+  bool get canEditJobs =>
+      (_role == null || _role == Role.admin) && !_asEmployee;
 
   /// Applies dispatch's corrections to [job].
   ///

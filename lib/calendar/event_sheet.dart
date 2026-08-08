@@ -7,6 +7,7 @@ import 'calendar_state.dart';
 import 'calendar_theme.dart';
 import 'date_math.dart';
 import 'event.dart';
+import 'event_editor.dart';
 
 /// One job, opened from the calendar.
 ///
@@ -115,6 +116,23 @@ class _Detail extends StatelessWidget {
                     style: t.secondary.copyWith(color: event.colour),
                   ),
                 ),
+                if (app.canEditJobs)
+                  Semantics(
+                    button: true,
+                    label: 'Edit job',
+                    onTap: () => showEventEditor(context, job: job),
+                    excludeSemantics: true,
+                    child: TextButton(
+                      onPressed: () => showEventEditor(context, job: job),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(0, 44),
+                      ),
+                      child: Text(
+                        'Edit',
+                        style: t.body.copyWith(fontSize: 15, color: p.accent),
+                      ),
+                    ),
+                  ),
                 Semantics(
                   button: true,
                   label: 'Close',

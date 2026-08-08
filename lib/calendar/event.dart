@@ -90,10 +90,15 @@ class CalendarEvent {
     // Midnight exactly is how a day-only booking arrives — the day picker
     // stores days at midnight on purpose. Anything else is a real time.
     final timed = at.hour != 0 || at.minute != 0;
+    // A job that has been given a length uses it; one nobody has said falls
+    // back to the assumption rather than refusing to draw a block.
+    final runs = job.minutes == null
+        ? kAssumedJobLength
+        : Duration(minutes: job.minutes!);
     return CalendarEvent(
       job: job,
       start: at,
-      end: timed ? at.add(kAssumedJobLength) : dayOf(at),
+      end: timed ? at.add(runs) : dayOf(at),
       calendar: WorkCalendar.of(job),
       allDay: !timed,
     );

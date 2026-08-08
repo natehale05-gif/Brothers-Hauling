@@ -63,6 +63,12 @@ sealed class Mutation {
       return null;
     }
 
+    if (json['kind'] == 'job.delete') {
+      final target = json['jobId'] as String?;
+      if (target == null) return null;
+      return DeleteJob(id: id, actorId: actorId, at: at, jobId: target);
+    }
+
     // Crew changes are about the company, not a job, so they are read before
     // the jobId guard rather than being given a fake one.
     if (json['kind'] == 'crew.add') {
@@ -215,6 +221,38 @@ class CreateJob extends BoardMutation {
   }
 }
 
+/// A job taken off the board for good.
+///
+/// A whole-board mutation rather than a field on a job, because after it
+/// replays there is no job left to carry a flag. Idempotent by absence: a
+/// replay against a board that no longer holds the job is a no-op, which is
+/// what lets the same delete arrive twice from two devices.
+class DeleteJob extends BoardMutation {
+  const DeleteJob({
+    required super.id,
+    required super.actorId,
+    required super.at,
+    required this.jobId,
+  });
+
+  final String jobId;
+
+  @override
+  String get kind => 'job.delete';
+
+  @override
+  Map<String, Object?> get payload => {'jobId': jobId};
+
+  @override
+  List<Job>? apply(List<Job> jobs) {
+    if (!jobs.any((j) => j.id == jobId)) return null;
+    return [
+      for (final job in jobs)
+        if (job.id != jobId) job,
+    ];
+  }
+}
+
 /// A change to who works here.
 sealed class CrewMutation extends Mutation {
   const CrewMutation({
@@ -336,6 +374,7 @@ class EditJob extends JobMutation {
     'billed',
     'hazards',
     'scheduledFor',
+    'minutes',
   };
 
   @override
@@ -396,6 +435,7 @@ class EditJob extends JobMutation {
     'billed' => 'what it bills at',
     'window' => 'the time window',
     'scheduledFor' => 'the day it happens',
+    'minutes' => 'how long it runs',
     'access' => 'the access notes',
     'hazards' => 'the hazards',
     _ => 'the $field',

@@ -1,5 +1,7 @@
+import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
 
+import '../../state/app_state.dart';
 import '../calendar_state.dart';
 import '../calendar_theme.dart';
 import '../date_math.dart';
@@ -17,6 +19,39 @@ const double kGutterWidth = 56;
 /// The breathing room left down the right of a timed grid, so a block never
 /// runs into the edge of the screen.
 const double kEdgeGutter = 4;
+
+/// Which quarter hour a vertical offset lands on.
+///
+/// Snapped to fifteen minutes: nobody books a haul at 9:07, and a grid that
+/// let them would make every block sit a pixel off its neighbours.
+DateTime timeAt(DateTime day, double dy, {int snap = 15}) {
+  final minutes = (dy / kHourHeight * 60).clamp(0, 24 * 60 - snap);
+  final rounded = (minutes / snap).round() * snap;
+  return dayOf(day).add(Duration(minutes: rounded));
+}
+
+/// Books a job at whatever time the grid was tapped.
+///
+/// Apple's day view creates an event where you tap, and so does this — the
+/// alternative is a form that opens on the wrong hour every time.
+class NewJobSlot extends StatelessWidget {
+  const NewJobSlot({super.key, required this.day, required this.onNew});
+
+  final DateTime day;
+  final void Function(DateTime at) onNew;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapUp: (details) => onNew(timeAt(day, details.localPosition.dy)),
+      // No semantics of its own: a screen reader gets the New job button in
+      // the bar, and an invisible full-height target announcing itself over
+      // the whole day would bury every block underneath it.
+      child: const SizedBox.expand(),
+    );
+  }
+}
 
 /// The hour rules and their labels — the paper a day is drawn on.
 class HourGrid extends StatelessWidget {
@@ -133,7 +168,11 @@ class DayColumn extends StatelessWidget {
                 left: slot.left * width,
                 width: slot.width * width - 2,
                 height: slot.event.lengthMinutes(day) * minute - 2,
-                child: EventBlock(event: slot.event, compact: compact),
+                child: DraggableBlock(
+                  event: slot.event,
+                  day: day,
+                  compact: compact,
+                ),
               ),
             if (isToday)
               Positioned(
@@ -149,16 +188,225 @@ class DayColumn extends StatelessWidget {
   }
 }
 
+/// The height of the grab handle along the bottom of a block.
+const double kResizeGrip = 14;
+
+/// A block you can pick up and move, or take by the bottom edge and stretch.
+///
+/// Long press first, the way Apple's does: a calendar you can knock a job off
+/// by brushing it while scrolling is worse than one you cannot drag at all.
+/// Nothing moves until the press is held, and the block lifts to say so.
+class DraggableBlock extends StatefulWidget {
+  const DraggableBlock({
+    super.key,
+    required this.event,
+    required this.day,
+    this.compact = false,
+  });
+
+  final CalendarEvent event;
+  final DateTime day;
+  final bool compact;
+
+  @override
+  State<DraggableBlock> createState() => _DraggableBlockState();
+}
+
+class _DraggableBlockState extends State<DraggableBlock> {
+  /// Minutes the block has been dragged, before snapping.
+  double _shift = 0;
+
+  /// Minutes added to the length while stretching the bottom edge.
+  double _stretch = 0;
+
+  bool _moving = false;
+  bool _resizing = false;
+
+  static const int _snap = 15;
+
+  int get _snapped => (_shift / _snap).round() * _snap;
+  int get _snappedStretch => (_stretch / _snap).round() * _snap;
+
+  double get _pixelsPerMinute => kHourHeight / 60;
+
+  /// Where the block would land, as words, for the label while dragging.
+  DateTime get _wouldStart =>
+      widget.event.start.add(Duration(minutes: _snapped));
+
+  Future<void> _commitMove() async {
+    // Read where it landed before letting go of the drag: clearing the offset
+    // first would move the job to exactly where it already was.
+    final minutes = _snapped;
+    final target = _wouldStart;
+    setState(() {
+      _moving = false;
+      _shift = 0;
+    });
+    if (minutes == 0) return;
+
+    final app = AppScope.read(context);
+    await app.rescheduleJob(widget.event.job, startsAt: target);
+  }
+
+  Future<void> _commitResize() async {
+    final added = _snappedStretch;
+    setState(() {
+      _resizing = false;
+      _stretch = 0;
+    });
+    if (added == 0) return;
+
+    final was = widget.event.end.difference(widget.event.start).inMinutes;
+    final now = was + added;
+    final app = AppScope.read(context);
+    await app.rescheduleJob(
+      widget.event.job,
+      startsAt: widget.event.start,
+      // A quarter hour is the floor: below that a block cannot show its own
+      // name, and the grid draws it at that height anyway.
+      minutes: now < 15 ? 15 : now,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = AppScope.of(context);
+    final cal = CalendarScope.of(context);
+    final movable = app.canEditJobs && !widget.event.allDay;
+    final dragging = _moving || _resizing;
+
+    // While it is being dragged the block says where it would land, because
+    // the grid underneath it is hidden by the finger doing the dragging.
+    final String? note;
+    if (_moving) {
+      note = clockLabel(_wouldStart);
+    } else if (_resizing) {
+      final end = widget.event.end.add(Duration(minutes: _snappedStretch));
+      note = timeRange(widget.event.start, end);
+    } else {
+      note = null;
+    }
+
+    final block = EventBlock(
+      event: widget.event,
+      compact: widget.compact,
+      lifted: dragging,
+      note: note,
+    );
+
+    if (!movable) return block;
+
+    return Transform.translate(
+      offset: Offset(0, _moving ? _snapped * _pixelsPerMinute : 0),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => cal.openEvent(widget.event.id),
+              onLongPressStart: (_) => setState(() {
+                _moving = true;
+                _shift = 0;
+              }),
+              onLongPressMoveUpdate: (details) => setState(
+                () => _shift = details.offsetFromOrigin.dy / _pixelsPerMinute,
+              ),
+              onLongPressEnd: (_) => _commitMove(),
+              onLongPressCancel: () => setState(() {
+                _moving = false;
+                _shift = 0;
+              }),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          // The block itself is drawn under the gesture layer so the whole of
+          // it is grabbable, not just the parts without text on them.
+          Positioned.fill(child: IgnorePointer(child: block)),
+          // The bottom edge, for changing how long it runs. Small, and only
+          // ever on a block tall enough to have an edge worth grabbing.
+          if (!_moving)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: kResizeGrip,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                // Measured from where the finger first landed rather than
+                // from where the drag was recognised, so the twenty-odd
+                // pixels of slop are not silently thrown away — on a grip
+                // that is a quarter of an hour the edge did not follow.
+                dragStartBehavior: DragStartBehavior.down,
+                onVerticalDragStart: (_) => setState(() {
+                  _resizing = true;
+                  _stretch = 0;
+                }),
+                onVerticalDragUpdate: (details) => setState(
+                  () => _stretch += details.delta.dy / _pixelsPerMinute,
+                ),
+                onVerticalDragEnd: (_) => _commitResize(),
+                onVerticalDragCancel: () => setState(() {
+                  _resizing = false;
+                  _stretch = 0;
+                }),
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: _Grip(showing: _resizing),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The little bar that says an edge can be taken hold of.
+class _Grip extends StatelessWidget {
+  const _Grip({required this.showing});
+
+  final bool showing;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Container(
+        width: 26,
+        height: 3,
+        decoration: BoxDecoration(
+          color: showing ? p.accent : p.secondaryLabel.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
+}
+
 /// A job as a coloured block.
 class EventBlock extends StatelessWidget {
-  const EventBlock({super.key, required this.event, this.compact = false});
+  const EventBlock({
+    super.key,
+    required this.event,
+    this.compact = false,
+    this.lifted = false,
+    this.note,
+  });
 
   final CalendarEvent event;
   final bool compact;
 
+  /// Being dragged: raised off the grid, so it reads as picked up.
+  final bool lifted;
+
+  /// Shown in place of the subtitle while dragging — where it would land.
+  final String? note;
+
   @override
   Widget build(BuildContext context) {
     final t = CalText.of(context);
+    final p = CalPalette.of(context);
     final cal = CalendarScope.of(context);
 
     return Semantics(
@@ -175,29 +423,57 @@ class EventBlock extends StatelessWidget {
             // A tinted fill with a solid bar down the leading edge, which is
             // how Apple draws one and why a block reads at a glance even when
             // it is too short for its own text.
-            color: event.colour.withValues(alpha: 0.18),
+            color: event.colour.withValues(alpha: lifted ? 0.32 : 0.18),
             borderRadius: BorderRadius.circular(4),
             border: Border(left: BorderSide(color: event.colour, width: 3)),
+            boxShadow: lifted
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.22),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : null,
           ),
+          // A quarter-hour block is barely taller than one line of text. The
+          // overflow box lets the label be as tall as it needs and the clip
+          // trims what will not fit, which is what "draw as much as there is
+          // room for" has to mean — a Column alone would report an overflow
+          // and paint a stripe across the grid instead.
           child: ClipRect(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  event.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: t.eventTitle.copyWith(color: event.colour),
-                ),
-                if (!compact)
+            child: OverflowBox(
+              alignment: Alignment.topLeft,
+              maxHeight: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   Text(
-                    event.subtitle,
+                    event.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: t.eventDetail,
+                    style: t.eventTitle.copyWith(color: event.colour),
                   ),
-              ],
+                  if (note != null)
+                    Text(
+                      note!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: t.eventDetail.copyWith(
+                        color: p.label,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    )
+                  else if (!compact)
+                    Text(
+                      event.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: t.eventDetail,
+                    ),
+                ],
+              ),
             ),
           ),
         ),

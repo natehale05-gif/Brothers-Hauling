@@ -193,6 +193,7 @@ class Job {
     this.progress = 0,
     this.bookingId,
     this.scheduledFor,
+    this.minutes,
     this.startedAt,
     this.finishedAt,
   });
@@ -286,6 +287,15 @@ class Job {
   DateTime? get scheduledDay => scheduledFor == null
       ? null
       : DateTime(scheduledFor!.year, scheduledFor!.month, scheduledFor!.day);
+
+  /// How long the job is booked for, in minutes.
+  ///
+  /// Null means nobody has said, and a calendar falls back to its own
+  /// assumption rather than refusing to draw a block. Stored in minutes
+  /// because that is the resolution anybody schedules at — a hauling job is
+  /// not booked to the second, and an integer survives a JSON round trip
+  /// without the rounding a Duration in microseconds invites.
+  final int? minutes;
 
   /// The website booking this came from, if it did.
   ///
@@ -387,6 +397,7 @@ class Job {
     'progress': progress,
     'bookingId': bookingId,
     'scheduledFor': scheduledFor?.toUtc().toIso8601String(),
+    'minutes': minutes,
     'startedAt': startedAt?.toUtc().toIso8601String(),
     'finishedAt': finishedAt?.toUtc().toIso8601String(),
   };
@@ -449,6 +460,7 @@ class Job {
           const [],
       progress: (json['progress'] as num?)?.toDouble().clamp(0.0, 1.0) ?? 0,
       bookingId: json['bookingId'] as String?,
+      minutes: (json['minutes'] as num?)?.toInt(),
       scheduledFor: DateTime.tryParse(
         json['scheduledFor'] as String? ?? '',
       )?.toLocal(),
@@ -476,6 +488,7 @@ class Job {
     String? bookingId,
     DateTime? scheduledFor,
     bool clearSchedule = false,
+    int? minutes,
     DateTime? startedAt,
     DateTime? finishedAt,
   }) {
@@ -508,6 +521,7 @@ class Job {
       progress: progress ?? this.progress,
       bookingId: bookingId ?? this.bookingId,
       scheduledFor: clearSchedule ? null : (scheduledFor ?? this.scheduledFor),
+      minutes: minutes ?? this.minutes,
       startedAt: startedAt ?? this.startedAt,
       finishedAt: finishedAt ?? this.finishedAt,
     );

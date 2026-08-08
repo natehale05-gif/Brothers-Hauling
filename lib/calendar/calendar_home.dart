@@ -6,7 +6,9 @@ import 'calendar_state.dart';
 import 'calendar_theme.dart';
 import 'date_math.dart';
 import 'event.dart';
+import 'event_editor.dart';
 import 'event_sheet.dart';
+import 'search.dart';
 import 'views/day_view.dart';
 import 'views/list_view.dart';
 import 'views/month_view.dart';
@@ -34,6 +36,9 @@ class CalendarHome extends StatelessWidget {
         SingleActivator(LogicalKeyboardKey.arrowRight): _StepIntent(1),
         SingleActivator(LogicalKeyboardKey.keyT): _TodayIntent(),
         SingleActivator(LogicalKeyboardKey.escape): _CloseIntent(),
+        SingleActivator(LogicalKeyboardKey.keyN): _NewIntent(),
+        SingleActivator(LogicalKeyboardKey.keyF, control: true): _FindIntent(),
+        SingleActivator(LogicalKeyboardKey.keyF, meta: true): _FindIntent(),
       },
       child: Actions(
         actions: {
@@ -52,6 +57,23 @@ class CalendarHome extends StatelessWidget {
           _CloseIntent: CallbackAction<_CloseIntent>(
             onInvoke: (_) {
               cal.closeEvent();
+              return null;
+            },
+          ),
+          _NewIntent: CallbackAction<_NewIntent>(
+            onInvoke: (_) {
+              if (app.canEditJobs) {
+                showEventEditor(
+                  context,
+                  startAt: startOfWorking(cal.selected, cal.now),
+                );
+              }
+              return null;
+            },
+          ),
+          _FindIntent: CallbackAction<_FindIntent>(
+            onInvoke: (_) {
+              showCalendarSearch(context);
               return null;
             },
           ),
@@ -101,6 +123,14 @@ class _CloseIntent extends Intent {
   const _CloseIntent();
 }
 
+class _NewIntent extends Intent {
+  const _NewIntent();
+}
+
+class _FindIntent extends Intent {
+  const _FindIntent();
+}
+
 class _Body extends StatelessWidget {
   const _Body({required this.events});
 
@@ -126,7 +156,6 @@ class CalendarNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = CalPalette.of(context);
-    final t = CalText.of(context);
     final cal = CalendarScope.of(context);
     final onToday = sameDay(cal.focused, cal.today);
 
@@ -136,12 +165,51 @@ class CalendarNavBar extends StatelessWidget {
         color: p.bg,
         border: Border(bottom: BorderSide(color: p.separator, width: 0.5)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Semantics(
-              header: true,
-              liveRegion: true,
+      child: LayoutBuilder(
+        builder: (context, box) {
+          // The arrows are the one control here with a replacement: every
+          // view pages by swipe, and the keys do it on a desktop. On a narrow
+          // phone — or at the largest text the app allows — they are what
+          // gives, rather than the bar running off the side of the screen.
+          // Five 44pt targets, a Today button and something left for the
+          // title. Scaled, because the Today button grows with the text and
+          // the icons do not.
+          final needs = 360 * MediaQuery.textScalerOf(context).scale(1);
+          final showArrows = box.maxWidth >= needs;
+          return _NavRow(showArrows: showArrows, onToday: onToday);
+        },
+      ),
+    );
+  }
+}
+
+class _NavRow extends StatelessWidget {
+  const _NavRow({required this.showArrows, required this.onToday});
+
+  final bool showArrows;
+  final bool onToday;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
+    final cal = CalendarScope.of(context);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Semantics(
+            header: true,
+            liveRegion: true,
+            button: true,
+            label: '${cal.title}. Go to date',
+            onTap: () => showGoToDate(context),
+            excludeSemantics: true,
+            // The title is the date jump, the way tapping the month name is
+            // on the real one — no eighth button in a bar this narrow.
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => showGoToDate(context),
               child: Text(
                 cal.title,
                 maxLines: 1,
@@ -150,42 +218,60 @@ class CalendarNavBar extends StatelessWidget {
               ),
             ),
           ),
+        ),
+        _BarButton(
+          icon: Icons.search_rounded,
+          tooltip: 'Search',
+          onTap: () => showCalendarSearch(context),
+        ),
+        if (showArrows)
           _BarButton(
             icon: Icons.chevron_left_rounded,
             tooltip: 'Previous',
             onTap: () => cal.step(-1),
           ),
-          if (!onToday)
-            Semantics(
-              button: true,
-              label: 'Back to today',
-              onTap: cal.goToToday,
-              excludeSemantics: true,
-              child: TextButton(
-                onPressed: cal.goToToday,
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(0, 44),
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  foregroundColor: p.accent,
-                ),
-                child: Text(
-                  'Today',
-                  style: t.body.copyWith(fontSize: 15, color: p.accent),
-                ),
+        if (!onToday)
+          Semantics(
+            button: true,
+            label: 'Back to today',
+            onTap: cal.goToToday,
+            excludeSemantics: true,
+            child: TextButton(
+              onPressed: cal.goToToday,
+              style: TextButton.styleFrom(
+                minimumSize: const Size(0, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                foregroundColor: p.accent,
+              ),
+              child: Text(
+                'Today',
+                style: t.body.copyWith(fontSize: 15, color: p.accent),
               ),
             ),
+          ),
+        if (showArrows)
           _BarButton(
             icon: Icons.chevron_right_rounded,
             tooltip: 'Next',
             onTap: () => cal.step(1),
           ),
+        _BarButton(
+          icon: Icons.tune_rounded,
+          tooltip: 'Calendars',
+          onTap: () => showCalendarsSheet(context),
+        ),
+        if (AppScope.of(context).canEditJobs)
           _BarButton(
-            icon: Icons.tune_rounded,
-            tooltip: 'Calendars',
-            onTap: () => showCalendarsSheet(context),
+            icon: Icons.add_rounded,
+            tooltip: 'New job',
+            // Opens on the day you are looking at, not on today — the
+            // whole reason you paged there.
+            onTap: () => showEventEditor(
+              context,
+              startAt: startOfWorking(cal.selected, cal.now),
+            ),
           ),
-        ],
-      ),
+      ],
     );
   }
 }

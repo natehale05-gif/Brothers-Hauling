@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../state/app_state.dart';
 import '../calendar_state.dart';
 import '../calendar_theme.dart';
 import '../date_math.dart';
 import '../event.dart';
+import '../event_editor.dart';
 import 'timed_grid.dart';
 
 /// How far either way the day pager runs.
@@ -176,6 +178,19 @@ class _OneDay extends StatelessWidget {
               child: Stack(
                 children: [
                   const HourGrid(),
+                  // Under the blocks, so tapping a job opens it and tapping
+                  // the space beside it books one.
+                  if (AppScope.of(context).canEditJobs)
+                    Positioned(
+                      left: kGutterWidth,
+                      right: kEdgeGutter,
+                      top: 0,
+                      bottom: 0,
+                      child: NewJobSlot(
+                        day: day,
+                        onNew: (at) => showEventEditor(context, startAt: at),
+                      ),
+                    ),
                   Positioned(
                     left: kGutterWidth,
                     right: kEdgeGutter,
