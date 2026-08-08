@@ -7,6 +7,7 @@ import 'calendar_theme.dart';
 import 'date_math.dart';
 import 'event.dart';
 import 'event_editor.dart';
+import 'device_sheet.dart';
 import 'event_sheet.dart';
 import 'logins.dart';
 import 'search.dart';
@@ -625,6 +626,9 @@ class _CalendarsSheet extends StatelessWidget {
             ),
             const Divider(height: 24),
             const _AlertsRow(),
+            const Divider(height: 24),
+            const SyncRow(),
+            const ServerRow(),
             const Divider(height: 24),
             const _AccountRow(),
           ],

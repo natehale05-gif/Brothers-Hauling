@@ -384,6 +384,42 @@ void main() {
     });
   });
 
+  group('what the device says about itself', () {
+    Future<void> openSheet(WidgetTester tester) async {
+      await tester.tap(find.bySemanticsLabel('Calendars'));
+      await settle(tester);
+    }
+
+    testWidgets('a settled board says so', (tester) async {
+      await pumpApp(tester, role: Role.admin);
+      await openSheet(tester);
+
+      expect(find.text('This device'), findsOneWidget);
+      expect(find.textContaining('saved and sent'), findsOneWidget);
+    });
+
+    testWidgets('the web says it cannot be the server', (tester) async {
+      // No ServerControl is wired up in a test, which is the same answer a
+      // browser gives: this device cannot listen on a port.
+      await pumpApp(tester, role: Role.admin);
+      await openSheet(tester);
+      await tester.ensureVisible(find.text('Serving the crew'));
+      await settle(tester);
+
+      expect(find.text('Serving the crew'), findsOneWidget);
+      expect(find.textContaining('cannot listen on a port'), findsOneWidget);
+    });
+
+    testWidgets('a manager is not offered the server at all', (tester) async {
+      await pumpApp(tester, role: Role.manager);
+      await openSheet(tester);
+
+      expect(find.text('Serving the crew'), findsNothing);
+      // But still sees whether their own work is safe.
+      expect(find.text('This device'), findsOneWidget);
+    });
+  });
+
   group('the way out', () {
     testWidgets('signing out puts the login box back', (tester) async {
       final app = await pumpApp(tester, role: Role.admin);
