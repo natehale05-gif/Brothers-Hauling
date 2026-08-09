@@ -123,7 +123,7 @@ class BookingRequest {
     material: '',
     volume: '',
     weight: '',
-    equipment: '',
+    equipment: const [],
     disposal: 'N/A — not set',
     dumpFee: 0,
     window: window.isEmpty ? 'Not agreed yet' : window,

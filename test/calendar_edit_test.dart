@@ -386,6 +386,7 @@ void main() {
       await tester.enterText(find.byType(TextField).first, 'Skyline Ranch');
       await tester.tap(find.bySemanticsLabel('Gravel delivery calendar'));
       await settle(tester);
+      await pickRig(tester);
       await tester.tap(find.text('Add'));
       await settle(tester);
 
@@ -417,6 +418,12 @@ void main() {
       await settle(tester);
 
       await tester.enterText(find.byType(TextField).first, 'Weekly gravel');
+      // Nothing on the board yet, so there is no chip to tap — it gets typed.
+      // Done before the repeat, because choosing a rig grows the form and
+      // pushes the repeat chips further down it.
+      await pickRig(tester, 'Lowboy 25t');
+      await tester.ensureVisible(find.bySemanticsLabel('Every week'));
+      await settle(tester);
       await tester.tap(find.bySemanticsLabel('Every week'));
       await settle(tester);
       await tester.tap(find.text('Add'));
@@ -469,6 +476,7 @@ void main() {
       await tester.enterText(find.byType(TextField).first, 'Sometime Tuesday');
       await tester.tap(find.byType(Switch));
       await settle(tester);
+      await pickRig(tester);
       await tester.tap(find.text('Add'));
       await settle(tester);
 

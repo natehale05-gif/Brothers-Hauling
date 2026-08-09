@@ -402,6 +402,21 @@ class AppState extends ChangeNotifier {
   /// Everyone on the books, drivers and office alike.
   List<CrewMember> get crew => _board.crew;
 
+  /// Every rig the board has ever asked for, in alphabetical order.
+  ///
+  /// Read off the work rather than kept as a list of what the yard owns. A
+  /// hard-coded fleet is a list somebody has to maintain and which is wrong the
+  /// week a trailer is sold; this is only ever the kit that has actually been
+  /// needed, and it grows the first time somebody types a new one.
+  List<String> get knownRigs {
+    final seen = <String>{};
+    for (final job in _board.jobs) {
+      seen.addAll(job.equipment);
+    }
+    return seen.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  }
+
   /// Just the people who run loads — who a job can be pushed at.
   List<CrewMember> get drivers =>
       crew.where((c) => c.role == Role.employee).toList();
@@ -628,7 +643,7 @@ class AppState extends ChangeNotifier {
     String phone = '',
     String access = '',
     String material = '',
-    String equipment = '',
+    List<String> equipment = const [],
     String window = '',
     int billed = 0,
     int dumpFee = 0,
@@ -654,7 +669,10 @@ class AppState extends ChangeNotifier {
       material: material.trim(),
       volume: '',
       weight: '',
-      equipment: equipment.trim(),
+      equipment: [
+        for (final rig in equipment)
+          if (rig.trim().isNotEmpty) rig.trim(),
+      ],
       disposal: '',
       dumpFee: dumpFee,
       window: window.trim(),

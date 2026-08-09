@@ -26,7 +26,7 @@ bool jobMatches(Job job, String query) {
     job.contact,
     job.phone,
     job.material,
-    job.equipment,
+    job.equipmentLabel,
     job.access,
     job.disposal,
   ].join(' ').toLowerCase();

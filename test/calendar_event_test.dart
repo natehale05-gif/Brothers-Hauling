@@ -9,6 +9,9 @@ Job job(
   String customer = 'Someone',
   String city = '',
   DateTime? at,
+  // Real work needs something on the truck, and the editor will not save a
+  // job without it — so a fixture standing in for a booked job carries one.
+  List<String> equipment = const ['Dump trailer 14k'],
 }) => Job(
   id: id,
   type: type,
@@ -21,7 +24,7 @@ Job job(
   material: '',
   volume: '',
   weight: '',
-  equipment: '',
+  equipment: equipment,
   disposal: 'N/A',
   dumpFee: 0,
   window: '',

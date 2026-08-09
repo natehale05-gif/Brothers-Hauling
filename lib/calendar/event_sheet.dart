@@ -217,7 +217,7 @@ class _Detail extends StatelessWidget {
                     _Row(label: 'Volume', value: job.volume),
                     _Row(label: 'Weight', value: job.weight),
                     // Stated, never enforced — see the rig decision.
-                    _Row(label: 'Rig needed', value: job.equipment),
+                    _Row(label: 'Rig needed', value: job.equipmentLabel),
                     _Row(label: 'Goes to', value: job.disposal),
                   ],
                 ),

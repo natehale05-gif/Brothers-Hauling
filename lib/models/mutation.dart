@@ -434,6 +434,7 @@ class EditJob extends JobMutation {
     'dumpFee' => 'the disposal fee',
     'deadhead' => 'the deadhead miles',
     'billed' => 'what it bills at',
+    'equipment' => 'the rig needed',
     'window' => 'the time window',
     'scheduledFor' => 'the day it happens',
     'minutes' => 'how long it runs',

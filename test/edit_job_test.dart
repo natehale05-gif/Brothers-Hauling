@@ -92,7 +92,7 @@ void main() {
         'material': 'Scrap steel',
         'volume': '2 yd',
         'weight': '~9,000 lb',
-        'equipment': 'Lowboy 25t',
+        'equipment': ['Lowboy 25t', 'Ramps'],
         'disposal': 'Pacific Recycling',
         'dumpFee': 45,
         'window': '6:00 – 8:00 AM',
@@ -112,7 +112,7 @@ void main() {
       expect(job.material, 'Scrap steel');
       expect(job.volume, '2 yd');
       expect(job.weight, '~9,000 lb');
-      expect(job.equipment, 'Lowboy 25t');
+      expect(job.equipment, ['Lowboy 25t', 'Ramps']);
       expect(job.disposal, 'Pacific Recycling');
       expect(job.dumpFee, 45);
       expect(job.window, '6:00 – 8:00 AM');

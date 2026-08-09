@@ -248,6 +248,10 @@ void main() {
       await tester.tap(find.bySemanticsLabel('New job'));
       await settle(tester);
       await tester.enterText(find.byType(TextField).first, 'Skyline Ranch');
+      await settle(tester);
+      // The rig first, while its row is still on screen: the form is a list,
+      // and what has scrolled off the top of one is not in the tree to tap.
+      await pickRig(tester);
       // Settled before scrolling: ensureVisible measures the layout it is
       // given, and the one mid-keystroke is not the one that gets tapped.
       await settle(tester);

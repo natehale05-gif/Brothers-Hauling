@@ -208,7 +208,7 @@ Job kJobFor({DateTime? startedAt, DateTime? finishedAt}) => Job(
   material: '',
   volume: '',
   weight: '',
-  equipment: '',
+  equipment: const [],
   disposal: 'N/A',
   dumpFee: 0,
   window: '',

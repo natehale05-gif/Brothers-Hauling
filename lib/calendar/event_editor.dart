@@ -18,6 +18,13 @@ import 'form_bits.dart';
 /// How long a new job runs unless somebody says otherwise.
 const int kDefaultMinutes = 120;
 
+/// The box for a rig the board has not seen before.
+///
+/// Named so a test can reach it: it sits in the middle of a long form beside
+/// half a dozen other text fields, and finding it by position would break the
+/// first time a row moves.
+const Key kRigField = Key('rig-field');
+
 /// The reminders offered, as minutes before the job starts.
 ///
 /// Apple's list, minus the ones a hauling day has no use for. Null is no
@@ -83,10 +90,13 @@ class _EventEditorState extends State<EventEditor> {
   late final TextEditingController _city;
   late final TextEditingController _phone;
   late final TextEditingController _access;
-  late final TextEditingController _equipment;
   late final TextEditingController _kind;
   late final TextEditingController _billed;
   late final TextEditingController _dumpFee;
+
+  /// The rigs the job needs. Order is the order they were picked in, which is
+  /// the order somebody would say them out loud.
+  late List<String> _rigs;
 
   late bool _allDay;
   late DateTime _starts;
@@ -108,8 +118,8 @@ class _EventEditorState extends State<EventEditor> {
     _city = TextEditingController(text: job?.city ?? '');
     _phone = TextEditingController(text: job?.phone ?? '');
     _access = TextEditingController(text: job?.access ?? '');
-    _equipment = TextEditingController(text: job?.equipment ?? '');
     _kind = TextEditingController(text: job?.type ?? '');
+    _rigs = [...?job?.equipment];
     // Empty rather than "0": a job nobody has priced has no price, and a
     // nought in the box says somebody decided on one.
     _billed = TextEditingController(
@@ -144,7 +154,6 @@ class _EventEditorState extends State<EventEditor> {
       _city,
       _phone,
       _access,
-      _equipment,
       _kind,
       _billed,
       _dumpFee,
@@ -164,6 +173,16 @@ class _EventEditorState extends State<EventEditor> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Give the job a customer.')));
+      return;
+    }
+    // A kind of work without a rig is a job nobody can load for. Dispatch is
+    // the only one who knows, and this is the moment they know it — a customer
+    // booking off the website cannot say, which is why the rule lives on this
+    // form and not in the domain.
+    if (_rigs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Say what rig the job needs.')),
+      );
       return;
     }
 
@@ -196,7 +215,7 @@ class _EventEditorState extends State<EventEditor> {
           city: _city.text,
           phone: _phone.text,
           access: _access.text,
-          equipment: _equipment.text,
+          equipment: _rigs,
           billed: dollarsFrom(_billed.text),
           dumpFee: dollarsFrom(_dumpFee.text),
           scheduledFor: _allDay ? dayOf(at) : at,
@@ -216,7 +235,7 @@ class _EventEditorState extends State<EventEditor> {
         'city': _city.text.trim(),
         'phone': _phone.text.trim(),
         'access': _access.text.trim(),
-        'equipment': _equipment.text.trim(),
+        'equipment': _rigs,
         'billed': dollarsFrom(_billed.text),
         'dumpFee': dollarsFrom(_dumpFee.text),
         'scheduledFor': _stored.toUtc().toIso8601String(),
@@ -311,6 +330,14 @@ class _EventEditorState extends State<EventEditor> {
                 autofocus: _isNew,
               ),
               _KindRow(controller: _kind, onChanged: () => setState(() {})),
+              // In the same box as the kind of work, because they are one
+              // decision: what the job is decides what has to be on the truck,
+              // and a rig chosen three groups further down is a rig somebody
+              // scrolls past.
+              _RigRow(
+                chosen: _rigs,
+                onChanged: (rigs) => setState(() => _rigs = rigs),
+              ),
             ],
           ),
           FormGroup(
@@ -396,12 +423,6 @@ class _EventEditorState extends State<EventEditor> {
             ),
           FormGroup(
             children: [
-              FormRow(
-                label: 'Rig needed',
-                controller: _equipment,
-                // Stated, never enforced — see the rig decision.
-                hint: 'What it takes to do the job',
-              ),
               FormRow(
                 label: 'Notes',
                 controller: _access,
@@ -548,6 +569,215 @@ class _KindRow extends StatelessWidget {
                       ),
                     ),
                   ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// What has to be on the truck — one rig, or several.
+///
+/// The choices are the rigs the board has already asked for rather than a
+/// fleet written into the app, and anything can be typed in. A yard that hires
+/// a chipper for one week should be able to book the job that afternoon and
+/// have it offered as a choice the next time.
+///
+/// Stated, never enforced — see the rig decision. Saying a job needs a lowboy
+/// tells whoever takes it what to hook up; it does not stop anybody taking it.
+class _RigRow extends StatefulWidget {
+  const _RigRow({required this.chosen, required this.onChanged});
+
+  final List<String> chosen;
+  final ValueChanged<List<String>> onChanged;
+
+  @override
+  State<_RigRow> createState() => _RigRowState();
+}
+
+class _RigRowState extends State<_RigRow> {
+  final TextEditingController _typed = TextEditingController();
+
+  @override
+  void dispose() {
+    _typed.dispose();
+    super.dispose();
+  }
+
+  void _toggle(String rig) {
+    final next = [...widget.chosen];
+    if (!next.remove(rig)) next.add(rig);
+    widget.onChanged(next);
+  }
+
+  /// Takes whatever is in the box as a rig of its own.
+  void _addTyped() {
+    final rig = _typed.text.trim();
+    if (rig.isEmpty) return;
+    // Case-insensitively already there: select it rather than making a second
+    // entry that means the same thing.
+    final existing = [
+      ...widget.chosen,
+      ...AppScope.read(context).knownRigs,
+    ].where((r) => r.toLowerCase() == rig.toLowerCase());
+    final name = existing.isEmpty ? rig : existing.first;
+
+    _typed.clear();
+    if (widget.chosen.any((r) => r.toLowerCase() == name.toLowerCase())) return;
+    widget.onChanged([...widget.chosen, name]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
+
+    // Everything the board knows, plus anything on this job that is new to it.
+    final offered = <String>[
+      ...widget.chosen,
+      ...AppScope.of(context).knownRigs.where(
+        (r) => !widget.chosen.any((c) => c.toLowerCase() == r.toLowerCase()),
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 96,
+                child: Text('Rig needed', style: t.secondary),
+              ),
+              Expanded(
+                child: Text(
+                  widget.chosen.isEmpty
+                      ? 'Pick at least one'
+                      : widget.chosen.join(', '),
+                  style: t.body.copyWith(
+                    fontSize: 15,
+                    color: widget.chosen.isEmpty ? p.tertiaryLabel : p.label,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (offered.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final rig in offered)
+                  Builder(
+                    builder: (context) {
+                      final on = widget.chosen.contains(rig);
+                      return Semantics(
+                        button: true,
+                        selected: on,
+                        label: on ? '$rig, chosen' : rig,
+                        onTap: () => _toggle(rig),
+                        excludeSemantics: true,
+                        child: GestureDetector(
+                          onTap: () => _toggle(rig),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: on ? p.accent : p.fill,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (on) ...[
+                                  Icon(
+                                    Icons.check_rounded,
+                                    size: 13,
+                                    color: p.onAccent,
+                                  ),
+                                  const SizedBox(width: 4),
+                                ],
+                                // A rig name is whatever somebody typed, and
+                                // at large text one of them is wider than a
+                                // narrow phone. It gives way rather than
+                                // painting a stripe across the form.
+                                Flexible(
+                                  child: Text(
+                                    rig,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: t.eventTitle.copyWith(
+                                      fontSize: 12,
+                                      color: on ? p.onAccent : p.label,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Semantics(
+                  textField: true,
+                  label: 'Another rig',
+                  child: TextField(
+                    key: kRigField,
+                    controller: _typed,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _addTyped(),
+                    style: t.body.copyWith(fontSize: 15),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      hintText: offered.isEmpty
+                          ? 'What it takes to do the job'
+                          : 'Something else',
+                      hintStyle: t.body.copyWith(
+                        fontSize: 15,
+                        color: p.tertiaryLabel,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+              ),
+              // An icon, not the word "Add" — the form's own save button says
+              // Add on a new job, and two buttons a thumb apart reading the
+              // same word is how somebody books a job they meant to keep
+              // typing into.
+              Semantics(
+                button: true,
+                label: 'Add this rig',
+                onTap: _addTyped,
+                excludeSemantics: true,
+                child: IconButton(
+                  onPressed: _addTyped,
+                  tooltip: 'Add this rig',
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
+                  icon: Icon(Icons.add_rounded, color: p.accent),
+                ),
+              ),
             ],
           ),
         ),

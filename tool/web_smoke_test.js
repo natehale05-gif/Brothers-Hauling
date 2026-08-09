@@ -337,6 +337,9 @@ function check(label, ok, detail = '') {
       await page.keyboard.type('Skyline Ranch');
       await page.waitForTimeout(400);
       await press(page, 'Gravel delivery calendar');
+      // The form will not book work with nothing to load it — the rigs on
+      // offer are the ones the board has already needed.
+      await press(page, 'Dump trailer 14k');
       await press(page, 'Add');
       check(
         'a job booked in the calendar turns up on it',
@@ -367,6 +370,7 @@ function check(label, ok, detail = '') {
       await press(page, 'New job');
       await page.keyboard.type('Kings Valley pickup');
       await page.waitForTimeout(400);
+      await press(page, 'Dump trailer 14k');
       // The alert row is below the fold of a long form, and a Flutter list
       // does not scroll for the browser's own scrollIntoView.
       await page.mouse.wheel(0, 900);

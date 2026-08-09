@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:haul_board/calendar/calendar_state.dart';
+import 'package:haul_board/calendar/event_editor.dart';
 import 'package:haul_board/data/intake.dart';
 import 'package:haul_board/main.dart';
 import 'package:haul_board/models/job.dart';
@@ -44,6 +45,29 @@ Future<void> settle(WidgetTester tester, {int frames = 8}) async {
   for (var i = 0; i < frames; i++) {
     await tester.pump(const Duration(milliseconds: 120));
   }
+}
+
+/// Chooses a rig in the open job editor.
+///
+/// The form will not save without one, so every test that books through it has
+/// to do this — which is the point of the rule. Taps the chip when the board
+/// already knows the rig, and types it in when it does not.
+Future<void> pickRig(
+  WidgetTester tester, [
+  String rig = 'Dump trailer 14k',
+]) async {
+  final chip = find.bySemanticsLabel(rig);
+  if (chip.evaluate().isNotEmpty) {
+    await tester.ensureVisible(chip.first);
+    await settle(tester);
+    await tester.tap(chip.first);
+  } else {
+    await tester.ensureVisible(find.byKey(kRigField));
+    await settle(tester);
+    await tester.enterText(find.byKey(kRigField), rig);
+    await tester.tap(find.bySemanticsLabel('Add this rig'));
+  }
+  await settle(tester);
 }
 
 /// Boots the calendar with every platform service faked out.

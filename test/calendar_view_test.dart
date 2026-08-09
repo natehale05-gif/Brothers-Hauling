@@ -328,7 +328,7 @@ void main() {
             material: '',
             volume: '',
             weight: '',
-            equipment: 'Dump trailer 14k',
+            equipment: const ['Dump trailer 14k'],
             disposal: '',
             dumpFee: 0,
             window: '',

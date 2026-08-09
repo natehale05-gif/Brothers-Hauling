@@ -33,6 +33,24 @@ T _enumFrom<T extends Enum>(List<T> values, Object? name, T fallback) {
   return fallback;
 }
 
+/// Reads the rigs a job needs, whichever shape they were written in.
+///
+/// The field used to be one line of text and boards written by that build are
+/// still out there — in a browser's storage, on the yard laptop, in an outbox
+/// waiting to sync. A comma-separated line is what somebody meant when they
+/// typed two rigs into a single box, so it comes back as two.
+List<String> _rigsFrom(Object? raw) {
+  final parts = switch (raw) {
+    List() => [for (final item in raw) '$item'],
+    String() => raw.split(','),
+    _ => const <String>[],
+  };
+  return [
+    for (final part in parts)
+      if (part.trim().isNotEmpty) part.trim(),
+  ];
+}
+
 /// One line in a job's movement log.
 ///
 /// The moment is a real [DateTime], not the display string the prototype used.
@@ -213,7 +231,20 @@ class Job {
   final String material;
   final String volume;
   final String weight;
-  final String equipment;
+
+  /// What it takes to do the job, one entry per rig.
+  ///
+  /// A list rather than a line of text because plenty of work needs more than
+  /// one thing: a dump trailer and a skid steer is one job, not two, and
+  /// "Dump trailer 14k, skid steer" typed into a box is a list nobody can
+  /// search, count or correct one item of.
+  ///
+  /// Stated, never enforced — see the rig decision. Nothing here says who may
+  /// run what.
+  final List<String> equipment;
+
+  /// The rigs on one line, for anywhere that shows a job in passing.
+  String get equipmentLabel => equipment.join(', ');
 
   /// Landfill or transfer station, or an "N/A — …" string for deliveries that
   /// never leave the customer's property.
@@ -456,7 +487,7 @@ class Job {
       material: json['material'] as String? ?? '',
       volume: json['volume'] as String? ?? '',
       weight: json['weight'] as String? ?? '',
-      equipment: json['equipment'] as String? ?? '',
+      equipment: _rigsFrom(json['equipment']),
       disposal: json['disposal'] as String? ?? '',
       dumpFee: (json['dumpFee'] as num?)?.toInt() ?? 0,
       window: json['window'] as String? ?? '',
