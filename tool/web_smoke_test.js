@@ -477,6 +477,51 @@ function check(label, ok, detail = '') {
       await page.close();
     }
 
+    // ---- the driver's side: accept a job and work it -----------------------
+    // The one path nothing else covers end to end. The demo board pushes
+    // HL-4491 at the owner, who drives — which is ordinary in a yard this
+    // size and the reason nothing about a job narrows by level.
+    {
+      const { page, errors } = await boot(browser, { width: 390, height: 844 });
+      await signIn(page);
+      await press(page, 'Day view, 1 of 5');
+
+      await page
+        .getByRole('button', { name: /^Junk removal for/ })
+        .first()
+        .click({ timeout: 15000 });
+      await page.waitForTimeout(1400);
+      await press(page, 'Accept this job');
+      check(
+        'a job accepted opens onto the panel that runs it',
+        await axContains(page, /Up to/) && await axContains(page, /Accepted/),
+      );
+
+      await press(page, 'Roll out');
+      check(
+        'and the button becomes the next step, not the one just taken',
+        (await page.getByRole('button', { name: "I'm on site" }).count()) > 0,
+      );
+
+      await press(page, "I'm on site");
+      check(
+        'standing on site, the before photo is asked for',
+        await axContains(page, /you are on site/),
+      );
+
+      // Two stages on, at the dump, with no photos filed. The close-out is
+      // refused before it is pressed rather than after.
+      await press(page, 'Loaded up');
+      await press(page, 'At the dump');
+      check(
+        'and the close-out says what is missing before anybody presses it',
+        await axContains(page, /Blocked: a before and an after photo/),
+      );
+
+      check('no page errors', errors.length === 0, errors.join('; '));
+      await page.close();
+    }
+
     // ---- a booking made on the website reaches the calendar --------------
     // Both pages share one browser context on purpose: same origin, same
     // storage, which is the whole mechanism. Nothing below this line works if

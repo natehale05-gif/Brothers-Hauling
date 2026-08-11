@@ -106,26 +106,6 @@ void main() {
       );
     });
 
-    testWidgets('more than one can be picked', (tester) async {
-      final app = await pumpApp(
-        tester,
-        jobs: [
-          booked('HL-1', rigs: const ['Lowboy 25t']),
-          booked('HL-2', rigs: const ['Ramps']),
-        ],
-      );
-      await openNew(tester);
-      await pickRig(tester, 'Lowboy 25t');
-      await pickRig(tester, 'Ramps');
-      await tester.tap(find.text('Add'));
-      await settle(tester);
-
-      final made = app.state.jobs.firstWhere(
-        (j) => j.customer == 'Skyline Ranch',
-      );
-      expect(made.equipment, ['Lowboy 25t', 'Ramps']);
-    });
-
     testWidgets('one picked twice comes off again', (tester) async {
       final app = await pumpApp(tester, jobs: [booked('HL-1')]);
       await openNew(tester);

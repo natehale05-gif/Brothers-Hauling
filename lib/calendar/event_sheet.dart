@@ -191,6 +191,10 @@ class _Detail extends StatelessWidget {
                 // past the material and the dump fee to find the button is
                 // the wrong way round.
                 _TakeIt(job: job),
+                // And for the person who has it, the whole of the rest of the
+                // job: where they are up to, the two photos, and the button
+                // that moves it on.
+                _WorkIt(job: job),
                 _Group(
                   rows: [
                     _Row(label: 'Job', value: job.id),
@@ -450,6 +454,227 @@ class _TakeIt extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Running a job: the stage, the two photos, and the way on.
+///
+/// Only for the person the job belongs to. An owner watching from the office
+/// can see where it has got to on the Status row, but the log, the hours and
+/// the photos are the record of what a driver actually did — and a record
+/// somebody else can fill in from a desk is not one.
+class _WorkIt extends StatelessWidget {
+  const _WorkIt({required this.job});
+
+  final Job job;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
+    final app = AppScope.of(context);
+
+    final mine = job.assignedTo == app.meId;
+    if (!mine || job.status != JobStatus.active) return const SizedBox.shrink();
+
+    final closing = job.stage == kStages.length - 2;
+    // The one rule the photos exist for. Said before the button is pressed
+    // rather than as a complaint afterwards.
+    final blocked = closing && !job.photosComplete;
+    final action = kStageActions[job.stage];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: p.card,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                MergeSemantics(
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 96,
+                        child: Text('Up to', style: t.secondary),
+                      ),
+                      Expanded(
+                        child: Text(
+                          kStages[job.stage],
+                          style: t.bodyStrong.copyWith(fontSize: 16),
+                        ),
+                      ),
+                      Text(
+                        '${job.stage + 1} of ${kStages.length}',
+                        style: t.secondary.copyWith(fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _PhotoSlot(
+                        job: job,
+                        before: true,
+                        // Before the first load goes on. Once it does, the
+                        // state of the site beforehand is gone for good.
+                        due: app.beforePhotoDue(job),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(child: _PhotoSlot(job: job, before: false)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Semantics(
+            button: true,
+            enabled: !blocked,
+            label: blocked
+                ? 'Close it out. Blocked: a before and an after photo have '
+                      'to be on the job first.'
+                : action,
+            onTap: blocked ? null : () => app.advance(job),
+            excludeSemantics: true,
+            child: FilledButton(
+              onPressed: blocked ? null : () => app.advance(job),
+              style: FilledButton.styleFrom(
+                backgroundColor: p.accent,
+                foregroundColor: p.onAccent,
+                disabledBackgroundColor: p.fill,
+                minimumSize: const Size.fromHeight(48),
+              ),
+              child: Text(
+                action,
+                style: t.bodyStrong.copyWith(
+                  fontSize: 16,
+                  color: blocked ? p.tertiaryLabel : p.onAccent,
+                ),
+              ),
+            ),
+          ),
+          if (blocked)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+              child: ExcludeSemantics(
+                child: Text(
+                  'Both photos have to be on the job before it can be closed. '
+                  'They are what settles an argument about the site weeks '
+                  'later.',
+                  textAlign: TextAlign.center,
+                  style: t.secondary.copyWith(fontSize: 13),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One of the two photo slots — the shot if there is one, the way to take it
+/// if there is not.
+class _PhotoSlot extends StatelessWidget {
+  const _PhotoSlot({required this.job, required this.before, this.due = false});
+
+  final Job job;
+  final bool before;
+
+  /// The driver is standing on site and this shot is still missing. Says so
+  /// rather than waiting to refuse the close-out an hour later.
+  final bool due;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
+    final app = AppScope.of(context);
+
+    final shots = before ? job.photosBefore : job.photosAfter;
+    final word = before ? 'Before' : 'After';
+    final label = shots.isEmpty
+        ? 'Take the $word photo'
+        : 'Add another $word photo. ${shots.length} filed.';
+
+    return Semantics(
+      button: true,
+      label: due ? '$label Needed now — you are on site.' : label,
+      onTap: () => app.addPhoto(job, before: before),
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => app.addPhoto(job, before: before),
+        child: Container(
+          height: 92,
+          decoration: BoxDecoration(
+            color: p.fill,
+            borderRadius: BorderRadius.circular(8),
+            border: due ? Border.all(color: p.accent, width: 2) : null,
+            image: shots.isEmpty
+                ? null
+                : DecorationImage(
+                    image: MemoryImage(shots.first.bytes),
+                    fit: BoxFit.cover,
+                  ),
+          ),
+          child: Stack(
+            children: [
+              if (shots.isEmpty)
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.photo_camera_rounded,
+                        size: 20,
+                        color: due ? p.accent : p.secondaryLabel,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        word,
+                        style: t.secondary.copyWith(
+                          fontSize: 13,
+                          color: due ? p.accent : p.secondaryLabel,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              // Over the photo, because the photo is the background: a count
+              // on a coloured strip is readable whatever was in front of the
+              // lens.
+              if (shots.isNotEmpty)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3,
+                    ),
+                    child: Text(
+                      shots.length == 1 ? word : '$word · ${shots.length}',
+                      style: t.eventTitle.copyWith(color: Colors.white),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
