@@ -258,11 +258,7 @@ void main() {
       // Fifteen, not thirty: the form opens the job at ten and the clock is
       // half past nine, so a half-hour warning would be due exactly now —
       // which counts as gone by, and would not be scheduled at all.
-      // The chip, not the row above it that names the current choice.
-      await tester.ensureVisible(find.text('15 min before').last);
-      await settle(tester);
-      await tester.tap(find.text('15 min before').last);
-      await settle(tester);
+      await pickAlert(tester, '15 min before');
       await tester.tap(find.text('Add'));
       await settle(tester);
 
@@ -291,10 +287,7 @@ void main() {
       await settle(tester);
 
       expect(find.text('30 min before'), findsWidgets);
-      await tester.ensureVisible(find.text('None').last);
-      await settle(tester);
-      await tester.tap(find.text('None').last);
-      await settle(tester);
+      await pickAlert(tester, 'None');
       await tester.tap(find.text('Done'));
       await settle(tester);
 

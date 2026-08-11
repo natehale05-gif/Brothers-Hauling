@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:haul_board/calendar/calendar_state.dart';
 import 'package:haul_board/calendar/date_math.dart';
+import 'package:haul_board/calendar/event_editor.dart';
 import 'package:haul_board/calendar/search.dart';
 import 'package:haul_board/calendar/views/timed_grid.dart';
 import 'package:haul_board/models/job.dart';
@@ -384,8 +385,7 @@ void main() {
       await settle(tester);
 
       await tester.enterText(find.byType(TextField).first, 'Skyline Ranch');
-      await tester.tap(find.bySemanticsLabel('Gravel delivery calendar'));
-      await settle(tester);
+      await pickKind(tester, 'Gravel delivery');
       await pickRig(tester);
       await tester.tap(find.text('Add'));
       await settle(tester);
@@ -422,13 +422,7 @@ void main() {
       // Done before the repeat, because choosing a rig grows the form and
       // pushes the repeat row further down it.
       await pickRig(tester, 'Lowboy 25t');
-      // Repeat is a menu now: open the row, then pick the rule off it.
-      await tester.ensureVisible(find.bySemanticsLabel(RegExp('^Repeat, ')));
-      await settle(tester);
-      await tester.tap(find.bySemanticsLabel(RegExp('^Repeat, ')));
-      await settle(tester);
-      await tester.tap(find.text('Every week').last);
-      await settle(tester);
+      await pickRepeat(tester, 'Every week');
       await tester.tap(find.text('Add'));
       await settle(tester);
 
@@ -439,6 +433,58 @@ void main() {
       expect(made[1].scheduledFor!.difference(made[0].scheduledFor!).inDays, 7);
       // Each is a job in its own right, with its own id.
       expect({for (final j in made) j.id}, hasLength(4));
+    });
+
+    testWidgets('the kind menu names a job the app has no colour for', (
+      tester,
+    ) async {
+      final app = await pumpApp(tester, jobs: bookedJobs());
+      await tester.tap(find.bySemanticsLabel('New job'));
+      await settle(tester);
+      await tester.enterText(find.byType(TextField).first, 'Kings Valley');
+      await settle(tester);
+
+      // A new kind of work is still bookable the same afternoon: the menu
+      // has an "Other work" entry, and choosing it opens a box to name it.
+      expect(find.byKey(kKindField), findsNothing);
+      await pickKind(tester, 'Other work');
+      expect(find.byKey(kKindField), findsOneWidget);
+
+      await tester.enterText(find.byKey(kKindField), 'Snow plowing');
+      await settle(tester);
+      await pickRig(tester);
+      await tester.tap(find.text('Add'));
+      await settle(tester);
+
+      final made = app.state.jobs.firstWhere(
+        (j) => j.customer == 'Kings Valley',
+      );
+      expect(made.type, 'Snow plowing');
+    });
+
+    testWidgets('a kind off the menu needs no box at all', (tester) async {
+      await pumpApp(tester, jobs: bookedJobs());
+      await tester.tap(find.bySemanticsLabel('New job'));
+      await settle(tester);
+
+      await pickKind(tester, 'Bark & soil');
+      expect(find.bySemanticsLabel('Kind, bark & soil'), findsOne);
+      expect(find.byKey(kKindField), findsNothing);
+    });
+
+    testWidgets('the alert menu holds the reminders, shut until asked', (
+      tester,
+    ) async {
+      await pumpApp(tester, jobs: bookedJobs());
+      await tester.tap(find.bySemanticsLabel('New job'));
+      await settle(tester);
+      await tester.ensureVisible(find.bySemanticsLabel('Alert, none'));
+      await settle(tester);
+
+      expect(find.text('1 day before'), findsNothing);
+      await pickAlert(tester, '1 hour before');
+      expect(find.bySemanticsLabel('Alert, 1 hour before'), findsOne);
+      expect(find.text('1 day before'), findsNothing);
     });
 
     testWidgets('the repeat menu says what is on, and stays shut', (

@@ -64,9 +64,46 @@ void main() {
       );
       await openNew(tester);
 
-      // Read off the work, not a fleet written into the app.
-      expect(find.bySemanticsLabel('Flatbed 20ft'), findsOneWidget);
-      expect(find.bySemanticsLabel('Lowboy 25t'), findsOneWidget);
+      // Shut, the row says nothing is picked and offers no list.
+      expect(find.bySemanticsLabel('Rig needed, pick at least one'), findsOne);
+      expect(find.text('Flatbed 20ft'), findsNothing);
+
+      await tester.tap(find.bySemanticsLabel(RegExp('^Rig needed, ')));
+      await settle(tester);
+
+      // Open, it offers what the board has needed — read off the work, not a
+      // fleet written into the app.
+      expect(
+        find.widgetWithText(PopupMenuItem<String>, 'Flatbed 20ft'),
+        findsOne,
+      );
+      expect(
+        find.widgetWithText(PopupMenuItem<String>, 'Lowboy 25t'),
+        findsOne,
+      );
+    });
+
+    testWidgets('more than one can be ticked on the same job', (tester) async {
+      final app = await pumpApp(
+        tester,
+        jobs: [
+          booked('HL-1', rigs: const ['Lowboy 25t']),
+          booked('HL-2', rigs: const ['Ramps']),
+        ],
+      );
+      await openNew(tester);
+
+      await pickRig(tester, 'Lowboy 25t');
+      await pickRig(tester, 'Ramps');
+
+      await tester.tap(find.text('Add'));
+      await settle(tester);
+      expect(
+        app.state.jobs
+            .firstWhere((j) => j.customer == 'Skyline Ranch')
+            .equipment,
+        ['Lowboy 25t', 'Ramps'],
+      );
     });
 
     testWidgets('more than one can be picked', (tester) async {
@@ -94,9 +131,14 @@ void main() {
       await openNew(tester);
 
       await pickRig(tester);
-      expect(find.bySemanticsLabel('Dump trailer 14k, chosen'), findsOneWidget);
-      await tester.tap(find.bySemanticsLabel('Dump trailer 14k, chosen'));
-      await settle(tester);
+      expect(
+        find.bySemanticsLabel('Rig needed, dump trailer 14k'),
+        findsOne,
+        reason: 'the row says what is on',
+      );
+      // Picking it again takes it off.
+      await pickRig(tester);
+      expect(find.bySemanticsLabel('Rig needed, pick at least one'), findsOne);
 
       // Nothing chosen, so the form refuses to book it.
       await tester.tap(find.text('Add'));
@@ -185,8 +227,7 @@ void main() {
       );
       await openEdit(tester);
 
-      expect(find.bySemanticsLabel('Lowboy 25t, chosen'), findsOneWidget);
-      expect(find.bySemanticsLabel('Ramps, chosen'), findsOneWidget);
+      expect(find.bySemanticsLabel('Rig needed, lowboy 25t, ramps'), findsOne);
     });
 
     testWidgets('and one can be taken off and another put on', (tester) async {
@@ -200,8 +241,8 @@ void main() {
       );
       await openEdit(tester);
 
-      await tester.tap(find.bySemanticsLabel('Lowboy 25t, chosen'));
-      await settle(tester);
+      // Off with one, on with the other.
+      await pickRig(tester, 'Lowboy 25t');
       await pickRig(tester, 'Flatbed 20ft');
       await tester.tap(find.text('Done'));
       await settle(tester);

@@ -47,26 +47,63 @@ Future<void> settle(WidgetTester tester, {int frames = 8}) async {
   }
 }
 
+/// Opens one of the editor's choice menus and picks off it.
+///
+/// Every one of these rows is shut until it is asked: the row says what is
+/// chosen, the menu offers the rest. So a test has to open it too.
+Future<void> _pickFrom(WidgetTester tester, RegExp row, String choice) async {
+  final anchor = find.bySemanticsLabel(row);
+  await tester.ensureVisible(anchor);
+  await settle(tester);
+  await tester.tap(anchor);
+  await settle(tester);
+  // The row underneath says the same words once something is chosen, so the
+  // one in the menu is the last of them.
+  await tester.tap(find.text(choice).last);
+  await settle(tester);
+}
+
+/// Picks the kind of work.
+Future<void> pickKind(WidgetTester tester, String kind) =>
+    _pickFrom(tester, RegExp('^Kind, '), kind);
+
+/// Picks when to be told about the job.
+Future<void> pickAlert(WidgetTester tester, String when) =>
+    _pickFrom(tester, RegExp('^Alert, '), when);
+
+/// Picks how often the job comes back.
+Future<void> pickRepeat(WidgetTester tester, String rule) =>
+    _pickFrom(tester, RegExp('^Repeat, '), rule);
+
 /// Chooses a rig in the open job editor.
 ///
 /// The form will not save without one, so every test that books through it has
-/// to do this — which is the point of the rule. Taps the chip when the board
-/// already knows the rig, and types it in when it does not.
+/// to do this — which is the point of the rule. Takes it off the menu when the
+/// board already knows the rig, and types it in when it does not.
 Future<void> pickRig(
   WidgetTester tester, [
   String rig = 'Dump trailer 14k',
 ]) async {
-  final chip = find.bySemanticsLabel(rig);
-  if (chip.evaluate().isNotEmpty) {
-    await tester.ensureVisible(chip.first);
+  final row = find.bySemanticsLabel(RegExp('^Rig needed, '));
+  await tester.ensureVisible(row);
+  await settle(tester);
+  await tester.tap(row);
+  await settle(tester);
+
+  final offered = find.widgetWithText(PopupMenuItem<String>, rig);
+  if (offered.evaluate().isNotEmpty) {
+    await tester.tap(offered);
     await settle(tester);
-    await tester.tap(chip.first);
-  } else {
-    await tester.ensureVisible(find.byKey(kRigField));
-    await settle(tester);
-    await tester.enterText(find.byKey(kRigField), rig);
-    await tester.tap(find.bySemanticsLabel('Add this rig'));
+    return;
   }
+
+  // Not on the board yet, so the menu cannot offer it. Shut and type.
+  await tester.tapAt(const Offset(200, 30));
+  await settle(tester);
+  await tester.ensureVisible(find.byKey(kRigField));
+  await settle(tester);
+  await tester.enterText(find.byKey(kRigField), rig);
+  await tester.tap(find.bySemanticsLabel('Add this rig'));
   await settle(tester);
 }
 

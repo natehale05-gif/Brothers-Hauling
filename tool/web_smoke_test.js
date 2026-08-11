@@ -195,6 +195,27 @@ async function axContains(page, re) {
   return texts.some((t) => re.test(t));
 }
 
+/**
+ * Picks a choice off one of the job form's menus.
+ *
+ * Every one of those rows is shut until it is asked — the row says what is
+ * chosen, the menu offers the rest — so opening it is part of the flow.
+ */
+async function pickFrom(page, row, choice) {
+  await page.getByRole('button', { name: row }).first().click({
+    timeout: 15000,
+  });
+  await page.waitForTimeout(900);
+  // By role, not by text: the app paints to a canvas, so the only text a
+  // browser can see is what the semantics tree publishes — and a menu's rows
+  // come through as menuitems carrying an aria-label rather than as buttons
+  // with text in them.
+  await page.getByRole('menuitem', { name: choice, exact: true }).last().click({
+    timeout: 15000,
+  });
+  await page.waitForTimeout(1200);
+}
+
 async function press(page, name) {
   await page.getByRole('button', { name, exact: false }).first().click({
     timeout: 15000,
@@ -336,10 +357,10 @@ function check(label, ok, detail = '') {
       await press(page, 'New job');
       await page.keyboard.type('Skyline Ranch');
       await page.waitForTimeout(400);
-      await press(page, 'Gravel delivery calendar');
+      await pickFrom(page, /^Kind, /, 'Gravel delivery');
       // The form will not book work with nothing to load it — the rigs on
       // offer are the ones the board has already needed.
-      await press(page, 'Dump trailer 14k');
+      await pickFrom(page, /^Rig needed, /, 'Dump trailer 14k');
       await press(page, 'Add');
       check(
         'a job booked in the calendar turns up on it',
@@ -370,14 +391,14 @@ function check(label, ok, detail = '') {
       await press(page, 'New job');
       await page.keyboard.type('Kings Valley pickup');
       await page.waitForTimeout(400);
-      await press(page, 'Dump trailer 14k');
+      await pickFrom(page, /^Rig needed, /, 'Dump trailer 14k');
       // The alert row is below the fold of a long form, and a Flutter list
       // does not scroll for the browser's own scrollIntoView.
       await page.mouse.wheel(0, 900);
       await page.waitForTimeout(700);
       // At the time, not a day before: the form opens the job later today, so
       // a day's warning would already have gone by and nothing would be set.
-      await press(page, 'Alert At the time');
+      await pickFrom(page, /^Alert, /, 'At the time');
       await press(page, 'Add');
 
       const alerted = await page.evaluate(() => {

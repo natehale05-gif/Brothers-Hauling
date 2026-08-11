@@ -473,105 +473,262 @@ class _EventEditorState extends State<EventEditor> {
   }
 }
 
-/// The kind of work, typed or picked.
+/// A form row that opens a menu of choices.
 ///
-/// Free text with the known kinds offered, rather than a closed list: the
-/// colour a job gets is matched off this string, and a yard that starts doing
-/// something new should be able to book it the same afternoon.
-class _KindRow extends StatelessWidget {
+/// Every one of these used to be a row of chips: the whole list showing at all
+/// times to say which one of it is on. Six rules, seven reminders and five
+/// kinds of work came to nine lines of a form that already scrolls, and none
+/// of them earned the space — a choice is read far more often than it is
+/// changed. Shut, the row says what is chosen; open, it offers the rest.
+class _ChoiceRow<T> extends StatefulWidget {
+  const _ChoiceRow({
+    required this.label,
+    required this.shown,
+    required this.ticked,
+    required this.choices,
+    required this.onChanged,
+    this.valueColour,
+    this.dotOf,
+    this.trailing,
+  });
+
+  final String label;
+
+  /// What the row reads when the menu is shut.
+  final String shown;
+
+  /// Which choices carry a tick. A predicate rather than one value, because
+  /// the rigs a job needs are a list and every one of them is in force.
+  final bool Function(T) ticked;
+
+  final List<(T, String)> choices;
+  final ValueChanged<T> onChanged;
+
+  /// The kind of work is written in its own colour, the way the calendar
+  /// draws it.
+  final Color? valueColour;
+
+  /// A colour dot beside each choice, where the choice has one.
+  final Color? Function(T)? dotOf;
+
+  /// Shown at the end of the row — the bell that says a reminder is set.
+  final Widget? trailing;
+
+  @override
+  State<_ChoiceRow<T>> createState() => _ChoiceRowState<T>();
+}
+
+class _ChoiceRowState<T> extends State<_ChoiceRow<T>> {
+  /// Held so the row's own semantics action can open the menu.
+  ///
+  /// The label belongs to the whole row — "Alert, 15 min before" — and a
+  /// screen reader has to be able to open it from there, not only by finding
+  /// the chevron on the end of it.
+  final GlobalKey<PopupMenuButtonState<T>> _menu = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
+
+    return Semantics(
+      button: true,
+      label: '${widget.label}, ${widget.shown.toLowerCase()}',
+      onTap: () => _menu.currentState?.showButtonMenu(),
+      excludeSemantics: true,
+      child: PopupMenuButton<T>(
+        key: _menu,
+        tooltip: widget.label,
+        // Deliberately no initialValue: it makes the menu open with the chosen
+        // item over the button rather than under the row, which on the last
+        // choice in a long list puts the first ones off the top of the screen.
+        // The tick says which is in force.
+        onSelected: widget.onChanged,
+        position: PopupMenuPosition.under,
+        color: p.card,
+        itemBuilder: (context) => [
+          for (final (value, label) in widget.choices)
+            PopupMenuItem<T>(
+              value: value,
+              child: Row(
+                children: [
+                  // The tick, and a gap the same width where there is none, so
+                  // the labels line up down the menu.
+                  SizedBox(
+                    width: 26,
+                    child: widget.ticked(value)
+                        ? Icon(Icons.check_rounded, size: 18, color: p.accent)
+                        : null,
+                  ),
+                  if (widget.dotOf?.call(value) case final dot?) ...[
+                    Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: dot,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: t.body.copyWith(
+                        fontSize: 15,
+                        color: widget.ticked(value) ? p.accent : p.label,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 96,
+                child: Text(widget.label, style: t.secondary),
+              ),
+              Expanded(
+                child: Text(
+                  widget.shown,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: t.body.copyWith(
+                    fontSize: 15,
+                    color: widget.valueColour ?? p.label,
+                  ),
+                ),
+              ),
+              if (widget.trailing case final extra?) ...[
+                extra,
+                const SizedBox(width: 6),
+              ],
+              Icon(Icons.unfold_more_rounded, size: 18, color: p.tertiaryLabel),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The box for naming a kind of work the app has no colour for.
+const Key kKindField = Key('kind-field');
+
+/// The kind of work, picked off a menu or named.
+///
+/// Still not a closed list: the colour a job gets is matched off this string,
+/// and a yard that starts doing something new should be able to book it the
+/// same afternoon. Choosing "Other work" opens a box to say what it is, and
+/// that job draws in grey rather than borrowing another kind's colour.
+class _KindRow extends StatefulWidget {
   const _KindRow({required this.controller, required this.onChanged});
 
   final TextEditingController controller;
   final VoidCallback onChanged;
 
   @override
+  State<_KindRow> createState() => _KindRowState();
+}
+
+class _KindRowState extends State<_KindRow> {
+  /// Whether the box for naming a kind is open.
+  ///
+  /// Not the same question as "does this text match a calendar": a new job has
+  /// no kind at all, and opening a box on it would be answering a question
+  /// nobody has asked yet. An existing job whose kind the app has no colour
+  /// for opens with the box up, because that is where its name lives.
+  late bool _naming;
+
+  @override
+  void initState() {
+    super.initState();
+    _naming = widget.controller.text.trim().isNotEmpty && _match() == null;
+  }
+
+  /// The calendar this job's typed kind belongs to, or null when it is either
+  /// blank or something the app has no colour for.
+  WorkCalendar? _match() {
+    final typed = widget.controller.text.trim().toLowerCase();
+    for (final calendar in WorkCalendar.values) {
+      if (calendar != WorkCalendar.other &&
+          calendar.label.toLowerCase() == typed) {
+        return calendar;
+      }
+    }
+    return null;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
     final t = CalText.of(context);
-    final chosen = WorkCalendar.values.firstWhere(
-      (c) => c.label.toLowerCase() == controller.text.trim().toLowerCase(),
-      orElse: () => WorkCalendar.other,
-    );
+    final typed = widget.controller.text.trim();
+    final named = _match();
+    final picked = named ?? (_naming ? WorkCalendar.other : null);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(width: 16),
-            Padding(
-              padding: const EdgeInsets.only(top: 18),
-              child: SizedBox(
-                width: 96,
-                child: Text('Kind', style: t.secondary),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: TextField(
-                  controller: controller,
-                  onChanged: (_) => onChanged(),
-                  style: t.body.copyWith(fontSize: 15, color: chosen.colour),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    hintText: 'What kind of work',
-                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-              ),
-            ),
+        _ChoiceRow<(WorkCalendar?,)>(
+          label: 'Kind',
+          shown: typed.isNotEmpty
+              ? typed
+              : (_naming ? WorkCalendar.other.label : 'Pick one'),
+          // Wrapped so "nothing picked yet" can be a value of its own rather
+          // than borrowing "Other work" and putting a tick against a choice
+          // nobody made.
+          ticked: (choice) => choice == (picked,),
+          valueColour: picked?.colour ?? p.tertiaryLabel,
+          dotOf: (choice) => choice.$1?.colour,
+          choices: [
+            for (final calendar in WorkCalendar.values)
+              ((calendar,), calendar.label),
           ],
+          onChanged: (choice) {
+            final calendar = choice.$1!;
+            setState(() => _naming = calendar == WorkCalendar.other);
+            // "Other work" is the one choice that means "I will type it" —
+            // filling the box with the words "Other work" would leave nothing
+            // to name and a job called nothing in particular.
+            widget.controller.text = _naming ? '' : calendar.label;
+            widget.onChanged();
+          },
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final calendar in WorkCalendar.values)
-                if (calendar != WorkCalendar.other)
-                  Semantics(
-                    button: true,
-                    selected: chosen == calendar,
-                    label: '${calendar.label} calendar',
-                    onTap: () {
-                      controller.text = calendar.label;
-                      onChanged();
-                    },
-                    excludeSemantics: true,
-                    child: GestureDetector(
-                      onTap: () {
-                        controller.text = calendar.label;
-                        onChanged();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: calendar.colour.withValues(
-                            alpha: chosen == calendar ? 1 : 0.16,
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Text(
-                          calendar.label,
-                          style: t.eventTitle.copyWith(
-                            fontSize: 12,
-                            color: chosen == calendar
-                                ? Colors.white
-                                : calendar.colour,
-                          ),
-                        ),
+        if (_naming)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Row(
+              children: [
+                const SizedBox(width: 96),
+                Expanded(
+                  child: TextField(
+                    key: kKindField,
+                    controller: widget.controller,
+                    onChanged: (_) => widget.onChanged(),
+                    style: t.body.copyWith(
+                      fontSize: 15,
+                      color: WorkCalendar.other.colour,
+                    ),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      hintText: 'What kind of work',
+                      hintStyle: t.body.copyWith(
+                        fontSize: 15,
+                        color: p.tertiaryLabel,
                       ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
                     ),
                   ),
-            ],
+                ),
+              ],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -583,6 +740,11 @@ class _KindRow extends StatelessWidget {
 /// fleet written into the app, and anything can be typed in. A yard that hires
 /// a chipper for one week should be able to book the job that afternoon and
 /// have it offered as a choice the next time.
+///
+/// The same menu as the others, ticking every rig the job needs rather than
+/// one. It shuts after each pick, which costs a tap per extra rig — worth it
+/// against a menu that opens without publishing a single thing a screen
+/// reader can read, which is what the stay-open kind turned out to do.
 ///
 /// Stated, never enforced — see the rig decision. Saying a job needs a lowboy
 /// tells whoever takes it what to hook up; it does not stop anybody taking it.
@@ -644,96 +806,22 @@ class _RigRowState extends State<_RigRow> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 96,
-                child: Text('Rig needed', style: t.secondary),
-              ),
-              Expanded(
-                child: Text(
-                  widget.chosen.isEmpty
-                      ? 'Pick at least one'
-                      : widget.chosen.join(', '),
-                  style: t.body.copyWith(
-                    fontSize: 15,
-                    color: widget.chosen.isEmpty ? p.tertiaryLabel : p.label,
-                  ),
-                ),
-              ),
-            ],
-          ),
+        _ChoiceRow<String>(
+          label: 'Rig needed',
+          shown: widget.chosen.isEmpty
+              ? 'Pick at least one'
+              : widget.chosen.join(', '),
+          // Several at once, so every rig on the job carries a tick.
+          ticked: widget.chosen.contains,
+          choices: [for (final rig in offered) (rig, rig)],
+          onChanged: _toggle,
+          valueColour: widget.chosen.isEmpty ? p.tertiaryLabel : null,
         ),
-        if (offered.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final rig in offered)
-                  Builder(
-                    builder: (context) {
-                      final on = widget.chosen.contains(rig);
-                      return Semantics(
-                        button: true,
-                        selected: on,
-                        label: on ? '$rig, chosen' : rig,
-                        onTap: () => _toggle(rig),
-                        excludeSemantics: true,
-                        child: GestureDetector(
-                          onTap: () => _toggle(rig),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: on ? p.accent : p.fill,
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (on) ...[
-                                  Icon(
-                                    Icons.check_rounded,
-                                    size: 13,
-                                    color: p.onAccent,
-                                  ),
-                                  const SizedBox(width: 4),
-                                ],
-                                // A rig name is whatever somebody typed, and
-                                // at large text one of them is wider than a
-                                // narrow phone. It gives way rather than
-                                // painting a stripe across the form.
-                                Flexible(
-                                  child: Text(
-                                    rig,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: t.eventTitle.copyWith(
-                                      fontSize: 12,
-                                      color: on ? p.onAccent : p.label,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-              ],
-            ),
-          ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           child: Row(
             children: [
+              const SizedBox(width: 96),
               Expanded(
                 child: Semantics(
                   textField: true,
@@ -796,80 +884,25 @@ class _AlertRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = CalPalette.of(context);
-    final t = CalText.of(context);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Row(
-            children: [
-              SizedBox(width: 96, child: Text('Alert', style: t.secondary)),
-              Expanded(
-                child: Text(
-                  alertLabel(minutes),
-                  style: t.body.copyWith(fontSize: 15),
-                ),
-              ),
-              if (minutes != null)
-                Icon(
-                  Icons.notifications_active_rounded,
-                  size: 18,
-                  color: p.accent,
-                ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final (value, label) in kAlertChoices)
-                Semantics(
-                  button: true,
-                  selected: value == minutes,
-                  label: 'Alert $label',
-                  onTap: () => onChanged(value),
-                  excludeSemantics: true,
-                  child: GestureDetector(
-                    onTap: () => onChanged(value),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: value == minutes ? p.accent : p.fill,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(
-                        label,
-                        style: t.eventTitle.copyWith(
-                          fontSize: 12,
-                          color: value == minutes ? p.onAccent : p.label,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
+    // Wrapped in a record because "no reminder" is a real choice whose value
+    // is null, and a menu cannot tell a null selection from a dismissed menu.
+    // A one-field record is never null, so both survive the round trip.
+    return _ChoiceRow<(int?,)>(
+      label: 'Alert',
+      shown: alertLabel(minutes),
+      ticked: (choice) => choice == (minutes,),
+      choices: [for (final (value, label) in kAlertChoices) ((value,), label)],
+      onChanged: (choice) => onChanged(choice.$1),
+      trailing: minutes == null
+          ? null
+          : Icon(Icons.notifications_active_rounded, size: 18, color: p.accent),
     );
   }
 }
 
 /// How often it comes back, and how many times.
-///
-/// A menu rather than a row of chips. Six rules laid out flat took three lines
-/// of a form that is already long, and every one of them was showing at all
-/// times to say one thing — which of the six is on. A closed menu says that in
-/// one line and gives the rest of the form the space back.
-class _RepeatRow extends StatefulWidget {
+class _RepeatRow extends StatelessWidget {
   const _RepeatRow({
     required this.repeat,
     required this.times,
@@ -883,93 +916,21 @@ class _RepeatRow extends StatefulWidget {
   final ValueChanged<int> onTimes;
 
   @override
-  State<_RepeatRow> createState() => _RepeatRowState();
-}
-
-class _RepeatRowState extends State<_RepeatRow> {
-  /// Held so the row's own semantics action can open the menu.
-  ///
-  /// The label belongs to the whole row — "Repeat, every week" — and a
-  /// screen reader has to be able to open it from there, not only by finding
-  /// the chevron at the end of it.
-  final GlobalKey<PopupMenuButtonState<Repeat>> _menu = GlobalKey();
-
-  @override
   Widget build(BuildContext context) {
     final p = CalPalette.of(context);
     final t = CalText.of(context);
-    final repeat = widget.repeat;
-
-    final shown = repeat == Repeat.never
-        ? repeat.label
-        : '${repeat.label}, ${widget.times} times';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Semantics(
-          button: true,
-          label: 'Repeat, ${shown.toLowerCase()}',
-          onTap: () => _menu.currentState?.showButtonMenu(),
-          excludeSemantics: true,
-          child: PopupMenuButton<Repeat>(
-            key: _menu,
-            tooltip: 'Repeat',
-            initialValue: repeat,
-            onSelected: widget.onRepeat,
-            position: PopupMenuPosition.under,
-            color: p.card,
-            itemBuilder: (context) => [
-              for (final rule in Repeat.values)
-                PopupMenuItem<Repeat>(
-                  value: rule,
-                  child: Row(
-                    children: [
-                      // The tick, and a gap the same width when there is none,
-                      // so the labels line up down the menu.
-                      SizedBox(
-                        width: 26,
-                        child: rule == repeat
-                            ? Icon(
-                                Icons.check_rounded,
-                                size: 18,
-                                color: p.accent,
-                              )
-                            : null,
-                      ),
-                      Expanded(
-                        child: Text(
-                          rule.label,
-                          style: t.body.copyWith(
-                            fontSize: 15,
-                            color: rule == repeat ? p.accent : p.label,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 96,
-                    child: Text('Repeat', style: t.secondary),
-                  ),
-                  Expanded(
-                    child: Text(shown, style: t.body.copyWith(fontSize: 15)),
-                  ),
-                  Icon(
-                    Icons.unfold_more_rounded,
-                    size: 18,
-                    color: p.tertiaryLabel,
-                  ),
-                ],
-              ),
-            ),
-          ),
+        _ChoiceRow<Repeat>(
+          label: 'Repeat',
+          shown: repeat == Repeat.never
+              ? repeat.label
+              : '${repeat.label}, $times times',
+          ticked: (rule) => rule == repeat,
+          choices: [for (final rule in Repeat.values) (rule, rule.label)],
+          onChanged: onRepeat,
         ),
         if (repeat != Repeat.never)
           Padding(
@@ -983,15 +944,15 @@ class _RepeatRowState extends State<_RepeatRow> {
                 Expanded(
                   child: Semantics(
                     slider: true,
-                    value: '${widget.times} times',
+                    value: '$times times',
                     child: Slider(
-                      value: widget.times.toDouble(),
+                      value: times.toDouble(),
                       min: 2,
                       max: 26,
                       divisions: 24,
-                      label: '${widget.times}',
+                      label: '$times',
                       activeColor: p.accent,
-                      onChanged: (v) => widget.onTimes(v.round()),
+                      onChanged: (v) => onTimes(v.round()),
                     ),
                   ),
                 ),
