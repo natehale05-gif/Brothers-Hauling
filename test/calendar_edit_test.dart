@@ -420,11 +420,14 @@ void main() {
       await tester.enterText(find.byType(TextField).first, 'Weekly gravel');
       // Nothing on the board yet, so there is no chip to tap — it gets typed.
       // Done before the repeat, because choosing a rig grows the form and
-      // pushes the repeat chips further down it.
+      // pushes the repeat row further down it.
       await pickRig(tester, 'Lowboy 25t');
-      await tester.ensureVisible(find.bySemanticsLabel('Every week'));
+      // Repeat is a menu now: open the row, then pick the rule off it.
+      await tester.ensureVisible(find.bySemanticsLabel(RegExp('^Repeat, ')));
       await settle(tester);
-      await tester.tap(find.bySemanticsLabel('Every week'));
+      await tester.tap(find.bySemanticsLabel(RegExp('^Repeat, ')));
+      await settle(tester);
+      await tester.tap(find.text('Every week').last);
       await settle(tester);
       await tester.tap(find.text('Add'));
       await settle(tester);
@@ -436,6 +439,48 @@ void main() {
       expect(made[1].scheduledFor!.difference(made[0].scheduledFor!).inDays, 7);
       // Each is a job in its own right, with its own id.
       expect({for (final j in made) j.id}, hasLength(4));
+    });
+
+    testWidgets('the repeat menu says what is on, and stays shut', (
+      tester,
+    ) async {
+      await pumpApp(tester, jobs: bookedJobs());
+      await tester.tap(find.bySemanticsLabel('New job'));
+      await settle(tester);
+      await tester.ensureVisible(find.bySemanticsLabel('Repeat, never'));
+      await settle(tester);
+
+      // Closed, the row is the only thing saying which rule is on — the five
+      // it is not are behind the menu rather than laid out across the form.
+      expect(find.text('Never'), findsOneWidget);
+      expect(find.text('Every week'), findsNothing);
+      expect(find.text('Every year'), findsNothing);
+    });
+
+    testWidgets('and picking off it changes the row and the count', (
+      tester,
+    ) async {
+      await pumpApp(tester, jobs: bookedJobs());
+      await tester.tap(find.bySemanticsLabel('New job'));
+      await settle(tester);
+      await tester.ensureVisible(find.bySemanticsLabel('Repeat, never'));
+      await settle(tester);
+      await tester.tap(find.bySemanticsLabel('Repeat, never'));
+      await settle(tester);
+
+      // Open, every rule is on offer.
+      for (final rule in Repeat.values) {
+        expect(find.text(rule.label), findsWidgets, reason: rule.label);
+      }
+
+      await tester.tap(find.text('Every month').last);
+      await settle(tester);
+
+      // The row carries how many as well as how often, and the menu is shut.
+      expect(find.bySemanticsLabel('Repeat, every month, 4 times'), findsOne);
+      expect(find.text('Every week'), findsNothing);
+      // How many only matters once something repeats.
+      expect(find.text('How many'), findsOneWidget);
     });
 
     testWidgets('cancelling changes nothing', (tester) async {

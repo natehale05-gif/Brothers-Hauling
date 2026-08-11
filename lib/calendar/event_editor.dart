@@ -864,7 +864,12 @@ class _AlertRow extends StatelessWidget {
 }
 
 /// How often it comes back, and how many times.
-class _RepeatRow extends StatelessWidget {
+///
+/// A menu rather than a row of chips. Six rules laid out flat took three lines
+/// of a form that is already long, and every one of them was showing at all
+/// times to say one thing — which of the six is on. A closed menu says that in
+/// one line and gives the rest of the form the space back.
+class _RepeatRow extends StatefulWidget {
   const _RepeatRow({
     required this.repeat,
     required this.times,
@@ -878,64 +883,92 @@ class _RepeatRow extends StatelessWidget {
   final ValueChanged<int> onTimes;
 
   @override
+  State<_RepeatRow> createState() => _RepeatRowState();
+}
+
+class _RepeatRowState extends State<_RepeatRow> {
+  /// Held so the row's own semantics action can open the menu.
+  ///
+  /// The label belongs to the whole row — "Repeat, every week" — and a
+  /// screen reader has to be able to open it from there, not only by finding
+  /// the chevron at the end of it.
+  final GlobalKey<PopupMenuButtonState<Repeat>> _menu = GlobalKey();
+
+  @override
   Widget build(BuildContext context) {
     final p = CalPalette.of(context);
     final t = CalText.of(context);
+    final repeat = widget.repeat;
+
+    final shown = repeat == Repeat.never
+        ? repeat.label
+        : '${repeat.label}, ${widget.times} times';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Row(
-            children: [
-              SizedBox(width: 96, child: Text('Repeat', style: t.secondary)),
-              Expanded(
-                child: Text(
-                  repeat == Repeat.never
-                      ? repeat.label
-                      : '${repeat.label}, $times times',
-                  style: t.body.copyWith(fontSize: 15),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
+        Semantics(
+          button: true,
+          label: 'Repeat, ${shown.toLowerCase()}',
+          onTap: () => _menu.currentState?.showButtonMenu(),
+          excludeSemantics: true,
+          child: PopupMenuButton<Repeat>(
+            key: _menu,
+            tooltip: 'Repeat',
+            initialValue: repeat,
+            onSelected: widget.onRepeat,
+            position: PopupMenuPosition.under,
+            color: p.card,
+            itemBuilder: (context) => [
               for (final rule in Repeat.values)
-                Semantics(
-                  button: true,
-                  selected: rule == repeat,
-                  label: rule.label,
-                  onTap: () => onRepeat(rule),
-                  excludeSemantics: true,
-                  child: GestureDetector(
-                    onTap: () => onRepeat(rule),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
+                PopupMenuItem<Repeat>(
+                  value: rule,
+                  child: Row(
+                    children: [
+                      // The tick, and a gap the same width when there is none,
+                      // so the labels line up down the menu.
+                      SizedBox(
+                        width: 26,
+                        child: rule == repeat
+                            ? Icon(
+                                Icons.check_rounded,
+                                size: 18,
+                                color: p.accent,
+                              )
+                            : null,
                       ),
-                      decoration: BoxDecoration(
-                        color: rule == repeat ? p.accent : p.fill,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(
-                        rule.label,
-                        style: t.eventTitle.copyWith(
-                          fontSize: 12,
-                          color: rule == repeat ? p.onAccent : p.label,
+                      Expanded(
+                        child: Text(
+                          rule.label,
+                          style: t.body.copyWith(
+                            fontSize: 15,
+                            color: rule == repeat ? p.accent : p.label,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
             ],
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 96,
+                    child: Text('Repeat', style: t.secondary),
+                  ),
+                  Expanded(
+                    child: Text(shown, style: t.body.copyWith(fontSize: 15)),
+                  ),
+                  Icon(
+                    Icons.unfold_more_rounded,
+                    size: 18,
+                    color: p.tertiaryLabel,
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
         if (repeat != Repeat.never)
@@ -950,15 +983,15 @@ class _RepeatRow extends StatelessWidget {
                 Expanded(
                   child: Semantics(
                     slider: true,
-                    value: '$times times',
+                    value: '${widget.times} times',
                     child: Slider(
-                      value: times.toDouble(),
+                      value: widget.times.toDouble(),
                       min: 2,
                       max: 26,
                       divisions: 24,
-                      label: '$times',
+                      label: '${widget.times}',
                       activeColor: p.accent,
-                      onChanged: (v) => onTimes(v.round()),
+                      onChanged: (v) => widget.onTimes(v.round()),
                     ),
                   ),
                 ),
