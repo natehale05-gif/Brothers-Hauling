@@ -6,6 +6,7 @@ import 'data/intake.dart';
 import 'data/server_control.dart';
 import 'data/store.dart';
 import 'calendar/calendar_home.dart';
+import 'calendar/toast.dart';
 import 'calendar/calendar_state.dart';
 import 'calendar/calendar_theme.dart';
 import 'calendar/sign_in.dart';
@@ -157,7 +158,14 @@ class _BrothersHaulingAppState extends State<BrothersHaulingApp> {
             ).clamp(minScaleFactor: 1.0, maxScaleFactor: 1.6);
             return MediaQuery(
               data: MediaQuery.of(context).copyWith(textScaler: scaler),
-              child: child!,
+              // Above every route, not inside one. Half of what the app has
+              // to say is raised from a pushed screen — the job editor, the
+              // price sheet, the crew roster — and a message drawn under the
+              // screen that caused it is a message nobody reads.
+              child: Stack(
+                textDirection: TextDirection.ltr,
+                children: [child!, const AppToast()],
+              ),
             );
           },
           // The board is what the signed-in person is allowed to see, so

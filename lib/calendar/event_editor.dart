@@ -473,149 +473,6 @@ class _EventEditorState extends State<EventEditor> {
   }
 }
 
-/// A form row that opens a menu of choices.
-///
-/// Every one of these used to be a row of chips: the whole list showing at all
-/// times to say which one of it is on. Six rules, seven reminders and five
-/// kinds of work came to nine lines of a form that already scrolls, and none
-/// of them earned the space — a choice is read far more often than it is
-/// changed. Shut, the row says what is chosen; open, it offers the rest.
-class _ChoiceRow<T> extends StatefulWidget {
-  const _ChoiceRow({
-    required this.label,
-    required this.shown,
-    required this.ticked,
-    required this.choices,
-    required this.onChanged,
-    this.valueColour,
-    this.dotOf,
-    this.trailing,
-  });
-
-  final String label;
-
-  /// What the row reads when the menu is shut.
-  final String shown;
-
-  /// Which choices carry a tick. A predicate rather than one value, because
-  /// the rigs a job needs are a list and every one of them is in force.
-  final bool Function(T) ticked;
-
-  final List<(T, String)> choices;
-  final ValueChanged<T> onChanged;
-
-  /// The kind of work is written in its own colour, the way the calendar
-  /// draws it.
-  final Color? valueColour;
-
-  /// A colour dot beside each choice, where the choice has one.
-  final Color? Function(T)? dotOf;
-
-  /// Shown at the end of the row — the bell that says a reminder is set.
-  final Widget? trailing;
-
-  @override
-  State<_ChoiceRow<T>> createState() => _ChoiceRowState<T>();
-}
-
-class _ChoiceRowState<T> extends State<_ChoiceRow<T>> {
-  /// Held so the row's own semantics action can open the menu.
-  ///
-  /// The label belongs to the whole row — "Alert, 15 min before" — and a
-  /// screen reader has to be able to open it from there, not only by finding
-  /// the chevron on the end of it.
-  final GlobalKey<PopupMenuButtonState<T>> _menu = GlobalKey();
-
-  @override
-  Widget build(BuildContext context) {
-    final p = CalPalette.of(context);
-    final t = CalText.of(context);
-
-    return Semantics(
-      button: true,
-      label: '${widget.label}, ${widget.shown.toLowerCase()}',
-      onTap: () => _menu.currentState?.showButtonMenu(),
-      excludeSemantics: true,
-      child: PopupMenuButton<T>(
-        key: _menu,
-        tooltip: widget.label,
-        // Deliberately no initialValue: it makes the menu open with the chosen
-        // item over the button rather than under the row, which on the last
-        // choice in a long list puts the first ones off the top of the screen.
-        // The tick says which is in force.
-        onSelected: widget.onChanged,
-        position: PopupMenuPosition.under,
-        color: p.card,
-        itemBuilder: (context) => [
-          for (final (value, label) in widget.choices)
-            PopupMenuItem<T>(
-              value: value,
-              child: Row(
-                children: [
-                  // The tick, and a gap the same width where there is none, so
-                  // the labels line up down the menu.
-                  SizedBox(
-                    width: 26,
-                    child: widget.ticked(value)
-                        ? Icon(Icons.check_rounded, size: 18, color: p.accent)
-                        : null,
-                  ),
-                  if (widget.dotOf?.call(value) case final dot?) ...[
-                    Container(
-                      width: 9,
-                      height: 9,
-                      decoration: BoxDecoration(
-                        color: dot,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Expanded(
-                    child: Text(
-                      label,
-                      style: t.body.copyWith(
-                        fontSize: 15,
-                        color: widget.ticked(value) ? p.accent : p.label,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 96,
-                child: Text(widget.label, style: t.secondary),
-              ),
-              Expanded(
-                child: Text(
-                  widget.shown,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: t.body.copyWith(
-                    fontSize: 15,
-                    color: widget.valueColour ?? p.label,
-                  ),
-                ),
-              ),
-              if (widget.trailing case final extra?) ...[
-                extra,
-                const SizedBox(width: 6),
-              ],
-              Icon(Icons.unfold_more_rounded, size: 18, color: p.tertiaryLabel),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// The box for naming a kind of work the app has no colour for.
 const Key kKindField = Key('kind-field');
 
@@ -674,7 +531,7 @@ class _KindRowState extends State<_KindRow> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _ChoiceRow<(WorkCalendar?,)>(
+        ChoiceRow<(WorkCalendar?,)>(
           label: 'Kind',
           shown: typed.isNotEmpty
               ? typed
@@ -806,7 +663,7 @@ class _RigRowState extends State<_RigRow> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _ChoiceRow<String>(
+        ChoiceRow<String>(
           label: 'Rig needed',
           shown: widget.chosen.isEmpty
               ? 'Pick at least one'
@@ -888,7 +745,7 @@ class _AlertRow extends StatelessWidget {
     // Wrapped in a record because "no reminder" is a real choice whose value
     // is null, and a menu cannot tell a null selection from a dismissed menu.
     // A one-field record is never null, so both survive the round trip.
-    return _ChoiceRow<(int?,)>(
+    return ChoiceRow<(int?,)>(
       label: 'Alert',
       shown: alertLabel(minutes),
       ticked: (choice) => choice == (minutes,),
@@ -923,7 +780,7 @@ class _RepeatRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _ChoiceRow<Repeat>(
+        ChoiceRow<Repeat>(
           label: 'Repeat',
           shown: repeat == Repeat.never
               ? repeat.label

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:haul_board/calendar/calendar_state.dart';
+import 'package:haul_board/calendar/event_sheet.dart';
 import 'package:haul_board/data/seed_data.dart';
 import 'package:haul_board/models/job.dart';
 import 'package:haul_board/models/role.dart';
@@ -20,6 +21,27 @@ Job running(String id, {required String who, int stage = 0}) =>
 
 Future<void> openJob(WidgetTester tester) async {
   await tester.tap(find.text('Debris haul').first);
+  await settle(tester);
+}
+
+/// Scrolls the open job sheet until [what] has been built and is on screen.
+///
+/// The sheet is a lazy list and the log sits under all of it, so a finder
+/// alone never sees it — there is nothing built to find.
+Future<void> scrollSheet(WidgetTester tester, Finder what) async {
+  await tester.scrollUntilVisible(
+    what,
+    200,
+    // Named: the calendar behind the sheet scrolls too, and so does every
+    // text field on either.
+    scrollable: find
+        .descendant(
+          of: find.byType(EventSheet),
+          matching: find.byType(Scrollable),
+        )
+        .first,
+    maxScrolls: 40,
+  );
   await settle(tester);
 }
 
@@ -228,6 +250,51 @@ void main() {
         find.text('Put a price on it before it goes to the crew.'),
         findsOne,
       );
+    });
+  });
+
+  group('what happened, and when', () {
+    testWidgets('the log is drawn once a job has one', (tester) async {
+      final app = await pumpApp(
+        tester,
+        role: Role.employee,
+        view: CalView.day,
+        jobs: [running('HL-1', who: kMeId)],
+      );
+      await openJob(tester);
+
+      // Nothing has happened yet, so there is nothing to read.
+      expect(jobIn(app.state, 'HL-1').events, isEmpty);
+      expect(find.text('What happened'), findsNothing);
+
+      await tester.tap(find.text('Roll out'));
+      await settle(tester);
+
+      await scrollSheet(tester, find.text('What happened'));
+      expect(find.text('What happened'), findsOneWidget);
+      // Written by the mutation that moved it, not typed by anybody.
+      expect(jobIn(app.state, 'HL-1').events, isNotEmpty);
+      expect(find.textContaining('Left the yard'), findsOneWidget);
+    });
+
+    testWidgets('and reads down the way the day happened', (tester) async {
+      await pumpApp(
+        tester,
+        role: Role.employee,
+        view: CalView.day,
+        jobs: [running('HL-1', who: kMeId)],
+      );
+      await openJob(tester);
+
+      await tester.tap(find.text('Roll out'));
+      await settle(tester);
+      await tester.tap(find.text("I'm on site"));
+      await settle(tester);
+
+      await scrollSheet(tester, find.textContaining('Arrived on site'));
+      final departed = tester.getRect(find.textContaining('Left the yard'));
+      final arrived = tester.getRect(find.textContaining('Arrived on site'));
+      expect(departed.top, lessThan(arrived.top), reason: 'oldest first');
     });
   });
 }

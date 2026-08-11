@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:haul_board/calendar/crew_screen.dart';
+import 'package:haul_board/calendar/form_bits.dart';
 import 'package:haul_board/models/job.dart';
 import 'package:haul_board/models/role.dart';
+import 'package:flutter/material.dart';
 
 import 'calendar_event_test.dart' show job;
 import 'helpers.dart';
@@ -18,6 +20,27 @@ Job inHand(String id, {required String who, int stage = 1}) =>
       stage: stage,
       startedAt: DateTime(2026, 8, 6, 8),
     );
+
+/// Scrolls the crew screen until [what] has been built and is on screen.
+///
+/// The roster is a lazy list and the hire form sits under all of it, so a
+/// finder alone never sees it — there is nothing built to find.
+Future<void> scrollTo(WidgetTester tester, Finder what) async {
+  await tester.scrollUntilVisible(
+    what,
+    240,
+    // Named, and named precisely: the calendar is still mounted behind this
+    // screen, and every text field on it carries a scrollable of its own.
+    scrollable: find
+        .descendant(
+          of: find.byType(CrewScreen),
+          matching: find.byType(Scrollable),
+        )
+        .first,
+    maxScrolls: 40,
+  );
+  await settle(tester);
+}
 
 /// Opens the Calendars sheet, then the crew screen.
 Future<void> openCrew(WidgetTester tester) async {
@@ -193,6 +216,100 @@ void main() {
         lessThan(offShift),
         reason: 'nobody off shift sits above somebody on it',
       );
+    });
+  });
+
+  group('taking somebody on', () {
+    testWidgets('an owner can, and they land on the roster', (tester) async {
+      final app = await pumpApp(tester, role: Role.admin);
+      await openCrew(tester);
+
+      final before = app.state.crew.length;
+      await scrollTo(tester, find.text('Take somebody on'));
+      await tester.enterText(find.byType(TextField).first, 'R. Okafor');
+      await settle(tester);
+      await tester.tap(find.bySemanticsLabel('Add to the crew'));
+      await settle(tester);
+
+      expect(app.state.crew, hasLength(before + 1));
+      final hired = app.state.crew.firstWhere((c) => c.name == 'R. Okafor');
+      expect(hired.role, Role.employee, reason: 'the first level offered');
+      // Nobody is on shift the moment they are hired, and nobody has the app
+      // open before they have installed it.
+      expect(hired.onShift, isFalse);
+      expect(hired.appOpen, isFalse);
+    });
+
+    testWidgets('a name is asked for before anybody is added', (tester) async {
+      final app = await pumpApp(tester, role: Role.admin);
+      await openCrew(tester);
+      final before = app.state.crew.length;
+
+      await scrollTo(tester, find.text('Take somebody on'));
+      await tester.tap(find.bySemanticsLabel('Add to the crew'));
+      await settle(tester);
+
+      expect(app.state.crew, hasLength(before));
+      expect(find.text('Say who you are taking on.'), findsOneWidget);
+    });
+
+    testWidgets('and the level can be picked off the menu', (tester) async {
+      final app = await pumpApp(tester, role: Role.admin);
+      await openCrew(tester);
+
+      await scrollTo(tester, find.text('Take somebody on'));
+      await tester.tap(find.bySemanticsLabel(RegExp('^Level, ')).last);
+      await settle(tester);
+      await tester.tap(find.text('Manager').last);
+      await settle(tester);
+
+      await tester.enterText(find.byType(TextField).first, 'J. Reyes');
+      await settle(tester);
+      await tester.tap(find.bySemanticsLabel('Add to the crew'));
+      await settle(tester);
+
+      expect(
+        app.state.crew.firstWhere((c) => c.name == 'J. Reyes').role,
+        Role.manager,
+      );
+    });
+  });
+
+  group('moving somebody between levels', () {
+    testWidgets('an owner can promote a driver', (tester) async {
+      final app = await pumpApp(tester, role: Role.admin);
+      await openCrew(tester);
+
+      final them = app.state.crew.firstWhere((c) => c.id == 'c2');
+      expect(them.role, Role.employee);
+
+      // By the widget rather than by its label: several people on a roster
+      // each have a level, and this names whose without depending on how the
+      // row happens to word itself.
+      final row = find.byWidgetPredicate(
+        (w) =>
+            w is ChoiceRow<Role> && w.spokenLabel == 'Level for ${them.name}',
+      );
+      await scrollTo(tester, row);
+      await tester.tap(row);
+      await settle(tester);
+      await tester.tap(find.text('Manager').last);
+      await settle(tester);
+
+      expect(app.state.crew.firstWhere((c) => c.id == 'c2').role, Role.manager);
+    });
+
+    testWidgets('but not their own, which is a door with no handle', (
+      tester,
+    ) async {
+      final app = await pumpApp(tester, role: Role.admin);
+      await openCrew(tester);
+
+      // Nothing is offered against the signed-in owner, so the only way to
+      // lock yourself out is not there to press.
+      final me = app.state.crew.firstWhere((c) => c.id == app.state.meId);
+      expect(find.text(me.name), findsOneWidget);
+      expect(await app.state.setCrewRole(me, Role.employee), isFalse);
     });
   });
 }

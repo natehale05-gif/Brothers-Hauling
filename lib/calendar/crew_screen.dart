@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../models/crew_member.dart';
 import '../models/job.dart';
+import '../models/role.dart';
 import '../models/time_entry.dart';
 import '../state/app_state.dart';
 import 'calendar_state.dart';
 import 'calendar_theme.dart';
+import 'form_bits.dart';
 
 /// Where everybody is, and what they have put in.
 ///
@@ -80,6 +82,147 @@ class CrewScreen extends StatelessWidget {
               ),
             ),
           for (final member in crew) _Person(member: member),
+          if (app.canHire) const _Hire(),
+        ],
+      ),
+    );
+  }
+}
+
+/// Putting somebody on the books.
+///
+/// What it offers comes from [AppState.hirableRoles], and the state refuses
+/// anything outside it anyway — a form is where you offer the right choices,
+/// not where you enforce them.
+class _Hire extends StatefulWidget {
+  const _Hire();
+
+  @override
+  State<_Hire> createState() => _HireState();
+}
+
+class _HireState extends State<_Hire> {
+  final TextEditingController _name = TextEditingController();
+  final TextEditingController _unit = TextEditingController();
+  Role? _level;
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _unit.dispose();
+    super.dispose();
+  }
+
+  Future<void> _go() async {
+    final app = AppScope.read(context);
+    final level = _level ?? app.hirableRoles.first;
+    if (_name.text.trim().isEmpty) {
+      app.showToast('Say who you are taking on.');
+      return;
+    }
+
+    setState(() => _busy = true);
+    final ok = await app.hire(name: _name.text, role: level, unit: _unit.text);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (ok) {
+        _name.clear();
+        _unit.clear();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
+    final app = AppScope.of(context);
+    final offered = app.hirableRoles;
+    final level = _level ?? offered.first;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            child: Text('Take somebody on', style: t.bodyStrong),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: p.card,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              children: [
+                FormRow(
+                  label: 'Name',
+                  controller: _name,
+                  hint: 'Who is joining',
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: Divider(
+                    height: 0.5,
+                    thickness: 0.5,
+                    color: p.hairline,
+                  ),
+                ),
+                FormRow(
+                  label: 'Unit',
+                  controller: _unit,
+                  hint: 'The truck they run, if any',
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: Divider(
+                    height: 0.5,
+                    thickness: 0.5,
+                    color: p.hairline,
+                  ),
+                ),
+                ChoiceRow<Role>(
+                  label: 'Level',
+                  shown: level.label,
+                  ticked: (role) => role == level,
+                  choices: [for (final role in offered) (role, role.label)],
+                  onChanged: (role) => setState(() => _level = role),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          ExcludeSemantics(
+            child: Text(
+              // Said plainly, because a name on the roster that cannot sign in
+              // looks like a broken app rather than a job half done.
+              'They go on the roster off shift, with no way in until you give '
+              'them a login.',
+              style: t.secondary.copyWith(fontSize: 13),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Semantics(
+            button: true,
+            label: 'Add to the crew',
+            onTap: _busy ? null : _go,
+            excludeSemantics: true,
+            child: FilledButton(
+              onPressed: _busy ? null : _go,
+              style: FilledButton.styleFrom(
+                backgroundColor: p.accent,
+                foregroundColor: p.onAccent,
+                minimumSize: const Size.fromHeight(48),
+              ),
+              child: Text(
+                'Add to the crew',
+                style: t.bodyStrong.copyWith(fontSize: 16, color: p.onAccent),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -187,6 +330,21 @@ class _Person extends StatelessWidget {
                 ),
               ],
             ),
+            // Moving somebody between levels is an owner's, and never their
+            // own — the state refuses that, and offering it here would be a
+            // button whose only outcome is a refusal.
+            if (app.canSetRoles && member.id != app.meId)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: ChoiceRow<Role>(
+                  label: 'Level',
+                  spokenLabel: 'Level for ${member.name}',
+                  shown: member.role.label,
+                  ticked: (role) => role == member.role,
+                  choices: [for (final role in Role.values) (role, role.label)],
+                  onChanged: (role) => app.setCrewRole(member, role),
+                ),
+              ),
             const SizedBox(height: 10),
             _Line(icon: Icons.local_shipping_rounded, text: _doing(job)),
             const SizedBox(height: 4),

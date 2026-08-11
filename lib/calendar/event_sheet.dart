@@ -261,6 +261,9 @@ class _Detail extends StatelessWidget {
                   _Group(
                     rows: [_Row(label: 'Access', value: job.access)],
                   ),
+                // Last, because it is the longest thing on the sheet and the
+                // only part nobody needs before the job is under way.
+                _TheLog(job: job),
                 if (job.hazards.isNotEmpty)
                   _Group(
                     rows: [
@@ -674,6 +677,106 @@ class _PhotoSlot extends StatelessWidget {
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// What happened on the job, and when.
+///
+/// Written all along by the mutations that move a job — accepted, left the
+/// yard, arrived, closed — and until now read by nothing. It is the answer to
+/// "what time did they get there", which is the question a customer rings
+/// about, and it is the one part of a job nobody types.
+class _TheLog extends StatelessWidget {
+  const _TheLog({required this.job});
+
+  final Job job;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
+    if (job.events.isEmpty) return const SizedBox.shrink();
+
+    // Newest last: a log is read down the way the day happened.
+    final entries = [...job.events]..sort((a, b) => a.at.compareTo(b.at));
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        decoration: BoxDecoration(
+          color: p.card,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('What happened', style: t.secondary),
+            ),
+            for (var i = 0; i < entries.length; i++)
+              MergeSemantics(
+                // The rail's connector runs the height of the row, and a row
+                // in a list has no height to run to until something measures
+                // it. A handful of entries is cheap to measure twice.
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // A rail down the left, the way a timeline reads: the dot
+                      // is the moment, the line is the gap to the next one.
+                      SizedBox(
+                        width: 14,
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 5),
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                color: switch (entries[i].kind) {
+                                  EventKind.depart => p.accent,
+                                  EventKind.arrive => p.accent,
+                                  EventKind.flat => p.tertiaryLabel,
+                                },
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            if (i < entries.length - 1)
+                              Expanded(
+                                child: Container(width: 1, color: p.hairline),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 68,
+                        child: Text(
+                          entries[i].time,
+                          style: t.secondary.copyWith(fontSize: 13),
+                        ),
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            bottom: i < entries.length - 1 ? 10 : 0,
+                          ),
+                          child: Text(
+                            entries[i].label,
+                            style: t.body.copyWith(fontSize: 14),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

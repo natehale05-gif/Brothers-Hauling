@@ -1328,6 +1328,11 @@ class AppState extends ChangeNotifier {
   void showToast(String message) {
     _toast = message;
     _toastTimer?.cancel();
+    // Notifies for itself. A method called "show" that leaves the message
+    // sitting in a field until some later call happens to rebuild is a trap,
+    // and it caught the first screen written against it. The callers that
+    // notify again are the same frame, and cost nothing.
+    notifyListeners();
     final after = toastDuration;
     if (after == null) return;
     _toastTimer = Timer(after, () {
