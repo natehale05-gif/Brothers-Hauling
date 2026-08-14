@@ -477,6 +477,65 @@ function check(label, ok, detail = '') {
       await page.close();
     }
 
+    // ---- the office's day sheet, on a desk and on a phone -----------------
+    // The paper run-sheet the yard has always kept: a lane per rig, what each
+    // job still owes, and who is out on the day. The one screen in the app
+    // whose whole job is money, so the level that opens it matters as much as
+    // what it says.
+    for (const [what, size] of [
+      ['a desk', { width: 1194, height: 834 }],
+      ['a phone', { width: 390, height: 844 }],
+    ]) {
+      const { page, errors } = await boot(browser, size);
+      await signIn(page);
+      await press(page, 'Calendars');
+      await press(page, 'Day sheet');
+
+      check(
+        `${what} opens the day sheet onto the rigs of the day`,
+        await axContains(page, /Dump trailer 14k/),
+      );
+      check(
+        `${what} rules the sheet with what is still owed`,
+        await axContains(page, /Still owed/),
+      );
+      check(
+        `${what} carries a job's balance rather than its price`,
+        // The gravel delivery is half paid on the demo board.
+        await axContains(page, /Owes \$270/),
+      );
+      check(
+        `${what} says how a settled job was paid`,
+        await axContains(page, /Paid by Card/),
+      );
+      check(
+        `${what} names who is out on the day`,
+        await axContains(page, /Who's working/),
+      );
+
+      await press(page, 'The day after');
+      check(
+        `${what} walks to the next day from the sheet itself`,
+        await axContains(page, /Equipment move|Nothing booked/),
+      );
+
+      check('no page errors', errors.length === 0, errors.join('; '));
+      await page.close();
+    }
+
+    // A driver has no business on it, and must not be shown the way in.
+    {
+      const { page, errors } = await boot(browser, { width: 390, height: 844 });
+      await signIn(page, 'Employee');
+      await press(page, 'Calendars');
+      check(
+        'a driver is not offered the day sheet at all',
+        !(await axContains(page, /Day sheet/)),
+      );
+      check('no page errors', errors.length === 0, errors.join('; '));
+      await page.close();
+    }
+
     // ---- the driver's side: accept a job and work it -----------------------
     // The one path nothing else covers end to end. The demo board pushes
     // HL-4491 at the owner, who drives — which is ordinary in a yard this

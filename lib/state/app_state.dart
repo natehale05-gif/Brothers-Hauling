@@ -596,6 +596,55 @@ class AppState extends ChangeNotifier {
     return true;
   }
 
+  /// Records what has been collected, and how.
+  ///
+  /// Its own write for the same reason pricing is: what a job bills at is a
+  /// decision, what has been handed over is a fact, and they happen days
+  /// apart.
+  Future<bool> recordPayment(
+    Job job, {
+    required int paid,
+    required String method,
+  }) async {
+    if (!canPriceJobs) {
+      showToast('Only an owner or a manager can take a payment.');
+      return false;
+    }
+    if (paid < 0) {
+      showToast('A payment cannot be less than nothing.');
+      return false;
+    }
+
+    final ok = await _board.apply(
+      _stamp(
+        (id, at) => EditJob(
+          id: id,
+          jobId: job.id,
+          actorId: meId,
+          at: at,
+          fields: {'paid': paid, 'paymentMethod': method.trim()},
+        ),
+      ),
+    );
+    if (!ok) return false;
+    notifyListeners();
+    return true;
+  }
+
+  /// Every way the board has been paid so far, in alphabetical order.
+  ///
+  /// Read off the work rather than written into the app, the same as the rigs:
+  /// a yard that starts taking one more kind of payment should not need a new
+  /// build to record it.
+  List<String> get knownPayments {
+    final seen = <String>{};
+    for (final job in _board.jobs) {
+      if (job.paymentMethod.trim().isNotEmpty) seen.add(job.paymentMethod);
+    }
+    return seen.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  }
+
   // ------------------------------------------------------------- reminders
 
   /// What the device has been asked to buzz about, and when.

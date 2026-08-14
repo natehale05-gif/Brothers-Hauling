@@ -24,6 +24,14 @@ Future<bool> showPriceSheet(BuildContext context, Job job) async {
   return saved ?? false;
 }
 
+/// The boxes on this form, named so a test can reach one without counting
+/// text fields down the screen — a count that breaks the first time a row is
+/// added, as it did.
+const Key kBilledField = Key('billed-field');
+const Key kDumpFeeField = Key('dump-fee-field');
+const Key kPaidField = Key('paid-field');
+const Key kPaymentField = Key('payment-field');
+
 class PriceSheet extends StatefulWidget {
   const PriceSheet({super.key, required this.job});
 
@@ -36,6 +44,8 @@ class PriceSheet extends StatefulWidget {
 class _PriceSheetState extends State<PriceSheet> {
   late final TextEditingController _billed;
   late final TextEditingController _dumpFee;
+  late final TextEditingController _paid;
+  late final TextEditingController _method;
   bool _saving = false;
 
   @override
@@ -49,7 +59,11 @@ class _PriceSheetState extends State<PriceSheet> {
     _dumpFee = TextEditingController(
       text: widget.job.dumpFee == 0 ? '' : '${widget.job.dumpFee}',
     );
-    for (final c in [_billed, _dumpFee]) {
+    _paid = TextEditingController(
+      text: widget.job.paid == 0 ? '' : '${widget.job.paid}',
+    );
+    _method = TextEditingController(text: widget.job.paymentMethod);
+    for (final c in [_billed, _dumpFee, _paid, _method]) {
       c.addListener(() => setState(() {}));
     }
   }
@@ -58,6 +72,8 @@ class _PriceSheetState extends State<PriceSheet> {
   void dispose() {
     _billed.dispose();
     _dumpFee.dispose();
+    _paid.dispose();
+    _method.dispose();
     super.dispose();
   }
 
@@ -67,11 +83,17 @@ class _PriceSheetState extends State<PriceSheet> {
   /// What is left after the tip, before anybody's hours come out of it.
   int get _before => _bills - _tip;
 
+  int get _taken => dollarsFrom(_paid.text);
+
+  /// What the customer is still short. The figure the day sheet adds up.
+  int get _owed => _bills - _taken;
+
   Future<void> _save({bool andPublish = false}) async {
     setState(() => _saving = true);
     final app = AppScope.read(context);
 
     await app.priceJob(widget.job, billed: _bills, dumpFee: _tip);
+    await app.recordPayment(widget.job, paid: _taken, method: _method.text);
     // Read the job back off the board: publishing checks the price, and the
     // copy this screen was opened with still carries the old one.
     if (andPublish) {
@@ -142,6 +164,7 @@ class _PriceSheetState extends State<PriceSheet> {
           FormGroup(
             children: [
               FormRow(
+                key: kBilledField,
                 label: 'Bills at',
                 controller: _billed,
                 hint: 'What the customer pays',
@@ -150,6 +173,7 @@ class _PriceSheetState extends State<PriceSheet> {
                 autofocus: true,
               ),
               FormRow(
+                key: kDumpFeeField,
                 label: 'Disposal',
                 controller: _dumpFee,
                 hint: 'What the tip charges',
@@ -202,6 +226,51 @@ class _PriceSheetState extends State<PriceSheet> {
                 style: t.secondary.copyWith(fontSize: 13),
               ),
             ),
+          FormGroup(
+            children: [
+              FormRow(
+                key: kPaidField,
+                label: 'Paid',
+                controller: _paid,
+                hint: 'What has been handed over',
+                prefix: '\$',
+                keyboard: TextInputType.number,
+              ),
+              // Free text with what the board has taken before offered, the
+              // same as the rigs: a yard that starts taking one more kind of
+              // payment should not need a new build to write it down.
+              _HowPaid(controller: _method, onChanged: () => setState(() {})),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: p.card,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: MergeSemantics(
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 96,
+                      child: Text('Still owes', style: t.secondary),
+                    ),
+                    Expanded(
+                      child: Text(
+                        _owed == 0 ? 'Nothing' : '\$$_owed',
+                        style: t.bodyStrong.copyWith(
+                          fontSize: 15,
+                          color: _owed > 0 ? p.accent : p.label,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
           if (unpriced)
             _PutItOnTheBoard(
               enabled: _bills > 0 && !_saving,
@@ -269,6 +338,80 @@ class _PutItOnTheBoard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// How the job was settled — picked off what the board has taken before, or
+/// typed when it is something new.
+class _HowPaid extends StatelessWidget {
+  const _HowPaid({required this.controller, required this.onChanged});
+
+  final TextEditingController controller;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final t = CalText.of(context);
+    final known = AppScope.of(context).knownPayments;
+    final typed = controller.text.trim();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (known.isNotEmpty)
+          ChoiceRow<String>(
+            label: 'Paid by',
+            shown: typed.isEmpty ? 'Not yet' : typed,
+            valueColour: typed.isEmpty ? p.tertiaryLabel : null,
+            ticked: (way) => way.toLowerCase() == typed.toLowerCase(),
+            choices: [for (final way in known) (way, way)],
+            onChanged: (way) {
+              // Picking the one already on the job clears it, the way tapping
+              // a chosen rig takes it off. A payment recorded by mistake has
+              // to be undoable without retyping the whole row.
+              controller.text = way.toLowerCase() == typed.toLowerCase()
+                  ? ''
+                  : way;
+              onChanged();
+            },
+          ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(16, known.isEmpty ? 8 : 0, 16, 12),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 96,
+                child: Text(known.isEmpty ? 'Paid by' : '', style: t.secondary),
+              ),
+              Expanded(
+                child: Semantics(
+                  textField: true,
+                  label: 'How it was paid',
+                  child: TextField(
+                    key: kPaymentField,
+                    controller: controller,
+                    style: t.body.copyWith(fontSize: 15),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      hintText: known.isEmpty
+                          ? 'Cash, card, a cheque, an invoice'
+                          : 'Something else',
+                      hintStyle: t.body.copyWith(
+                        fontSize: 15,
+                        color: p.tertiaryLabel,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

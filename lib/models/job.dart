@@ -201,6 +201,8 @@ class Job {
     required this.miles,
     required this.deadhead,
     required this.billed,
+    this.paid = 0,
+    this.paymentMethod = '',
     this.hazards = const [],
     this.status = JobStatus.open,
     this.assignedTo,
@@ -260,6 +262,27 @@ class Job {
   final int deadhead;
 
   final int billed;
+
+  /// What has actually been collected, in whole dollars.
+  ///
+  /// Separate from [billed] because a job that has been done and a job that
+  /// has been paid for are different facts, and the day sheet is about the
+  /// gap between them.
+  final int paid;
+
+  /// Cash, card, a cheque, an invoice — however it was settled.
+  ///
+  /// Free text for the same reason the rigs are: what a yard takes changes,
+  /// and a closed list is one somebody has to come back and edit the app to
+  /// extend. Empty until somebody has been paid.
+  final String paymentMethod;
+
+  /// What the customer still owes.
+  ///
+  /// Can go negative on an overpayment, and is left that way rather than
+  /// clamped — money the yard owes back is worth seeing, not hiding.
+  int get owes => billed - paid;
+
   final List<String> hazards;
   final JobStatus status;
   final String? assignedTo;
@@ -434,6 +457,8 @@ class Job {
     'miles': miles,
     'deadhead': deadhead,
     'billed': billed,
+    'paid': paid,
+    'paymentMethod': paymentMethod,
     'hazards': hazards,
     'status': status.name,
     'assignedTo': assignedTo,
@@ -494,6 +519,8 @@ class Job {
       miles: (json['miles'] as num?)?.toInt() ?? 0,
       deadhead: (json['deadhead'] as num?)?.toInt() ?? 0,
       billed: (json['billed'] as num?)?.toInt() ?? 0,
+      paid: (json['paid'] as num?)?.toInt() ?? 0,
+      paymentMethod: json['paymentMethod'] as String? ?? '',
       hazards: (json['hazards'] as List?)?.cast<String>() ?? const [],
       status: _enumFrom(JobStatus.values, json['status'], JobStatus.open),
       assignedTo: json['assignedTo'] as String?,
@@ -561,6 +588,8 @@ class Job {
       miles: miles,
       deadhead: deadhead,
       billed: billed,
+      paid: paid,
+      paymentMethod: paymentMethod,
       hazards: hazards,
       status: status ?? this.status,
       assignedTo: clearAssignee ? null : (assignedTo ?? this.assignedTo),

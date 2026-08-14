@@ -90,8 +90,20 @@ void main() {
       await openPricer(tester);
       expect(find.byType(PriceSheet), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField).first, '525');
-      await tester.enterText(find.byType(TextField).last, '75');
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(kBilledField),
+          matching: find.byType(TextField),
+        ),
+        '525',
+      );
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(kDumpFeeField),
+          matching: find.byType(TextField),
+        ),
+        '75',
+      );
       await settle(tester);
 
       // The arithmetic is shown while it is being typed, not after saving.
@@ -116,7 +128,13 @@ void main() {
       );
 
       await openPricer(tester);
-      await tester.enterText(find.byType(TextField).first, '\$1,250.00');
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(kBilledField),
+          matching: find.byType(TextField),
+        ),
+        '\$1,250.00',
+      );
       await settle(tester);
       await tester.tap(find.text('Done'));
       await settle(tester);
@@ -133,7 +151,13 @@ void main() {
       );
 
       await openPricer(tester);
-      await tester.enterText(find.byType(TextField).first, '999');
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(kBilledField),
+          matching: find.byType(TextField),
+        ),
+        '999',
+      );
       await settle(tester);
       await tester.tap(find.text('Cancel'));
       await settle(tester);
@@ -150,8 +174,20 @@ void main() {
       );
 
       await openPricer(tester);
-      await tester.enterText(find.byType(TextField).first, '100');
-      await tester.enterText(find.byType(TextField).last, '160');
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(kBilledField),
+          matching: find.byType(TextField),
+        ),
+        '100',
+      );
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(kDumpFeeField),
+          matching: find.byType(TextField),
+        ),
+        '160',
+      );
       await settle(tester);
 
       expect(find.textContaining('costs more than the job bills'), findsOne);
@@ -201,7 +237,13 @@ void main() {
       expect(jobIn(app.state, 'HL-1').status, JobStatus.requested);
 
       await openPricer(tester);
-      await tester.enterText(find.byType(TextField).first, '480');
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(kBilledField),
+          matching: find.byType(TextField),
+        ),
+        '480',
+      );
       await settle(tester);
       await tester.tap(find.text('Put it on the board'));
       await settle(tester);

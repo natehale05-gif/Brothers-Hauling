@@ -5,6 +5,7 @@ import '../state/app_state.dart';
 import 'calendar_state.dart';
 import 'calendar_theme.dart';
 import 'crew_screen.dart';
+import 'day_sheet.dart';
 import 'date_math.dart';
 import 'event.dart';
 import 'event_editor.dart';
@@ -419,8 +420,27 @@ class _AccountRow extends StatelessWidget {
             style: t.secondary.copyWith(fontSize: 13),
           ),
           const SizedBox(height: 6),
-          Row(
+          // A Wrap, not a Row: an owner has four of these and a phone at large
+          // text has room for two. They go onto a second line rather than off
+          // the side of the sheet.
+          Wrap(
+            spacing: 16,
             children: [
+              if (app.canSeeMoney)
+                Semantics(
+                  button: true,
+                  label: 'Day sheet',
+                  onTap: () => showDaySheet(context),
+                  excludeSemantics: true,
+                  child: TextButton(
+                    onPressed: () => showDaySheet(context),
+                    style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                    child: Text(
+                      'Day sheet',
+                      style: t.body.copyWith(fontSize: 15, color: p.accent),
+                    ),
+                  ),
+                ),
               if (app.canTrackCrew)
                 Semantics(
                   button: true,
@@ -436,7 +456,6 @@ class _AccountRow extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (app.canTrackCrew) const SizedBox(width: 16),
               if (app.canManageServer)
                 Semantics(
                   button: true,
@@ -452,7 +471,6 @@ class _AccountRow extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (app.canManageServer) const SizedBox(width: 16),
               Semantics(
                 button: true,
                 label: 'Sign out',

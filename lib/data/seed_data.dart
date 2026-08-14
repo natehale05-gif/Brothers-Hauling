@@ -90,6 +90,8 @@ List<Job> seedJobs(DateTime now) => [
     miles: 22,
     deadhead: 6,
     billed: 395,
+    paid: 395,
+    paymentMethod: 'Card',
     hazards: ['Exposed nails in the pile', 'Soft ground near the pad'],
   ),
   Job(
@@ -114,6 +116,10 @@ List<Job> seedJobs(DateTime now) => [
     miles: 31,
     deadhead: 9,
     billed: 540,
+    // Half down on booking, the rest on delivery. The day sheet is mostly
+    // there to show what the rest of is.
+    paid: 270,
+    paymentMethod: 'Check',
     hazards: ['Overhead power line at the gate — 14 ft clearance'],
   ),
   Job(
@@ -227,6 +233,8 @@ List<Job> seedJobs(DateTime now) => [
     miles: 16,
     deadhead: 5,
     billed: 470,
+    paid: 470,
+    paymentMethod: 'Cash',
     status: JobStatus.done,
     assignedTo: 'c3',
     stage: 5,

@@ -184,7 +184,11 @@ class _Block extends StatelessWidget {
             children: [
               Icon(icon, size: 18, color: colour ?? p.secondaryLabel),
               const SizedBox(width: 8),
-              Text(title, style: t.bodyStrong.copyWith(fontSize: 15)),
+              // Expanded, not bare: at large text on a narrow phone a title
+              // this long is wider than the sheet, and a Row will not wrap it.
+              Expanded(
+                child: Text(title, style: t.bodyStrong.copyWith(fontSize: 15)),
+              ),
             ],
           ),
           const SizedBox(height: 2),
