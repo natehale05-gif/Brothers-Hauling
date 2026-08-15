@@ -151,10 +151,10 @@ void main() {
     });
 
     test('it survives being written and read', () {
-      final book = bookWith('kara', 'flatbed', role: Role.manager);
+      final book = bookWith('kara', 'flatbed', role: Role.admin);
       final back = AccountBook.decode(book.encode());
 
-      expect(back.signIn('kara', 'flatbed')?.role, Role.manager);
+      expect(back.signIn('kara', 'flatbed')?.role, Role.admin);
     });
 
     test('a corrupt file is no accounts, not every account', () {

@@ -9,18 +9,32 @@ enum JobStatus {
   /// it first, and only then does it reach the crew.
   requested,
 
-  /// On the board, nobody has taken it.
+  /// Priced and on the board, with nobody's name on it.
   open,
 
-  /// Pushed to a driver by dispatch — still needs their yes.
-  assigned,
-
-  /// Accepted and running.
+  /// Somebody's, and running.
   active,
 
   /// Closed out.
   done,
 }
+
+/// Reads a status back, mapping the ones the app used to have.
+///
+/// `assigned` meant "pushed at a driver, waiting on their yes". There is no
+/// yes any more — dispatch puts a job on somebody and it is theirs from that
+/// moment — so a board written before the change comes back as work with
+/// their name on it, which is what it always meant on the ground.
+///
+/// Anything unrecognised reads as [JobStatus.open], which is the safe way to
+/// be wrong: work nobody is on shows up needing somebody, rather than sitting
+/// quietly in a driver's list.
+JobStatus statusFrom(Object? name) => switch (name) {
+  'requested' => JobStatus.requested,
+  'assigned' || 'active' => JobStatus.active,
+  'done' => JobStatus.done,
+  _ => JobStatus.open,
+};
 
 enum EventKind { flat, depart, arrive }
 
@@ -134,9 +148,20 @@ class JobPhoto {
       );
 }
 
+/// What a job with nothing on the truck yet is called.
+///
+/// A booking off the website arrives before anybody has decided what it takes
+/// to do. It still has to be named and drawn somewhere, and calling it after
+/// whichever rig sorts first would be a lie about the yard.
+const String kNoRig = 'No rig set';
+
 /// The six stages a driver walks through, in order.
+///
+/// The first one is where a job sits from the moment dispatch puts it on
+/// somebody until they actually set off. It used to be "Accepted", back when a
+/// driver had to say yes to work that already had their name on it.
 const List<String> kStages = [
-  'Accepted',
+  'Not started',
   'Driving to site',
   'Loading',
   'In transit',
@@ -184,7 +209,6 @@ const double kAvgMph = 34;
 class Job {
   const Job({
     required this.id,
-    required this.type,
     required this.customer,
     required this.address,
     required this.city,
@@ -220,7 +244,6 @@ class Job {
   });
 
   final String id;
-  final String type;
   final String customer;
   final String address;
   final String city;
@@ -245,8 +268,17 @@ class Job {
   /// run what.
   final List<String> equipment;
 
-  /// The rigs on one line, for anywhere that shows a job in passing.
+  /// The rigs on one line. Empty when nobody has said yet.
   String get equipmentLabel => equipment.join(', ');
+
+  /// What the job is called on any screen that shows it in passing.
+  ///
+  /// The rig it takes. There used to be a "kind of work" field beside this —
+  /// debris haul, gravel delivery — and it was the same fact written twice,
+  /// kept in step by hand: what goes on the truck is what the job is. A
+  /// booking nobody has been through yet has no rig, and says so rather than
+  /// borrowing a name.
+  String get title => equipment.isEmpty ? kNoRig : equipmentLabel;
 
   /// Landfill or transfer station, or an "N/A — …" string for deliveries that
   /// never leave the customer's property.
@@ -431,7 +463,7 @@ class Job {
         kind: EventKind.arrive,
       ),
       5 => JobEvent(at: at, label: 'Job closed', kind: EventKind.flat),
-      _ => JobEvent(at: at, label: 'Accepted the job', kind: EventKind.flat),
+      _ => JobEvent(at: at, label: 'Started the job', kind: EventKind.flat),
     };
   }
 
@@ -440,7 +472,6 @@ class Job {
   /// The whole job except its photo pixels, which travel separately.
   Map<String, Object?> toJson() => {
     'id': id,
-    'type': type,
     'customer': customer,
     'address': address,
     'city': city,
@@ -502,7 +533,6 @@ class Job {
 
     return Job(
       id: json['id'] as String? ?? '',
-      type: json['type'] as String? ?? '',
       customer: json['customer'] as String? ?? '',
       address: json['address'] as String? ?? '',
       city: json['city'] as String? ?? '',
@@ -522,7 +552,7 @@ class Job {
       paid: (json['paid'] as num?)?.toInt() ?? 0,
       paymentMethod: json['paymentMethod'] as String? ?? '',
       hazards: (json['hazards'] as List?)?.cast<String>() ?? const [],
-      status: _enumFrom(JobStatus.values, json['status'], JobStatus.open),
+      status: statusFrom(json['status']),
       assignedTo: json['assignedTo'] as String?,
       stage: (json['stage'] as num?)?.toInt().clamp(0, kStages.length - 1) ?? 0,
       photosBefore: photoList(json['photosBefore'], json['photoBefore']),
@@ -571,7 +601,6 @@ class Job {
   }) {
     return Job(
       id: id,
-      type: type,
       customer: customer,
       address: address,
       city: city,

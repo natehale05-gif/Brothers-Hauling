@@ -1,5 +1,6 @@
 import '../models/crew_member.dart';
 import '../models/job.dart';
+import '../models/role.dart';
 
 /// The signed-in driver. A real build would resolve this from auth.
 const String kMeId = 'c1';
@@ -12,6 +13,7 @@ const List<CrewMember> kCrew = [
     unit: 'Unit 12',
     onShift: true,
     appOpen: true,
+    role: Role.admin,
   ),
   CrewMember(
     id: 'c2',
@@ -20,6 +22,7 @@ const List<CrewMember> kCrew = [
     unit: 'Unit 04',
     onShift: true,
     appOpen: true,
+    role: Role.driver,
   ),
   CrewMember(
     id: 'c3',
@@ -28,6 +31,7 @@ const List<CrewMember> kCrew = [
     unit: 'Unit 07',
     onShift: true,
     appOpen: false,
+    role: Role.driver,
     lastSeen: '8:02 AM',
     lastPlace: 'Hwy 20 near Philomath',
   ),
@@ -71,7 +75,6 @@ List<Job> seedJobs(DateTime now) => [
   Job(
     id: 'HL-4471',
     scheduledFor: _day(now, 0, 7),
-    type: 'Debris haul',
     customer: 'Sunset Ridge Builders',
     address: '3820 NW Sunset Ridge Dr',
     city: 'Philomath',
@@ -97,7 +100,6 @@ List<Job> seedJobs(DateTime now) => [
   Job(
     id: 'HL-4482',
     scheduledFor: _day(now, 0, 11),
-    type: 'Gravel delivery',
     customer: 'Decker Rd residence',
     address: '18775 Decker Rd',
     city: 'Blodgett',
@@ -125,7 +127,6 @@ List<Job> seedJobs(DateTime now) => [
   Job(
     id: 'HL-4488',
     scheduledFor: _day(now, 1, 13),
-    type: 'Equipment move',
     customer: 'Ash Creek Farm',
     address: '9040 Airlie Rd',
     city: 'Monmouth',
@@ -149,7 +150,6 @@ List<Job> seedJobs(DateTime now) => [
   Job(
     id: 'HL-4491',
     scheduledFor: _day(now, 0, 9),
-    type: 'Junk removal',
     customer: 'Harrison St rental',
     address: '1420 NW Harrison Blvd',
     city: 'Corvallis',
@@ -169,13 +169,12 @@ List<Job> seedJobs(DateTime now) => [
     deadhead: 3,
     billed: 240,
     hazards: ['Fridge must go to appliance bay — freon fee applies'],
-    status: JobStatus.assigned,
+    status: JobStatus.active,
     assignedTo: kMeId,
   ),
   Job(
     id: 'HL-4495',
     scheduledFor: _day(now, 2, 8),
-    type: 'Bark & soil',
     customer: 'Airlie Rd residence',
     address: '22110 Airlie Rd',
     city: 'Monmouth',
@@ -216,7 +215,6 @@ List<Job> seedJobs(DateTime now) => [
   Job(
     id: 'HL-4468',
     scheduledFor: _day(now, -1, 8),
-    type: 'Debris haul',
     customer: 'Timberhill remodel',
     address: '2955 NW Timberhill Pl',
     city: 'Corvallis',

@@ -473,13 +473,27 @@ class EventBlock extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     )
-                  else if (!compact)
+                  else if (!compact) ...[
                     Text(
                       event.subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: t.eventDetail,
                     ),
+                    // The notes, on the block itself. A block too short for a
+                    // third line simply loses it to the clip above — which is
+                    // the same bargain the customer's name already takes.
+                    if (event.notes.isNotEmpty)
+                      Text(
+                        event.notes,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: t.eventDetail.copyWith(
+                          color: p.secondaryLabel,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                  ],
                 ],
               ),
             ),

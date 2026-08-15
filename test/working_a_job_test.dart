@@ -20,7 +20,7 @@ Job running(String id, {required String who, int stage = 0}) =>
     );
 
 Future<void> openJob(WidgetTester tester) async {
-  await tester.tap(find.text('Debris haul').first);
+  await tester.tap(find.text('Dump trailer 14k').first);
   await settle(tester);
 }
 
@@ -60,7 +60,7 @@ void main() {
 
       // Once in the panel the driver works from, once on the Status row that
       // everybody looking at this job can see.
-      expect(find.text('Accepted'), findsNWidgets(2));
+      expect(find.text('Not started'), findsNWidgets(2));
       expect(find.text('1 of 6'), findsOneWidget);
       expect(find.text('Roll out'), findsOneWidget);
     });
@@ -238,7 +238,7 @@ void main() {
       // put them, which reads as "that worked".
       final app = await pumpApp(
         tester,
-        role: Role.manager,
+        role: Role.admin,
         view: CalView.day,
         jobs: [job('HL-1', at: DateTime(2026, 8, 6, 9))],
       );

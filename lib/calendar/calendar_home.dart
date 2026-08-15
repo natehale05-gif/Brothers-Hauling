@@ -588,6 +588,10 @@ class _CalendarsSheet extends StatelessWidget {
     final p = CalPalette.of(context);
     final t = CalText.of(context);
     final cal = CalendarScope.of(context);
+    // The rigs the board actually has work for, rather than a fleet written
+    // into the app. A yard that hires a chipper for a week gets a row for it
+    // the moment a job needs one, and loses it again when that work is done.
+    final calendars = calendarsFrom(AppScope.of(context).jobs);
 
     return SafeArea(
       // Scrolls, because a bottom sheet is only ever given part of the screen
@@ -602,7 +606,7 @@ class _CalendarsSheet extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
               child: Text('Calendars', style: t.navTitle),
             ),
-            for (final calendar in WorkCalendar.values)
+            for (final calendar in calendars)
               Semantics(
                 button: true,
                 checked: cal.isVisible(calendar),

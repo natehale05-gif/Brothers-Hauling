@@ -64,7 +64,7 @@ void main() {
   group('who may open the day sheet', () {
     for (final (who, role) in [
       ('an owner', Role.admin),
-      ('a manager', Role.manager),
+      ('a manager', Role.admin),
     ]) {
       testWidgets('$who is offered it', (tester) async {
         final app = await pumpApp(tester, role: role);

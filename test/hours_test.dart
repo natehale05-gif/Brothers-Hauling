@@ -38,7 +38,7 @@ void main() {
       final state = boot();
       expect(jobIn(state, 'HL-4471').startedAt, isNull);
 
-      await state.claim(jobIn(state, 'HL-4471'));
+      await takeOn(state, 'HL-4471');
 
       // No timer to remember to start — taking the job is starting the clock.
       expect(jobIn(state, 'HL-4471').startedAt, clock);
@@ -47,13 +47,13 @@ void main() {
 
     test('accepting a pushed job starts it too', () async {
       final state = boot();
-      await state.accept(jobIn(state, 'HL-4491'));
+      await takeOn(state, 'HL-4491');
       expect(jobIn(state, 'HL-4491').startedAt, clock);
     });
 
     test('it stops when the job closes, and only then', () async {
       final state = boot();
-      await state.claim(jobIn(state, 'HL-4471'));
+      await takeOn(state, 'HL-4471');
 
       clock = clock.add(const Duration(hours: 2));
       for (var i = 0; i < 4; i++) {
@@ -77,7 +77,7 @@ void main() {
 
     test('a running job counts up to now', () async {
       final state = boot();
-      await state.claim(jobIn(state, 'HL-4471'));
+      await takeOn(state, 'HL-4471');
       clock = clock.add(const Duration(minutes: 45));
 
       expect(
@@ -104,7 +104,7 @@ void main() {
       final store = MemoryStore();
       final first = boot(store: store);
       await first.restore();
-      await first.claim(jobIn(first, 'HL-4471'));
+      await takeOn(first, 'HL-4471');
       final started = jobIn(first, 'HL-4471').startedAt;
 
       final second = boot(store: store);
@@ -116,9 +116,9 @@ void main() {
   group('the timesheet', () {
     test('adds a person up across their jobs', () async {
       final state = boot();
-      await state.claim(jobIn(state, 'HL-4471'));
+      await takeOn(state, 'HL-4471');
       clock = clock.add(const Duration(hours: 1));
-      await state.accept(jobIn(state, 'HL-4491'));
+      await takeOn(state, 'HL-4491');
       clock = clock.add(const Duration(hours: 1));
 
       final me = state.crew.firstWhere((c) => c.id == 'c1');
@@ -129,7 +129,7 @@ void main() {
 
     test('it only counts the person it belongs to', () async {
       final state = boot();
-      await state.claim(jobIn(state, 'HL-4471'));
+      await takeOn(state, 'HL-4471');
       clock = clock.add(const Duration(hours: 2));
 
       final other = state.crew.firstWhere((c) => c.id != 'c1');
@@ -198,7 +198,6 @@ void main() {
 /// A job with nothing on it but a clock.
 Job kJobFor({DateTime? startedAt, DateTime? finishedAt}) => Job(
   id: 'HL-1',
-  type: 'Debris haul',
   customer: 'Someone',
   address: '',
   city: '',

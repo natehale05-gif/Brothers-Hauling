@@ -149,7 +149,7 @@ class UndatedRow extends StatelessWidget {
         : 'No date';
 
     return Semantics(
-      label: '${job.type} for $where. $waiting.',
+      label: '${job.title} for $where. $waiting.',
       excludeSemantics: true,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
@@ -159,7 +159,7 @@ class UndatedRow extends StatelessWidget {
               width: 4,
               height: 34,
               decoration: BoxDecoration(
-                // Hollow rather than solid: it has a kind of work but no
+                // Hollow rather than solid: it has a rig's colour but no
                 // place on the calendar yet.
                 border: Border.all(color: calendar.colour, width: 1.5),
                 borderRadius: BorderRadius.circular(2),
@@ -172,7 +172,7 @@ class UndatedRow extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    job.type,
+                    job.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: t.body,
@@ -183,6 +183,19 @@ class UndatedRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: t.secondary,
                   ),
+                  // For a website booking this is what the customer actually
+                  // asked for, in their words — which is the whole of what
+                  // dispatch has to price it from.
+                  if (job.access.trim().isNotEmpty)
+                    Text(
+                      job.access.replaceAll(RegExp(r'\s+'), ' ').trim(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: t.secondary.copyWith(
+                        fontSize: 12,
+                        color: p.tertiaryLabel,
+                      ),
+                    ),
                 ],
               ),
             ),

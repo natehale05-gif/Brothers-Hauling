@@ -209,6 +209,15 @@ DateTime startOfWorking(DateTime day, DateTime now, {int opensAt = 8}) {
 /// "Thursday, 6 August" — the day view's title.
 String longDay(DateTime at) => '${weekdayName(at)}, ${at.day} ${monthName(at)}';
 
+/// "Sat 15 Aug" — the same day, for a bar with five buttons beside it.
+///
+/// The nav bar has to fit a title, arrows, Today and the calendars button on a
+/// phone. "Saturday, 15 August" does not, and a day view whose title is
+/// ellipsised into "Saturday, 15 …" has lost the one thing it was there to
+/// say.
+String shortDay(DateTime at) =>
+    '${weekdayName(at).substring(0, 3)} ${at.day} ${monthShort(at)}';
+
 /// "6 Aug 2026", for anywhere the year matters.
 String shortDate(DateTime at) => '${at.day} ${monthShort(at)} ${at.year}';
 

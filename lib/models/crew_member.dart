@@ -51,8 +51,8 @@ class CrewMember {
   /// What this person is allowed to see and do.
   ///
   /// Defaults to employee, which is the safe direction to be wrong in: a record
-  /// written before this field existed comes back as a driver rather than
-  /// silently as an owner.
+  /// written before this field existed comes back on the shared login rather
+  /// than silently as an owner.
   final Role role;
 
   final String? lastSeen;
@@ -79,12 +79,9 @@ class CrewMember {
     onShift: json['onShift'] as bool? ?? false,
     appOpen: json['appOpen'] as bool? ?? false,
     hourlyRate: (json['hourlyRate'] as num?)?.toInt() ?? 0,
-    role: Role.values.firstWhere(
-      (r) => r.name == json['role'],
-      // Absent or unrecognised reads as employee. Guessing upwards would hand
-      // someone the money screens on the strength of a typo.
-      orElse: () => Role.employee,
-    ),
+    // Absent or unrecognised reads as employee. Guessing upwards would hand
+    // someone the money screens on the strength of a typo.
+    role: roleFrom(json['role']) ?? Role.employee,
     lastSeen: json['lastSeen'] as String?,
     lastPlace: json['lastPlace'] as String?,
   );

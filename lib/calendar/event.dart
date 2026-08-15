@@ -10,38 +10,91 @@ import 'date_math.dart';
 /// loses the job off the screen entirely.
 const Duration kAssumedJobLength = Duration(hours: 2);
 
-/// The colour sets a calendar is grouped by.
+/// The palette the rigs are coloured from. iOS's own system colours.
 ///
-/// Apple Calendar calls these calendars and gives each a colour; here they are
-/// the kinds of work, which is the grouping somebody running a yard actually
-/// thinks in. The colours are iOS's own system palette.
-enum WorkCalendar {
-  debris('Debris haul', Color(0xFFFF9500)),
-  junk('Junk removal', Color(0xFFFF2D55)),
-  gravel('Gravel delivery', Color(0xFF5856D6)),
-  bark('Bark & soil', Color(0xFF34C759)),
-  equipment('Equipment move', Color(0xFF007AFF)),
-  other('Other work', Color(0xFF8E8E93));
+/// Grey is deliberately last: it is where [kNoRig] lands most of the time and
+/// it reads as "not decided" next to the others.
+const List<Color> kRigColours = [
+  Color(0xFFFF9500), // orange
+  Color(0xFFFF2D55), // pink
+  Color(0xFF5856D6), // indigo
+  Color(0xFF34C759), // green
+  Color(0xFF007AFF), // blue
+  Color(0xFFAF52DE), // purple
+  Color(0xFF00C7BE), // teal
+  Color(0xFFFF3B30), // red
+  Color(0xFF8E8E93), // grey
+];
 
-  const WorkCalendar(this.label, this.colour);
-
-  final String label;
-  final Color colour;
-
-  /// Which set a job belongs to, matched on its type.
-  ///
-  /// Falls through to [other] rather than guessing: a new kind of work should
-  /// appear in grey on the calendar, not silently borrow another kind's colour
-  /// and make two things look like one.
-  static WorkCalendar of(Job job) {
-    final type = job.type.trim().toLowerCase();
-    for (final calendar in values) {
-      if (calendar != other && calendar.label.toLowerCase() == type) {
-        return calendar;
-      }
-    }
-    return other;
+/// Spreads a rig's name across [kRigColours], the same way every time.
+///
+/// FNV-1a rather than [Object.hashCode], which Dart does not promise to keep
+/// stable between releases or across platforms. A trailer that is orange on
+/// the office iPad and green on a driver's phone is worse than no colour at
+/// all — the whole point is that a glance at either says the same thing.
+int _spread(String key) {
+  var hash = 0x811c9dc5;
+  for (final unit in key.codeUnits) {
+    hash = ((hash ^ unit) * 0x01000193) & 0x7fffffff;
   }
+  return hash;
+}
+
+/// The colour sets a calendar is grouped by — one per rig.
+///
+/// Apple Calendar calls these calendars and gives each a colour. Here they are
+/// the rigs, which is what a yard actually schedules: there is one dump trailer
+/// and it can only be in one place at nine o'clock. There used to be a "kind of
+/// work" beside this — debris haul, gravel delivery — and it was the same fact
+/// written twice, because what goes on the truck is what the job is.
+///
+/// Not an enum any more, for the same reason the rig field is free text: a yard
+/// buys a trailer without waiting for a new build.
+@immutable
+class WorkCalendar {
+  const WorkCalendar(this.label);
+
+  /// The rig, as it is written on the job.
+  final String label;
+
+  /// What two spellings of the same trailer are matched on.
+  String get key => label.trim().toLowerCase();
+
+  /// Stable for the life of the name, and the same on every device.
+  Color get colour => kRigColours[_spread(key) % kRigColours.length];
+
+  /// Which set a job belongs to: the first rig on it.
+  ///
+  /// First rather than all of them, because a block on a grid is one colour. A
+  /// job needing a trailer and a skid steer is drawn as the trailer's — and it
+  /// still stands in both lanes of the day sheet, which is the screen that
+  /// exists to answer "what is each rig doing today".
+  static WorkCalendar of(Job job) =>
+      WorkCalendar(job.equipment.isEmpty ? kNoRig : job.equipment.first);
+
+  @override
+  bool operator ==(Object other) => other is WorkCalendar && other.key == key;
+
+  @override
+  int get hashCode => key.hashCode;
+
+  @override
+  String toString() => 'WorkCalendar($label)';
+}
+
+/// Every rig the given work needs, in one order, alphabetically.
+///
+/// The same order the day sheet rules its lanes in, so a rig is in the same
+/// place on both screens.
+List<WorkCalendar> calendarsFrom(Iterable<Job> jobs) {
+  final seen = <String, WorkCalendar>{};
+  for (final job in jobs) {
+    for (final rig in job.equipment.isEmpty ? const [kNoRig] : job.equipment) {
+      final calendar = WorkCalendar(rig);
+      seen.putIfAbsent(calendar.key, () => calendar);
+    }
+  }
+  return seen.values.toList()..sort((a, b) => a.key.compareTo(b.key));
 }
 
 /// A job, as a calendar draws it.
@@ -73,9 +126,21 @@ class CalendarEvent {
   final bool allDay;
 
   String get id => job.id;
-  String get title => job.type;
+
+  /// What the job is called: the rig it takes.
+  String get title => job.title;
+
   String get subtitle => job.customer;
   Color get colour => calendar.colour;
+
+  /// The job's notes, flattened onto one line.
+  ///
+  /// Gate codes, which drive to use, dogs on site, do not back down the hill.
+  /// Shown on the block and on the row rather than only inside the job,
+  /// because it is what a driver needs before they set off and what dispatch
+  /// is asked about on the phone — and neither should have to open a job and
+  /// scroll to find it.
+  String get notes => job.access.replaceAll(RegExp(r'\s+'), ' ').trim();
 
   Duration get length => end.difference(start);
 
@@ -133,10 +198,15 @@ class CalendarEvent {
   }
 
   /// What a screen reader reads instead of a coloured rectangle.
+  ///
+  /// The notes are read out too. They are on the block for everybody else, and
+  /// leaving them off here would be the one case where looking at the calendar
+  /// tells you more than listening to it.
   String get spoken {
     final when = allDay ? 'All day' : timeRange(start, end);
     final where = job.city.isEmpty ? '' : ' in ${job.city}';
-    return '$title for $subtitle$where. $when.';
+    return '$title for $subtitle$where. $when.'
+        '${notes.isEmpty ? '' : ' $notes'}';
   }
 }
 
@@ -240,22 +310,24 @@ List<Placed> placeEvents(List<CalendarEvent> events, DateTime day) {
   return out;
 }
 
-/// The kinds of work on a day, in the calendar's own order.
+/// The rigs working a day, in a fixed order.
 ///
-/// Order comes from [WorkCalendar.values] rather than from what happens to
-/// start first, so a column does not change place when a job moves.
+/// Alphabetical rather than by whatever happens to start first, so a column
+/// does not change place when a job moves.
 ///
 /// All-day work counts. It is never drawn in the hour grid, but it is drawn in
-/// the band above it, and the two have to agree on what the columns are — a
-/// kind that is only ever booked as "sometime Thursday" still needs somewhere
-/// to sit, and its column standing empty below the band is the honest picture
-/// of a day with nothing timed in it.
+/// the band above it, and the two have to agree on what the columns are — a rig
+/// that is only ever booked as "sometime Thursday" still needs somewhere to
+/// sit, and its column standing empty below the band is the honest picture of a
+/// day with nothing timed in it.
 List<WorkCalendar> calendarsOn(List<CalendarEvent> events, DateTime day) {
-  final onDay = events.where((e) => e.onDay(day));
-  return [
-    for (final calendar in WorkCalendar.values)
-      if (onDay.any((e) => e.calendar == calendar)) calendar,
-  ];
+  final seen = <String, WorkCalendar>{};
+  for (final event in events) {
+    if (event.onDay(day)) {
+      seen.putIfAbsent(event.calendar.key, () => event.calendar);
+    }
+  }
+  return seen.values.toList()..sort((a, b) => a.key.compareTo(b.key));
 }
 
 /// Lays a day out with a column per kind of work.

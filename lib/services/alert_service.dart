@@ -61,7 +61,9 @@ Alert? alertFor(Job job) {
   return Alert(
     jobId: job.id,
     at: at,
-    title: '${job.type} for ${job.customer}',
+    title: job.equipment.isEmpty
+        ? job.customer
+        : '${job.equipmentLabel} for ${job.customer}',
     body: where.isEmpty ? '${job.id}, $when' : '$where, $when',
   );
 }

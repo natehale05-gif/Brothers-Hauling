@@ -67,13 +67,13 @@ void main() {
       expect(boot().state.canManageServer, isTrue);
     });
 
-    test('a manager may not', () {
+    test('a driver may not', () {
       // The data is on the owner's machine. Handing out the keys to it is not
       // a scheduling decision.
-      expect(boot(role: Role.manager).state.canManageServer, isFalse);
+      expect(boot(role: Role.driver).state.canManageServer, isFalse);
     });
 
-    test('a driver may not', () {
+    test('nor may the shared crew login', () {
       expect(boot(role: Role.employee).state.canManageServer, isFalse);
     });
 

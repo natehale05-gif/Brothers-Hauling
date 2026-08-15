@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:haul_board/calendar/calendar_state.dart';
 import 'package:haul_board/calendar/event_editor.dart';
+import 'package:haul_board/calendar/views/timed_grid.dart';
 import 'package:haul_board/models/job.dart';
 import 'package:haul_board/models/role.dart';
 
@@ -18,8 +19,18 @@ Future<void> openNew(WidgetTester tester) async {
   await settle(tester);
 }
 
-Future<void> openEdit(WidgetTester tester) async {
-  await tester.tap(find.text('Debris haul').first);
+/// Opens the job whose block reads [named] — which is the rig it takes, that
+/// being what a job is called now.
+Future<void> openEdit(
+  WidgetTester tester, [
+  String named = 'Dump trailer 14k',
+]) async {
+  // The block, not the column header over it — a day with two rigs on it
+  // writes the same words in both places, and only one of them opens a job.
+  final block = find.widgetWithText(EventBlock, named);
+  await tester.tap(
+    block.evaluate().isEmpty ? find.text(named).first : block.first,
+  );
   await settle(tester);
   await tester.tap(find.bySemanticsLabel('Edit job'));
   await settle(tester);
@@ -205,7 +216,7 @@ void main() {
           booked('HL-1', rigs: const ['Lowboy 25t', 'Ramps']),
         ],
       );
-      await openEdit(tester);
+      await openEdit(tester, 'Lowboy 25t, Ramps');
 
       expect(find.bySemanticsLabel('Rig needed, lowboy 25t, ramps'), findsOne);
     });
@@ -219,7 +230,7 @@ void main() {
           booked('HL-2', rigs: const ['Flatbed 20ft']),
         ],
       );
-      await openEdit(tester);
+      await openEdit(tester, 'Lowboy 25t');
 
       // Off with one, on with the other.
       await pickRig(tester, 'Lowboy 25t');
@@ -242,7 +253,8 @@ void main() {
       );
       expect(jobIn(app.state, 'HL-1').equipment, isEmpty);
 
-      await openEdit(tester);
+      // A job with nothing on the truck is called exactly that.
+      await openEdit(tester, kNoRig);
       await tester.tap(find.text('Done'));
       await settle(tester);
 
@@ -260,10 +272,11 @@ void main() {
           booked('HL-1', rigs: const ['Lowboy 25t', 'Ramps']),
         ],
       );
-      await tester.tap(find.text('Debris haul').first);
+      await tester.tap(find.text('Lowboy 25t, Ramps').first);
       await settle(tester);
 
-      expect(find.text('Lowboy 25t, Ramps'), findsOneWidget);
+      // Once on the block behind, once in the row that lists them.
+      expect(find.text('Lowboy 25t, Ramps'), findsNWidgets(2));
     });
 
     testWidgets('a driver sees it too — stated, never enforced', (
@@ -277,12 +290,13 @@ void main() {
           booked('HL-1', rigs: const ['Lowboy 25t']),
         ],
       );
-      await tester.tap(find.text('Debris haul').first);
+      await tester.tap(find.text('Lowboy 25t').first);
       await settle(tester);
 
-      expect(find.text('Lowboy 25t'), findsOneWidget);
-      // Nothing about the rig keeps anybody off the job.
-      expect(app.state.canTake(jobIn(app.state, 'HL-1')), isTrue);
+      expect(find.text('Rig needed'), findsOneWidget);
+      // Nothing about the rig keeps a job off anybody — but a driver is not
+      // the one who decides who goes out on it.
+      expect(app.state.canAssign, isFalse);
     });
   });
 }

@@ -186,6 +186,18 @@ class _MonthGrid extends StatelessWidget {
   }
 }
 
+/// Goes to a day, and shows it.
+///
+/// One tap, not two. Apple's month grid selects on the first tap and drills in
+/// on a second, which reads well on a phone full of meetings — but a day here
+/// is a handful of jobs somebody is about to work, and the grid's dots never
+/// answer the question that made them tap it. Picking a day means wanting to
+/// see the day.
+void openDay(CalendarState cal, DateTime day) {
+  cal.focus(day);
+  cal.setView(CalView.day);
+}
+
 /// One square of the month grid.
 class DayCell extends StatelessWidget {
   const DayCell({
@@ -254,17 +266,11 @@ class DayCell extends StatelessWidget {
           label: roomy && onDay.isNotEmpty
               ? '$counted ${onDay.map((e) => e.title).join(', ')}.'
               : counted,
-          onTap: () => cal.select(day),
+          onTap: () => openDay(cal, day),
           excludeSemantics: true,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => cal.select(day),
-            // A second tap on the day already chosen opens it, the way the
-            // real one drills from month into day.
-            onDoubleTap: () {
-              cal.focus(day);
-              cal.setView(CalView.day);
-            },
+            onTap: () => openDay(cal, day),
             child: Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Column(
@@ -510,6 +516,18 @@ class EventRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: t.secondary,
                     ),
+                    // The notes, on the row. Read before setting off rather
+                    // than found afterwards.
+                    if (event.notes.isNotEmpty)
+                      Text(
+                        event.notes,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: t.secondary.copyWith(
+                          fontSize: 12,
+                          color: p.tertiaryLabel,
+                        ),
+                      ),
                   ],
                 ),
               ),

@@ -30,6 +30,21 @@ class Harness {
 Job jobIn(AppState state, String id) =>
     state.jobs.firstWhere((j) => j.id == id);
 
+/// Puts a job on whoever is signed in, and optionally starts their clock.
+///
+/// Two steps where there used to be one. A driver cannot take work off the
+/// board any more — dispatch decides who is on what — and the clock starts
+/// when they set off rather than when the job was handed over. The role is
+/// borrowed and put back, because assigning is the owner's and working the
+/// job is the driver's, and a test usually wants to be the driver afterwards.
+Future<void> takeOn(AppState state, String id, {bool andSetOff = true}) async {
+  final was = state.role;
+  state.enter(Role.admin);
+  await state.assign(jobIn(state, id), state.meId);
+  if (was != null) state.enter(was);
+  if (andSetOff) await state.advance(jobIn(state, id));
+}
+
 /// A fixed "now", so "today" means the same thing on every run.
 ///
 /// A calendar is the one kind of app where a test that reads the wall clock is
@@ -62,10 +77,6 @@ Future<void> _pickFrom(WidgetTester tester, RegExp row, String choice) async {
   await tester.tap(find.text(choice).last);
   await settle(tester);
 }
-
-/// Picks the kind of work.
-Future<void> pickKind(WidgetTester tester, String kind) =>
-    _pickFrom(tester, RegExp('^Kind, '), kind);
 
 /// Picks when to be told about the job.
 Future<void> pickAlert(WidgetTester tester, String when) =>
@@ -146,6 +157,10 @@ Future<Harness> pumpApp(
     toastDuration: null,
     intake: intake,
     alerts: alerts,
+    // The state is the one that opens maps and starts calls, so the recorder
+    // has to reach it — handing it only to the widget would leave every tap
+    // going to the real url_launcher.
+    links: recordedLinks,
     now: () => clock,
   );
   addTearDown(state.dispose);

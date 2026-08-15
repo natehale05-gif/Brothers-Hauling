@@ -8,6 +8,7 @@ import 'calendar_theme.dart';
 import 'date_math.dart';
 import 'event.dart';
 import 'event_editor.dart';
+import 'form_bits.dart';
 import 'price_sheet.dart';
 
 /// One job, opened from the calendar.
@@ -186,15 +187,16 @@ class _Detail extends StatelessWidget {
                     style: t.secondary,
                   ),
                 ),
-                // Before the details, not after them. Somebody opening an
-                // open job is deciding whether to take it; making them scroll
-                // past the material and the dump fee to find the button is
-                // the wrong way round.
-                _TakeIt(job: job),
-                // And for the person who has it, the whole of the rest of the
-                // job: where they are up to, the two photos, and the button
-                // that moves it on.
+                // Before the details, not after them. Who is on a job is the
+                // first thing anybody opening it wants to know, and making
+                // dispatch scroll past the material and the dump fee to
+                // change it is the wrong way round.
+                _WhoIsOnIt(job: job),
+                // For the person who has it: where they are up to and the
+                // button that moves it on.
                 _WorkIt(job: job),
+                // The photos are everybody's — see the class comment.
+                _Photos(job: job),
                 _Group(
                   rows: [
                     _Row(label: 'Job', value: job.id),
@@ -203,6 +205,12 @@ class _Detail extends StatelessWidget {
                       value: job.city.isEmpty
                           ? job.address
                           : '${job.address}, ${job.city}',
+                      // Tapping an address opens the phone's own maps app with
+                      // directions in it. Reading a street name off a screen
+                      // and typing it into another app is the sort of thing
+                      // people do at the wheel.
+                      onTap: () => app.openDirections(job),
+                      spoken: 'Directions to',
                     ),
                     _Row(label: 'Window', value: job.window),
                     _Row(
@@ -212,7 +220,12 @@ class _Detail extends StatelessWidget {
                           : alertLabel(job.alertMinutes),
                     ),
                     _Row(label: 'Contact', value: job.contact),
-                    _Row(label: 'Phone', value: job.phone),
+                    _Row(
+                      label: 'Phone',
+                      value: job.phone,
+                      onTap: () => app.callCustomer(job),
+                      spoken: 'Call',
+                    ),
                   ],
                 ),
                 _Group(
@@ -231,8 +244,7 @@ class _Detail extends StatelessWidget {
                       label: 'Status',
                       value: switch (job.status) {
                         JobStatus.requested => 'Booked, not priced',
-                        JobStatus.open => 'Nobody has taken it',
-                        JobStatus.assigned => 'Waiting on a yes',
+                        JobStatus.open => 'Nobody on it yet',
                         JobStatus.active => kStages[job.stage],
                         JobStatus.done => 'Closed',
                       },
@@ -329,14 +341,17 @@ class _HeaderAction extends StatelessWidget {
   }
 }
 
-/// Taking a job on, or saying yes to one pushed at you.
+/// Who is on the job.
 ///
-/// The whole point of the pipeline: dispatch puts work on the board and
-/// somebody answers for it. Nothing here narrows by level — an owner who
-/// drives is ordinary in a yard this size, and the standing decision is that
-/// nothing about a job locks a person out of taking it.
-class _TakeIt extends StatelessWidget {
-  const _TakeIt({required this.job});
+/// Dispatch decides, and that is the whole of it — there is no volunteering
+/// off the board and no yes to wait for. A job with somebody's name on it is
+/// theirs from the moment it is put there.
+///
+/// Only the owner and the drivers are offered: the crew share one login, so a
+/// job assigned to it would be assigned to everybody at once and its hours
+/// would belong to nobody.
+class _WhoIsOnIt extends StatelessWidget {
+  const _WhoIsOnIt({required this.job});
 
   final Job job;
 
@@ -346,128 +361,138 @@ class _TakeIt extends StatelessWidget {
     final t = CalText.of(context);
     final app = AppScope.of(context);
 
-    final take = app.canTake(job);
-    final accept = app.canAccept(job);
-
-    if (!take && !accept) {
-      // Nothing to do, but say why when the reason is a rule rather than the
-      // job simply being somebody else's.
-      if (job.needsPricing) {
-        // Somebody who can price it gets the way out, not just the news.
-        if (app.canPriceJobs) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Semantics(
-                  button: true,
-                  label:
-                      'Put a price on it. It came in from the website and '
-                      'nobody can take it on until it has one.',
-                  onTap: () => showPriceSheet(context, job),
-                  excludeSemantics: true,
-                  child: FilledButton(
-                    onPressed: () => showPriceSheet(context, job),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: p.accent,
-                      foregroundColor: p.onAccent,
-                      minimumSize: const Size.fromHeight(48),
-                    ),
-                    child: Text(
-                      'Put a price on it',
-                      style: t.bodyStrong.copyWith(
-                        fontSize: 16,
-                        color: p.onAccent,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                ExcludeSemantics(
-                  child: Text(
-                    'It came in from the website and nobody can take it on '
-                    'until it has one.',
-                    textAlign: TextAlign.center,
-                    style: t.secondary.copyWith(fontSize: 13),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
+    // Nothing goes out unpriced. Whoever can fix that is offered the way to.
+    if (job.needsPricing) {
+      if (!app.canPriceJobs) {
         return Padding(
           padding: const EdgeInsets.fromLTRB(32, 0, 32, 16),
           child: Text(
-            'Nobody can take this on until it has a price. It came in from '
+            'Nobody goes out on this until it has a price. It came in from '
             'the website and dispatch has not been through it yet.',
             textAlign: TextAlign.center,
             style: t.secondary.copyWith(fontSize: 13),
           ),
         );
       }
-      return const SizedBox.shrink();
-    }
-
-    final label = accept ? 'Accept this job' : 'Take this job';
-    final because = accept
-        ? 'Dispatch pushed this at you. Saying yes starts your clock.'
-        : 'Taking it on starts your clock and tells dispatch you are on it.';
-
-    Future<void> go() async {
-      if (accept) {
-        await app.accept(job);
-      } else {
-        await app.claim(job);
-      }
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Semantics(
-            button: true,
-            // The line underneath is part of what this button means, and it
-            // ends up in the same node either way — so it is said once, in
-            // order, rather than arriving as an unattached sentence.
-            label: '$label. $because',
-            onTap: go,
-            excludeSemantics: true,
-            child: FilledButton(
-              onPressed: go,
-              style: FilledButton.styleFrom(
-                backgroundColor: p.accent,
-                foregroundColor: p.onAccent,
-                minimumSize: const Size.fromHeight(48),
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              button: true,
+              label:
+                  'Put a price on it. It came in from the website and nobody '
+                  'goes out on it until it has one.',
+              onTap: () => showPriceSheet(context, job),
+              excludeSemantics: true,
+              child: FilledButton(
+                onPressed: () => showPriceSheet(context, job),
+                style: FilledButton.styleFrom(
+                  backgroundColor: p.accent,
+                  foregroundColor: p.onAccent,
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                child: Text(
+                  'Put a price on it',
+                  style: t.bodyStrong.copyWith(fontSize: 16, color: p.onAccent),
+                ),
               ),
+            ),
+            const SizedBox(height: 6),
+            ExcludeSemantics(
               child: Text(
-                label,
-                style: t.bodyStrong.copyWith(fontSize: 16, color: p.onAccent),
+                'It came in from the website and nobody goes out on it until '
+                'it has one.',
+                textAlign: TextAlign.center,
+                style: t.secondary.copyWith(fontSize: 13),
               ),
             ),
-          ),
-          const SizedBox(height: 6),
-          ExcludeSemantics(
-            child: Text(
-              because,
-              textAlign: TextAlign.center,
-              style: t.secondary.copyWith(fontSize: 13),
-            ),
-          ),
+          ],
+        ),
+      );
+    }
+
+    if (!app.canAssign) return const SizedBox.shrink();
+
+    final who = crewById(job.assignedTo);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+      child: ChoiceRow<(String?,)>(
+        label: 'Driver',
+        spokenLabel: 'Who is on this job',
+        shown: who?.name ?? 'Nobody yet',
+        ticked: (choice) => choice.$1 == job.assignedTo,
+        valueColour: who == null ? p.tertiaryLabel : p.label,
+        choices: [
+          (const (null,), 'Nobody yet'),
+          for (final member in app.assignable) ((member.id,), member.name),
         ],
+        // The empty string is how the board says "take it back off them" —
+        // see AssignJob. Wrapped in a one-field record because a menu cannot
+        // tell a null choice from a dismissed menu.
+        onChanged: (choice) => app.assign(job, choice.$1 ?? ''),
       ),
     );
   }
 }
 
-/// Running a job: the stage, the two photos, and the way on.
+/// The before and after shots, for anybody at all.
+///
+/// Deliberately not narrowed to the driver whose job it is. Half the work on a
+/// site is done by whoever came along on the shared login, and the person
+/// standing next to the pile with a phone out is the person who should be
+/// taking the picture. Making them hand the job over first is how a site ends
+/// up with no before shot and an argument three weeks later.
+class _Photos extends StatelessWidget {
+  const _Photos({required this.job});
+
+  final Job job;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = CalPalette.of(context);
+    final app = AppScope.of(context);
+
+    // Nothing to photograph until the job is real work. A website booking
+    // nobody has priced has no site to stand on yet.
+    if (job.needsPricing) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: p.card,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: _PhotoSlot(
+                job: job,
+                before: true,
+                // Before the first load goes on. Once it does, the state of
+                // the site beforehand is gone for good.
+                due: app.beforePhotoDue(job),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: _PhotoSlot(job: job, before: false)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Running a job: the stage and the way on.
 ///
 /// Only for the person the job belongs to. An owner watching from the office
-/// can see where it has got to on the Status row, but the log, the hours and
-/// the photos are the record of what a driver actually did — and a record
-/// somebody else can fill in from a desk is not one.
+/// can see where it has got to on the Status row, but the log and the hours
+/// are the record of what a driver actually did — and a record somebody else
+/// can fill in from a desk is not one. The photos are the exception, and they
+/// are handled above.
 class _WorkIt extends StatelessWidget {
   const _WorkIt({required this.job});
 
@@ -521,22 +546,6 @@ class _WorkIt extends StatelessWidget {
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _PhotoSlot(
-                        job: job,
-                        before: true,
-                        // Before the first load goes on. Once it does, the
-                        // state of the site beforehand is gone for good.
-                        due: app.beforePhotoDue(job),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(child: _PhotoSlot(job: job, before: false)),
-                  ],
                 ),
               ],
             ),
@@ -824,35 +833,70 @@ class _Group extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row({required this.label, required this.value, this.alert = false});
+  const _Row({
+    required this.label,
+    required this.value,
+    this.alert = false,
+    this.onTap,
+    this.spoken,
+  });
 
   final String label;
   final String value;
   final bool alert;
 
+  /// Set on the rows that hand off to the phone — the address to maps, the
+  /// number to the dialler. A row without one is a fact, not a control, and
+  /// is not announced as a button.
+  final VoidCallback? onTap;
+
+  /// What the tap does, said before the value: "Call, 541-555-0148".
+  final String? spoken;
+
   @override
   Widget build(BuildContext context) {
     final p = CalPalette.of(context);
     final t = CalText.of(context);
+    final tappable = onTap != null;
 
-    return MergeSemantics(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(width: 96, child: Text(label, style: t.secondary)),
-            Expanded(
-              child: Text(
-                value,
-                style: t.body.copyWith(
-                  fontSize: 15,
-                  color: alert ? p.accent : p.label,
-                ),
+    final row = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 96, child: Text(label, style: t.secondary)),
+          Expanded(
+            child: Text(
+              value,
+              style: t.body.copyWith(
+                fontSize: 15,
+                // A tappable row is drawn in the accent colour, the way every
+                // other link in the app is. There is no other way to tell.
+                color: alert || tappable ? p.accent : p.label,
               ),
             ),
-          ],
-        ),
+          ),
+          if (tappable)
+            Icon(
+              label == 'Phone' ? Icons.phone_rounded : Icons.directions_rounded,
+              size: 18,
+              color: p.accent,
+            ),
+        ],
+      ),
+    );
+
+    if (!tappable) return MergeSemantics(child: row);
+
+    return Semantics(
+      button: true,
+      label: '${spoken ?? label}, $value',
+      onTap: onTap,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: row,
       ),
     );
   }

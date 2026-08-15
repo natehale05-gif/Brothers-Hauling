@@ -357,9 +357,9 @@ function check(label, ok, detail = '') {
       await press(page, 'New job');
       await page.keyboard.type('Skyline Ranch');
       await page.waitForTimeout(400);
-      await pickFrom(page, /^Kind, /, 'Gravel delivery');
-      // The form will not book work with nothing to load it — the rigs on
-      // offer are the ones the board has already needed.
+      // The form will not book work with nothing to load it — the rig is what
+      // the job is called, and the ones on offer are the ones the board has
+      // already needed.
       await pickFrom(page, /^Rig needed, /, 'Dump trailer 14k');
       await press(page, 'Add');
       check(
@@ -372,7 +372,7 @@ function check(label, ok, detail = '') {
       await page.waitForTimeout(900);
       check(
         'and search finds it',
-        await axContains(page, /Gravel delivery for Skyline Ranch/),
+        await axContains(page, /Dump trailer 14k for Skyline Ranch/),
       );
       await press(page, 'Done');
 
@@ -432,7 +432,7 @@ function check(label, ok, detail = '') {
 
       check(
         'a window with room writes the work into the month cells',
-        await axContains(page, /Debris haul/),
+        await axContains(page, /Dump trailer 14k/),
       );
 
       await press(page, 'Year view');
@@ -477,6 +477,64 @@ function check(label, ok, detail = '') {
       await page.close();
     }
 
+    // ---- reading a job off the calendar, and reaching the world ----------
+    // Everything the yard asked for on the card itself: the notes where a
+    // driver reads them before setting off, one tap from the month grid into
+    // the day, a bar that names the day it is showing, and an address and a
+    // number that hand off to the phone rather than being copied out by hand.
+    {
+      const { page, errors } = await boot(browser, { width: 390, height: 844 });
+      await signIn(page);
+
+      check(
+        'the notes are on the calendar, not buried in the job',
+        await axContains(page, /Gate code 4417#/),
+      );
+
+      // One tap on a day, and the day opens. Not two.
+      await page
+        .locator('flt-semantics[role="button"]')
+        // Today's cell specifically: it is the one with work on it, and the
+        // job below is opened from the day it lands on.
+        .filter({ hasText: /, today\./ })
+        .first()
+        .click({ timeout: 15000 });
+      await page.waitForTimeout(1600);
+      check(
+        'tapping a day in the month grid opens that day',
+        (await page.getByRole('button', { name: 'Day view, 1 of 5' }).count()) >
+          0,
+      );
+      check(
+        'and the bar over it names the day, not the month',
+        // The title doubles as the way to jump to a date, so it comes through
+        // as that button rather than as a node of its own.
+        await axContains(page, /^\w{3} \d+ \w{3}\. Go to date/),
+      );
+
+      await page
+        .getByRole('button', { name: /^Dump trailer 14k for/ })
+        .first()
+        .click({ timeout: 15000 });
+      await page.waitForTimeout(1400);
+      check(
+        'the address on a job is something you can tap for directions',
+        await axContains(page, /^Directions to, /),
+      );
+      check(
+        'and so is the number',
+        await axContains(page, /^Call, 541-555/),
+      );
+      check(
+        'dispatch picks who is on it — there is nothing to accept',
+        (await axContains(page, /^Who is on this job, /)) &&
+          !(await axContains(page, /Accept this job/)),
+      );
+
+      check('no page errors', errors.length === 0, errors.join('; '));
+      await page.close();
+    }
+
     // ---- the office's day sheet, on a desk and on a phone -----------------
     // The paper run-sheet the yard has always kept: a lane per rig, what each
     // job still owes, and who is out on the day. The one screen in the app
@@ -516,7 +574,7 @@ function check(label, ok, detail = '') {
       await press(page, 'The day after');
       check(
         `${what} walks to the next day from the sheet itself`,
-        await axContains(page, /Equipment move|Nothing booked/),
+        await axContains(page, /Lowboy 25t|Nothing booked/),
       );
 
       check('no page errors', errors.length === 0, errors.join('; '));
@@ -536,24 +594,25 @@ function check(label, ok, detail = '') {
       await page.close();
     }
 
-    // ---- the driver's side: accept a job and work it -----------------------
-    // The one path nothing else covers end to end. The demo board pushes
-    // HL-4491 at the owner, who drives — which is ordinary in a yard this
-    // size and the reason nothing about a job narrows by level.
+    // ---- the driver's side: work a job that has your name on it -----------
+    // The one path nothing else covers end to end. The demo board has
+    // HL-4491 on the owner, who drives — which is ordinary in a yard this
+    // size and the reason nothing about a job narrows by level. There is no
+    // accepting: a job with your name on it is yours.
     {
       const { page, errors } = await boot(browser, { width: 390, height: 844 });
       await signIn(page);
       await press(page, 'Day view, 1 of 5');
 
       await page
-        .getByRole('button', { name: /^Junk removal for/ })
+        .getByRole('button', { name: /^Flatbed 20ft for/ })
         .first()
         .click({ timeout: 15000 });
       await page.waitForTimeout(1400);
-      await press(page, 'Accept this job');
       check(
-        'a job accepted opens onto the panel that runs it',
-        await axContains(page, /Up to/) && await axContains(page, /Accepted/),
+        'a job already on you opens onto the panel that runs it',
+        (await axContains(page, /Up to/)) &&
+          (await axContains(page, /Not started/)),
       );
 
       await press(page, 'Roll out');

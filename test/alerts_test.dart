@@ -76,14 +76,13 @@ void main() {
     test('carries the work, the customer, the place and the time', () {
       final booked = job(
         'HL-1',
-        type: 'Junk removal',
         customer: 'Harrison St rental',
         city: 'Corvallis',
         at: DateTime(2026, 8, 7, 9),
       ).copyWith(alertMinutes: 30);
 
       final alert = alertFor(booked)!;
-      expect(alert.title, 'Junk removal for Harrison St rental');
+      expect(alert.title, 'Dump trailer 14k for Harrison St rental');
       expect(alert.body, 'Corvallis, at 9:00 AM');
       expect(alert.at, DateTime(2026, 8, 7, 8, 30));
     });
@@ -157,7 +156,6 @@ void main() {
 
       final before = alerts.syncs;
       await app.state.addJob(
-        type: 'Gravel delivery',
         customer: 'Skyline Ranch',
         scheduledFor: DateTime(2026, 8, 12, 13),
         alertMinutes: 60,
@@ -281,7 +279,7 @@ void main() {
         ],
       );
 
-      await tester.tap(find.text('Debris haul').last);
+      await tester.tap(find.text('Dump trailer 14k').last);
       await settle(tester);
       await tester.tap(find.bySemanticsLabel('Edit job'));
       await settle(tester);
@@ -302,7 +300,7 @@ void main() {
         ],
       );
 
-      await tester.tap(find.text('Debris haul').last);
+      await tester.tap(find.text('Dump trailer 14k').last);
       await settle(tester);
 
       expect(find.text('Alert'), findsOneWidget);

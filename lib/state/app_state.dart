@@ -17,6 +17,7 @@ import '../models/crew_member.dart';
 import '../models/job.dart';
 import '../models/role.dart';
 import '../services/alert_service.dart';
+import '../services/link_service.dart';
 import '../services/location_service.dart';
 import '../services/photo_service.dart';
 
@@ -40,8 +41,10 @@ class AppState extends ChangeNotifier {
     ServerControl? server,
     AccountBook? accounts,
     AlertService? alerts,
+    LinkService? links,
     this.sampleLogins = true,
-  }) : _prefs = store ?? MemoryStore(),
+  }) : _links = links ?? const UrlLauncherLinkService(),
+       _prefs = store ?? MemoryStore(),
        // ignore: prefer_initializing_formals
        _server = server,
        _accounts = accounts ?? AccountBook(),
@@ -84,6 +87,33 @@ class AppState extends ChangeNotifier {
   /// Where website bookings come from. [NoIntakeSource] when none is wired up,
   /// which is a board that simply never gains a job on its own.
   final IntakeSource _intake;
+
+  /// Directions and phone calls, handed off to whatever the platform prefers.
+  final LinkService _links;
+
+  /// Opens the phone's own maps app with directions to the job.
+  ///
+  /// Where the driver is actually headed, which is the site until they are
+  /// loaded and the disposal site after — see [Job.legTarget]. Reading a
+  /// street name off a screen and typing it into another app is the sort of
+  /// thing people do at the wheel.
+  Future<void> openDirections(Job job) async {
+    final target = job.legTarget;
+    final ok = await _links.openDirections(target.query);
+    if (!ok) showToast('Could not open maps on this device.');
+    notifyListeners();
+  }
+
+  /// Rings whoever is down as the contact for the job.
+  Future<void> callCustomer(Job job) async {
+    if (job.phone.trim().isEmpty) {
+      showToast('No number on ${job.id}.');
+      return;
+    }
+    final ok = await _links.call(job.phone);
+    if (!ok) showToast('Could not start a call on this device.');
+    notifyListeners();
+  }
 
   /// Reads whatever this device already had. Call once at startup.
   Future<void> restore() async {
@@ -606,8 +636,8 @@ class AppState extends ChangeNotifier {
     required int paid,
     required String method,
   }) async {
-    if (!canPriceJobs) {
-      showToast('Only an owner or a manager can take a payment.');
+    if (!canTakePayment) {
+      showToast('The shared crew login cannot take a payment.');
       return false;
     }
     if (paid < 0) {
@@ -684,7 +714,6 @@ class AppState extends ChangeNotifier {
   /// outbox as everything else — a job written in a dead zone is on the board
   /// before the phone finds signal.
   Future<Job?> addJob({
-    required String type,
     required String customer,
     String address = '',
     String city = '',
@@ -708,7 +737,6 @@ class AppState extends ChangeNotifier {
 
     final job = Job(
       id: _nextJobId(),
-      type: type.trim(),
       customer: customer.trim(),
       address: address.trim(),
       city: city.trim(),
@@ -803,13 +831,18 @@ class AppState extends ChangeNotifier {
 
   /// Who may put a number on a job.
   ///
-  /// Deliberately wider than [canEditJobs]. A manager runs the day: they are
-  /// the one on the phone when a quote turns out to be wrong, and a yard where
-  /// only the owner can price is a yard where work sits unpriced until he gets
-  /// back. What a manager still cannot do is rewrite the job around the price
-  /// — the address, the day and the rig stay the owner's.
-  bool get canPriceJobs =>
-      (_role == Role.admin || _role == Role.manager) && !_asEmployee;
+  /// What a job bills is the owner's to set. Deliberately not the same rule as
+  /// [canTakePayment]: a driver collects at the kerb and writes down what came
+  /// in, which is a record of what happened, not a decision about what to
+  /// charge.
+  bool get canPriceJobs => _role == Role.admin && !_asEmployee;
+
+  /// Who may write down that a job has been paid, and how.
+  ///
+  /// Drivers included, because they are the ones holding the card reader. The
+  /// figure they are collecting against is still the owner's.
+  bool get canTakePayment =>
+      (_role == Role.admin || _role == Role.driver) && !_asEmployee;
 
   /// Sets what a job bills at, and what the tip charges to take it.
   ///
@@ -1015,11 +1048,8 @@ class AppState extends ChangeNotifier {
   List<Job> get openBoard =>
       jobs.where((j) => j.status == JobStatus.open).toList();
 
-  List<Job> get activeAll => jobs
-      .where(
-        (j) => j.status == JobStatus.active || j.status == JobStatus.assigned,
-      )
-      .toList();
+  List<Job> get activeAll =>
+      jobs.where((j) => j.status == JobStatus.active).toList();
 
   List<Job> get doneAll =>
       jobs.where((j) => j.status == JobStatus.done).toList();
@@ -1075,12 +1105,16 @@ class AppState extends ChangeNotifier {
   /// Only an owner sees what anybody is paid — including their own figure.
   bool get canSeeHoursAndPay => _role == Role.admin && !_asEmployee;
 
-  /// Only an owner watches the whole crew.
+  /// Who can see where everybody is.
   ///
-  /// A manager staffs the day and prices the work; "where is everybody right
-  /// now, and what have they put in this week" is a different question, and it
-  /// is the owner's. Same rule as the pay figures, and for the same reason.
-  bool get canTrackCrew => _role == Role.admin && !_asEmployee;
+  /// Drivers as well as the owner. A driver two miles from a job that is going
+  /// long is the person best placed to pick up the next one, and they cannot
+  /// offer if they cannot see. The shared crew login is left out: it is several
+  /// people at once, so it is nobody's position to report and nobody's to read.
+  ///
+  /// What it does not open is the pay — see [canSeeHoursAndPay].
+  bool get canTrackCrew =>
+      (_role == Role.admin || _role == Role.driver) && !_asEmployee;
 
   /// The job this person has in hand — the one they are on, or have been
   /// pushed and not yet answered. Null when their hands are empty.
@@ -1090,9 +1124,7 @@ class AppState extends ChangeNotifier {
   Job? jobInHand(CrewMember member) {
     for (final job in _board.jobs) {
       if (job.assignedTo != member.id) continue;
-      if (job.status == JobStatus.active || job.status == JobStatus.assigned) {
-        return job;
-      }
+      if (job.status == JobStatus.active) return job;
     }
     return null;
   }
@@ -1196,58 +1228,6 @@ class AppState extends ChangeNotifier {
   Mutation _stamp(Mutation Function(String id, DateTime at) build) =>
       build(_ids.next('mut'), _now());
 
-  /// Whether this job is there for the taking, by whoever is signed in.
-  ///
-  /// Open, unpriced work excepted, and not already somebody's. Deliberately
-  /// not narrowed by level: an owner who drives is an ordinary thing in a
-  /// yard this size, and the standing decision is that nothing about a rig or
-  /// a job locks a person out of answering.
-  bool canTake(Job job) =>
-      role != null && job.status == JobStatus.open && !job.needsPricing;
-
-  /// Whether this job is waiting on a yes from the person signed in.
-  bool canAccept(Job job) =>
-      role != null &&
-      job.status == JobStatus.assigned &&
-      job.assignedTo == meId;
-
-  /// Driver takes an unclaimed job off the board.
-  Future<void> claim(Job job) async {
-    final ok = await _board.apply(
-      _stamp(
-        (id, at) => ClaimJob(id: id, jobId: job.id, actorId: meId, at: at),
-      ),
-    );
-    if (!ok) {
-      // Another driver got there first — on this device that means the board
-      // moved under us between the tap and the write.
-      showToast('${job.id} is no longer open. Someone else took it.');
-      notifyListeners();
-      return;
-    }
-    _progress.remove(job.id);
-    showToast("${job.id} is yours. Dispatch can see you're on it.");
-    _openJobId = null;
-    notifyListeners();
-  }
-
-  /// Driver says yes to a job dispatch pushed at them.
-  Future<void> accept(Job job) async {
-    final ok = await _board.apply(
-      _stamp(
-        (id, at) => AcceptJob(id: id, jobId: job.id, actorId: meId, at: at),
-      ),
-    );
-    if (!ok) {
-      showToast('${job.id} is no longer waiting on you.');
-      notifyListeners();
-      return;
-    }
-    _progress.remove(job.id);
-    showToast('Accepted ${job.id}.');
-    notifyListeners();
-  }
-
   /// Step the job to its next stage. Closing is refused until both photos are
   /// filed — that rule is the reason the photo slots exist, and it is enforced
   /// in the mutation too, so a replay cannot sneak past it.
@@ -1314,8 +1294,33 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Dispatch pushes a job at a driver. They still have to accept it.
-  Future<void> assign(Job job, String crewId) async {
+  /// Who may put a job on somebody, or take it back off them.
+  bool get canAssign => canEditJobs;
+
+  /// Everybody a job can be put on.
+  ///
+  /// The owner and the drivers. Not the shared crew login: several people are
+  /// signed in as it at once, so a job assigned to it has been assigned to
+  /// nobody in particular and its hours belong to no one.
+  List<CrewMember> get assignable =>
+      crew.where((c) => c.role.takesJobs).toList();
+
+  /// Dispatch puts a job on somebody. It is theirs from that moment — there is
+  /// no yes to wait for.
+  ///
+  /// An empty [crewId] takes it back and returns it to the board.
+  Future<bool> assign(Job job, String crewId) async {
+    if (!canAssign) {
+      showToast('Only an owner decides who is on a job.');
+      notifyListeners();
+      return false;
+    }
+    if (job.needsPricing) {
+      showToast('Put a price on ${job.id} before sending anybody out on it.');
+      notifyListeners();
+      return false;
+    }
+
     final ok = await _board.apply(
       _stamp(
         (id, at) => AssignJob(
@@ -1328,13 +1333,18 @@ class AppState extends ChangeNotifier {
       ),
     );
     if (!ok) {
-      showToast('${job.id} could not be reassigned.');
+      showToast('${job.id} could not be moved.');
       notifyListeners();
-      return;
+      return false;
     }
-    final name = crewById(crewId)?.name ?? 'the driver';
-    showToast('${job.id} pushed to $name. They still have to accept it.');
+
+    showToast(
+      crewId.isEmpty
+          ? '${job.id} is back on the board.'
+          : '${job.id} is ${crewById(crewId)?.name ?? 'theirs'} now.',
+    );
     notifyListeners();
+    return true;
   }
 
   /// Ask for a shot and file it against [job]. No-ops if the driver backs out.

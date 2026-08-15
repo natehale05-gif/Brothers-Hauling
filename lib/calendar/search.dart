@@ -19,7 +19,6 @@ bool jobMatches(Job job, String query) {
 
   final haystack = [
     job.id,
-    job.type,
     job.customer,
     job.address,
     job.city,
@@ -205,7 +204,7 @@ class _Hit extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: '${job.type} for $where. $when.',
+      label: '${job.title} for $where. $when.',
       onTap: onTap,
       excludeSemantics: true,
       child: GestureDetector(
@@ -230,7 +229,7 @@ class _Hit extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      job.type,
+                      job.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: t.body,

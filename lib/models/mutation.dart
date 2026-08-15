@@ -85,16 +85,17 @@ sealed class Mutation {
 
     if (json['kind'] == 'crew.role') {
       final crewId = json['crewId'] as String?;
-      final named = Role.values.where((r) => r.name == json['role']);
       // An unrecognised level is dropped rather than defaulted. Defaulting
-      // down would silently demote on a typo; defaulting up is worse.
-      if (crewId == null || named.isEmpty) return null;
+      // down would silently demote on a typo; defaulting up is worse. A
+      // manager comes back as an owner — see roleFrom.
+      final role = roleFrom(json['role']);
+      if (crewId == null || role == null) return null;
       return SetCrewRole(
         id: id,
         actorId: actorId,
         at: at,
         crewId: crewId,
-        role: named.first,
+        role: role,
       );
     }
 
@@ -484,6 +485,11 @@ class PublishJob extends JobMutation {
 }
 
 /// A driver takes an unclaimed job off the board.
+///
+/// Nothing writes one of these any more — dispatch decides who is on what, and
+/// the board's open pile is no longer self-serve. Kept because an outbox
+/// written by an older build may still be carrying one, and a mutation this
+/// app cannot replay is a job that quietly never happened.
 class ClaimJob extends JobMutation {
   const ClaimJob({
     required super.id,
@@ -521,6 +527,11 @@ class ClaimJob extends JobMutation {
 }
 
 /// A driver says yes to a job dispatch pushed at them.
+///
+/// There is no yes any more: a job with somebody's name on it is theirs, so
+/// assigning already did everything this used to do. Kept, and now a no-op,
+/// because an old outbox replaying one must not undo the assignment that
+/// preceded it.
 class AcceptJob extends JobMutation {
   const AcceptJob({
     required super.id,
@@ -533,22 +544,17 @@ class AcceptJob extends JobMutation {
   String get kind => 'accept';
 
   @override
-  Job? apply(Job job, {Map<String, Uint8List> photoBytes = const {}}) {
-    if (job.status != JobStatus.assigned) return null;
-    return job.copyWith(
-      status: JobStatus.active,
-      stage: 0,
-      progress: 0,
-      startedAt: at,
-      events: [
-        ...job.events,
-        JobEvent(at: at, label: 'Accepted the job', kind: EventKind.flat),
-      ],
-    );
-  }
+  Job? apply(Job job, {Map<String, Uint8List> photoBytes = const {}}) => null;
 }
 
-/// Dispatch pushes a job at a driver. They still have to accept it.
+/// Dispatch puts a job on somebody, or takes it back off them.
+///
+/// There is no yes to wait for: a job with a driver's name on it is theirs.
+/// The clock does not start here — it starts when they set off, which is the
+/// first thing they actually do — so work booked on a Friday for the following
+/// Tuesday does not quietly bill four days.
+///
+/// An empty [driverId] takes the job back and returns it to the board.
 class AssignJob extends JobMutation {
   const AssignJob({
     required super.id,
@@ -568,8 +574,45 @@ class AssignJob extends JobMutation {
 
   @override
   Job? apply(Job job, {Map<String, Uint8List> photoBytes = const {}}) {
+    // A closed job is a record of what happened. Moving it to somebody else
+    // would rewrite whose hours those were.
     if (job.status == JobStatus.done) return null;
-    return job.copyWith(status: JobStatus.assigned, assignedTo: driverId);
+
+    if (driverId.isEmpty) {
+      if (job.assignedTo == null) return null;
+      return job.copyWith(
+        status: JobStatus.open,
+        clearAssignee: true,
+        stage: 0,
+        progress: 0,
+        events: [
+          ...job.events,
+          JobEvent(
+            at: at,
+            label: 'Taken back off the driver',
+            kind: EventKind.flat,
+          ),
+        ],
+      );
+    }
+
+    if (job.assignedTo == driverId && job.status == JobStatus.active) {
+      return null;
+    }
+    return job.copyWith(
+      status: JobStatus.active,
+      assignedTo: driverId,
+      stage: 0,
+      progress: 0,
+      events: [
+        ...job.events,
+        JobEvent(
+          at: at,
+          label: 'Put on the board for a driver',
+          kind: EventKind.flat,
+        ),
+      ],
+    );
   }
 }
 
@@ -601,6 +644,11 @@ class AdvanceStage extends JobMutation {
 
     return job.copyWith(
       status: closing ? JobStatus.done : job.status,
+      // The clock starts at the first step, not when the job was handed over.
+      // A job put on a driver on Friday for the following Tuesday would
+      // otherwise bill the weekend. Set once and never moved, so a replay
+      // cannot walk somebody's start time forward.
+      startedAt: job.startedAt ?? at,
       finishedAt: closing ? at : job.finishedAt,
       stage: toStage,
       progress: closing ? 1 : 0,

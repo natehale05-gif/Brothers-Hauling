@@ -12,7 +12,7 @@ import '../state/app_state.dart';
 import 'calendar_state.dart';
 import 'calendar_theme.dart';
 import 'date_math.dart';
-import 'event.dart';
+
 import 'form_bits.dart';
 
 /// How long a new job runs unless somebody says otherwise.
@@ -90,7 +90,6 @@ class _EventEditorState extends State<EventEditor> {
   late final TextEditingController _city;
   late final TextEditingController _phone;
   late final TextEditingController _access;
-  late final TextEditingController _kind;
   late final TextEditingController _billed;
   late final TextEditingController _dumpFee;
 
@@ -118,7 +117,6 @@ class _EventEditorState extends State<EventEditor> {
     _city = TextEditingController(text: job?.city ?? '');
     _phone = TextEditingController(text: job?.phone ?? '');
     _access = TextEditingController(text: job?.access ?? '');
-    _kind = TextEditingController(text: job?.type ?? '');
     _rigs = [...?job?.equipment];
     // Empty rather than "0": a job nobody has priced has no price, and a
     // nought in the box says somebody decided on one.
@@ -154,7 +152,6 @@ class _EventEditorState extends State<EventEditor> {
       _city,
       _phone,
       _access,
-      _kind,
       _billed,
       _dumpFee,
     ]) {
@@ -175,10 +172,11 @@ class _EventEditorState extends State<EventEditor> {
       ).showSnackBar(const SnackBar(content: Text('Give the job a customer.')));
       return;
     }
-    // A kind of work without a rig is a job nobody can load for. Dispatch is
-    // the only one who knows, and this is the moment they know it — a customer
-    // booking off the website cannot say, which is why the rule lives on this
-    // form and not in the domain.
+    // A job with nothing on the truck is a job nobody can load for, and the
+    // rig is what the job is called — so without one there is nothing on the
+    // calendar to read. Dispatch is the only one who knows, and this is the
+    // moment they know it: a customer booking off the website cannot say,
+    // which is why the rule lives on this form and not in the domain.
     if (_rigs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Say what rig the job needs.')),
@@ -193,7 +191,6 @@ class _EventEditorState extends State<EventEditor> {
     // rather than with a prompt on first launch that means nothing yet.
     if (_alert != null) await app.enableAlerts();
     final job = widget.job;
-    final kind = _kind.text.trim().isEmpty ? 'Other work' : _kind.text.trim();
 
     final bool ok;
     if (job == null) {
@@ -209,7 +206,6 @@ class _EventEditorState extends State<EventEditor> {
       var made = 0;
       for (final at in when) {
         final added = await app.addJob(
-          type: kind,
           customer: _customer.text,
           address: _address.text,
           city: _city.text,
@@ -229,7 +225,6 @@ class _EventEditorState extends State<EventEditor> {
     } else {
       // Only what actually changed goes on the wire — see EditJob.
       ok = await app.editJob(job, {
-        'type': kind,
         'customer': _customer.text.trim(),
         'address': _address.text.trim(),
         'city': _city.text.trim(),
@@ -260,7 +255,7 @@ class _EventEditorState extends State<EventEditor> {
       builder: (context) => AlertDialog(
         title: const Text('Delete this job?'),
         content: Text(
-          '${job.type} for ${job.customer} on '
+          '${job.title} for ${job.customer} on '
           '${longDay(job.scheduledFor ?? DateTime.now())}.',
         ),
         actions: [
@@ -329,7 +324,6 @@ class _EventEditorState extends State<EventEditor> {
                 hint: 'Who the job is for',
                 autofocus: _isNew,
               ),
-              _KindRow(controller: _kind, onChanged: () => setState(() {})),
               // In the same box as the kind of work, because they are one
               // decision: what the job is decides what has to be on the truck,
               // and a rig chosen three groups further down is a rig somebody
@@ -469,124 +463,6 @@ class _EventEditorState extends State<EventEditor> {
             ),
         ],
       ),
-    );
-  }
-}
-
-/// The box for naming a kind of work the app has no colour for.
-const Key kKindField = Key('kind-field');
-
-/// The kind of work, picked off a menu or named.
-///
-/// Still not a closed list: the colour a job gets is matched off this string,
-/// and a yard that starts doing something new should be able to book it the
-/// same afternoon. Choosing "Other work" opens a box to say what it is, and
-/// that job draws in grey rather than borrowing another kind's colour.
-class _KindRow extends StatefulWidget {
-  const _KindRow({required this.controller, required this.onChanged});
-
-  final TextEditingController controller;
-  final VoidCallback onChanged;
-
-  @override
-  State<_KindRow> createState() => _KindRowState();
-}
-
-class _KindRowState extends State<_KindRow> {
-  /// Whether the box for naming a kind is open.
-  ///
-  /// Not the same question as "does this text match a calendar": a new job has
-  /// no kind at all, and opening a box on it would be answering a question
-  /// nobody has asked yet. An existing job whose kind the app has no colour
-  /// for opens with the box up, because that is where its name lives.
-  late bool _naming;
-
-  @override
-  void initState() {
-    super.initState();
-    _naming = widget.controller.text.trim().isNotEmpty && _match() == null;
-  }
-
-  /// The calendar this job's typed kind belongs to, or null when it is either
-  /// blank or something the app has no colour for.
-  WorkCalendar? _match() {
-    final typed = widget.controller.text.trim().toLowerCase();
-    for (final calendar in WorkCalendar.values) {
-      if (calendar != WorkCalendar.other &&
-          calendar.label.toLowerCase() == typed) {
-        return calendar;
-      }
-    }
-    return null;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final p = CalPalette.of(context);
-    final t = CalText.of(context);
-    final typed = widget.controller.text.trim();
-    final named = _match();
-    final picked = named ?? (_naming ? WorkCalendar.other : null);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ChoiceRow<(WorkCalendar?,)>(
-          label: 'Kind',
-          shown: typed.isNotEmpty
-              ? typed
-              : (_naming ? WorkCalendar.other.label : 'Pick one'),
-          // Wrapped so "nothing picked yet" can be a value of its own rather
-          // than borrowing "Other work" and putting a tick against a choice
-          // nobody made.
-          ticked: (choice) => choice == (picked,),
-          valueColour: picked?.colour ?? p.tertiaryLabel,
-          dotOf: (choice) => choice.$1?.colour,
-          choices: [
-            for (final calendar in WorkCalendar.values)
-              ((calendar,), calendar.label),
-          ],
-          onChanged: (choice) {
-            final calendar = choice.$1!;
-            setState(() => _naming = calendar == WorkCalendar.other);
-            // "Other work" is the one choice that means "I will type it" —
-            // filling the box with the words "Other work" would leave nothing
-            // to name and a job called nothing in particular.
-            widget.controller.text = _naming ? '' : calendar.label;
-            widget.onChanged();
-          },
-        ),
-        if (_naming)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Row(
-              children: [
-                const SizedBox(width: 96),
-                Expanded(
-                  child: TextField(
-                    key: kKindField,
-                    controller: widget.controller,
-                    onChanged: (_) => widget.onChanged(),
-                    style: t.body.copyWith(
-                      fontSize: 15,
-                      color: WorkCalendar.other.colour,
-                    ),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      hintText: 'What kind of work',
-                      hintStyle: t.body.copyWith(
-                        fontSize: 15,
-                        color: p.tertiaryLabel,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
     );
   }
 }

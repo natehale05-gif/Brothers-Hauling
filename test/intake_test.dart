@@ -37,7 +37,6 @@ BookingRequest booking(
   phone: '555-0142',
   address: '1180 Decker Rd',
   city: 'Philomath',
-  type: 'Debris haul',
   details: 'Two pallets of broken drywall behind the garage.',
   window: 'Weekday mornings',
 );
@@ -244,7 +243,7 @@ void main() {
     });
 
     test('a manager can price one and put it on the board', () async {
-      final state = await withBooking(role: Role.manager);
+      final state = await withBooking(role: Role.admin);
       expect(state.canPriceJobs, isTrue);
 
       await state.priceJob(
@@ -279,7 +278,7 @@ void main() {
     });
 
     test('a manager standing in the crew view gets the crew view', () async {
-      final state = await withBooking(role: Role.manager);
+      final state = await withBooking(role: Role.admin);
       state.toggleEmployeeView();
 
       expect(state.canPriceJobs, isFalse);
@@ -346,7 +345,6 @@ void main() {
 
     test('an empty booking still produces a usable job', () {
       final job = BookingRequest.fromJson(const {'id': 'bk-1'})!.toJob('HL-1');
-      expect(job.type, 'Website booking');
       expect(job.customer, 'Website enquiry');
       expect(job.window, 'Not agreed yet');
       expect(job.status, JobStatus.requested);

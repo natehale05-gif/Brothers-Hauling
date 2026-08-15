@@ -198,10 +198,10 @@ class Account {
     final username = json['username'] as String?;
     final crewId = json['crewId'] as String?;
     final password = json['password'];
-    final named = Role.values.where((r) => r.name == json['role']);
+    final role = roleFrom(json['role']);
     if (username == null ||
         crewId == null ||
-        named.isEmpty ||
+        role == null ||
         password is! Map) {
       return null;
     }
@@ -210,7 +210,7 @@ class Account {
     return Account(
       username: username,
       crewId: crewId,
-      role: named.first,
+      role: role,
       password: hash,
       sample: json['sample'] == true,
     );
@@ -246,30 +246,40 @@ class Session {
     final token = json['token'] as String?;
     final username = json['username'] as String?;
     final crewId = json['crewId'] as String?;
-    final named = Role.values.where((r) => r.name == json['role']);
-    if (token == null || username == null || crewId == null || named.isEmpty) {
+    final role = roleFrom(json['role']);
+    if (token == null || username == null || crewId == null || role == null) {
       return null;
     }
     return Session(
       token: token,
       username: username,
       crewId: crewId,
-      role: named.first,
+      role: role,
     );
   }
 }
 
 /// The logins a device makes for itself when nobody has set one up.
 ///
-/// Matched to the sample roster the sample board is already about, so the
-/// three levels can actually be walked through on a fresh install or on the
-/// hosted demo. Every one is flagged [Account.sample] and the app says so on
-/// the login box until the password has been replaced.
+/// The shape the yard asked for: one owner, one login per driver, and a single
+/// `crew` login the rest of the hands share. Matched to the sample roster the
+/// sample board is already about, so all three can be walked through on a fresh
+/// install or on the hosted demo. Every one is flagged [Account.sample] and the
+/// app says so on the login box until the password has been replaced.
+///
+/// The shared login points at [kCrewId] rather than at a person. Nothing is
+/// ever assigned to it, and nothing it does is filed under anybody's name.
 const List<(String, String, Role)> kSampleLogins = [
   ('owner', 'c1', Role.admin),
-  ('manager', 'c2', Role.manager),
-  ('driver', 'c3', Role.employee),
+  ('driver', 'c2', Role.driver),
+  ('crew', kCrewId, Role.employee),
 ];
+
+/// The roster id the shared crew login carries.
+///
+/// Deliberately not a person's: several people are signed in as this at once,
+/// so hours, jobs and a place on the map would all be somebody else's.
+const String kCrewId = 'shared';
 
 /// The password all three sample logins start with.
 ///

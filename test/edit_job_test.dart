@@ -32,12 +32,12 @@ void main() {
       expect(boot(role: Role.admin).canEditJobs, isTrue);
     });
 
-    test('a manager may not', () {
-      // Pricing and addresses are the owner's to change.
-      expect(boot(role: Role.manager).canEditJobs, isFalse);
+    test('a driver may not', () {
+      // Prices and addresses are the owner's to change.
+      expect(boot(role: Role.driver).canEditJobs, isFalse);
     });
 
-    test('a driver may not', () {
+    test('nor may the shared crew login', () {
       expect(boot(role: Role.employee).canEditJobs, isFalse);
     });
 
@@ -48,7 +48,7 @@ void main() {
     });
 
     test('the state refuses the edit, not just the button', () async {
-      final state = boot(role: Role.manager);
+      final state = boot(role: Role.driver);
       final before = jobIn(state, 'HL-4471').billed;
 
       final ok = await state.editJob(jobIn(state, 'HL-4471'), {'billed': 999});
@@ -82,7 +82,7 @@ void main() {
       final state = boot(role: Role.admin);
 
       await state.editJob(jobIn(state, 'HL-4471'), {
-        'type': 'Equipment move',
+        'type': 'Lowboy 25t',
         'customer': 'Fairbanks Excavating',
         'address': '9 Mill Road',
         'city': 'Albany',
@@ -103,7 +103,6 @@ void main() {
       });
 
       final job = jobIn(state, 'HL-4471');
-      expect(job.type, 'Equipment move');
       expect(job.address, '9 Mill Road');
       expect(job.city, 'Albany');
       expect(job.contact, 'Sam');
@@ -160,7 +159,7 @@ void main() {
   group('what an edit may not touch', () {
     test('the record of what the driver did is out of reach', () async {
       final state = boot(role: Role.admin);
-      await state.claim(jobIn(state, 'HL-4471'));
+      await takeOn(state, 'HL-4471');
       await state.advance(jobIn(state, 'HL-4471'));
       final before = jobIn(state, 'HL-4471');
 

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:haul_board/data/accounts.dart';
 import 'package:haul_board/data/seed_data.dart';
 import 'package:haul_board/models/job.dart';
 import 'package:haul_board/models/role.dart';
@@ -50,7 +51,7 @@ void main() {
       s.enter(Role.employee);
       expect(s.canSeeMoney, isFalse);
 
-      s.enter(Role.manager);
+      s.enter(Role.admin);
       expect(s.canSeeMoney, isTrue);
 
       // Stepping into the crew's view hides it again — the whole point of the
@@ -63,52 +64,57 @@ void main() {
     });
   });
 
-  group('claiming and accepting', () {
-    test('claiming assigns the job to me and logs it', () async {
-      final s = makeState()..enter(Role.employee);
-      final job = jobById(s, 'HL-4471');
+  group('putting somebody on a job', () {
+    test('it is theirs from that moment, and the log says so', () async {
+      final s = makeState()..enter(Role.admin);
 
-      await s.claim(job);
+      await s.assign(jobById(s, 'HL-4471'), kMeId);
 
       final after = jobById(s, 'HL-4471');
       expect(after.status, JobStatus.active);
       expect(after.assignedTo, kMeId);
       expect(after.stage, 0);
-      expect(after.events.single.label, 'Volunteered for this job');
+      expect(after.events.single.label, 'Put on the board for a driver');
       expect(after.events.single.time, '9:05 AM');
       expect(s.toast, contains('HL-4471'));
 
       s.dispose();
     });
 
-    test('accepting a pushed job flips it to active', () async {
-      final s = makeState()..enter(Role.employee);
-      final job = jobById(s, 'HL-4491');
-      expect(job.status, JobStatus.assigned);
+    test('the clock waits for them to set off', () async {
+      final s = makeState()..enter(Role.admin);
 
-      await s.accept(job);
+      await s.assign(jobById(s, 'HL-4471'), kMeId);
+      expect(jobById(s, 'HL-4471').startedAt, isNull);
 
-      expect(jobById(s, 'HL-4491').status, JobStatus.active);
-      expect(s.toast, 'Accepted HL-4491.');
+      await s.advance(jobById(s, 'HL-4471'));
+      expect(jobById(s, 'HL-4471').startedAt, isNotNull);
       s.dispose();
     });
 
-    test('assigning pushes to a driver but leaves it unaccepted', () async {
-      final s = makeState()..enter(Role.manager);
+    test('taking it back puts it on the board again', () async {
+      final s = makeState()..enter(Role.admin);
       await s.assign(jobById(s, 'HL-4471'), 'c2');
 
+      expect(await s.assign(jobById(s, 'HL-4471'), ''), isTrue);
       final after = jobById(s, 'HL-4471');
-      expect(after.status, JobStatus.assigned);
-      expect(after.assignedTo, 'c2');
-      expect(s.toast, contains('still have to accept'));
+      expect(after.status, JobStatus.open);
+      expect(after.assignedTo, isNull);
+      expect(s.toast, contains('back on the board'));
+      s.dispose();
+    });
+
+    test('the shared crew login cannot be sent out on anything', () async {
+      final s = makeState()..enter(Role.admin);
+      expect(s.assignable.map((c) => c.id), isNot(contains(kCrewId)));
       s.dispose();
     });
   });
 
   group('stage pipeline', () {
     test('advancing walks the stages and writes the right log lines', () async {
-      final s = makeState()..enter(Role.employee);
-      await s.claim(jobById(s, 'HL-4471'));
+      final s = makeState()..enter(Role.admin);
+      await s.assign(jobById(s, 'HL-4471'), kMeId);
 
       await s.advance(jobById(s, 'HL-4471'));
       expect(jobById(s, 'HL-4471').stage, 1);
@@ -135,8 +141,8 @@ void main() {
 
     test('a job cannot close without both photos', () async {
       final photos = FakePhotoService();
-      final s = makeState(photos: photos)..enter(Role.employee);
-      await s.claim(jobById(s, 'HL-4471'));
+      final s = makeState(photos: photos)..enter(Role.admin);
+      await s.assign(jobById(s, 'HL-4471'), kMeId);
       for (var i = 0; i < 4; i++) {
         await s.advance(jobById(s, 'HL-4471'));
       }
@@ -164,8 +170,8 @@ void main() {
 
     test('backing out of the camera files nothing', () async {
       final photos = FakePhotoService(cancel: true);
-      final s = makeState(photos: photos)..enter(Role.employee);
-      await s.claim(jobById(s, 'HL-4471'));
+      final s = makeState(photos: photos)..enter(Role.admin);
+      await s.assign(jobById(s, 'HL-4471'), kMeId);
 
       await s.addPhoto(jobById(s, 'HL-4471'), before: true);
 
@@ -256,8 +262,8 @@ void main() {
   });
 
   test('leg target switches to the disposal site once loaded', () async {
-    final s = makeState()..enter(Role.employee);
-    await s.claim(jobById(s, 'HL-4471'));
+    final s = makeState()..enter(Role.admin);
+    await s.assign(jobById(s, 'HL-4471'), kMeId);
     expect(jobById(s, 'HL-4471').legTarget.query, contains('Sunset Ridge'));
 
     for (var i = 0; i < 3; i++) {

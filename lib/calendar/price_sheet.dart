@@ -159,7 +159,7 @@ class _PriceSheetState extends State<PriceSheet> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-            child: Text('${job.type} · ${job.id}', style: t.secondary),
+            child: Text('${job.title} · ${job.id}', style: t.secondary),
           ),
           FormGroup(
             children: [

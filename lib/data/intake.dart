@@ -113,13 +113,20 @@ class BookingRequest {
     id: jobId,
     bookingId: id,
     status: JobStatus.requested,
-    type: type.isEmpty ? 'Website booking' : type,
     customer: customer.isEmpty ? 'Website enquiry' : customer,
     address: address,
     city: city,
     contact: contact,
     phone: phone,
-    access: details,
+    // What the customer called the job goes at the head of the notes. There is
+    // no "kind of work" on a job any more — what goes on the truck is what the
+    // job is, and the customer cannot know that — but their own words are the
+    // best thing dispatch has to go on, and the notes are read off the
+    // calendar card now rather than being buried.
+    access: [
+      if (type.isNotEmpty) type,
+      if (details.isNotEmpty) details,
+    ].join('\n'),
     material: '',
     volume: '',
     weight: '',

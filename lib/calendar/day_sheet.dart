@@ -76,9 +76,9 @@ List<Lane> lanesFor(AppState app, DateTime day) {
           for (final job in onDay)
             if (job.equipment.contains(rigs[i])) job,
         ],
-        // Borrowed from the calendar's own palette so a lane and the blocks
-        // on the day view are the same colour for the same work.
-        colour: WorkCalendar.values[i % WorkCalendar.values.length].colour,
+        // The rig's own colour, so a lane here and a block on the day view
+        // are the same colour for the same trailer.
+        colour: WorkCalendar(rigs[i]).colour,
       ),
   ];
 }
@@ -421,7 +421,7 @@ class _LaneHeader extends StatelessWidget {
           children: [
             SizedBox(width: 58, child: Text('Time', style: style)),
             SizedBox(width: 56, child: Text('Owes', style: style)),
-            Expanded(child: Text('Paid by · the job', style: style)),
+            Expanded(child: Text('Customer · paid by', style: style)),
           ],
         ),
       ),
@@ -452,7 +452,8 @@ class _JobRow extends StatelessWidget {
     return Semantics(
       button: true,
       label:
-          '${job.customer}, ${job.type}. '
+          // Not the rig: the lane's own heading has just said it.
+          '${job.customer}. '
           '${time.isEmpty ? '' : '$time. '}'
           '${job.owes == 0 ? 'Settled.' : 'Owes \$${job.owes}.'}'
           '${method.isEmpty ? '' : ' Paid by $method.'}',
@@ -505,7 +506,6 @@ class _JobRow extends StatelessWidget {
                     Text(
                       [
                         if (method.isNotEmpty) method,
-                        job.type,
                         if (where.isNotEmpty) where,
                       ].join(' · '),
                       maxLines: 2,

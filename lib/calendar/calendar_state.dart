@@ -143,12 +143,18 @@ class CalendarState extends ChangeNotifier {
       if (isVisible(event.calendar)) event,
   ];
 
-  /// The title over the current view — "August 2026", "2026", "Thursday".
+  /// The title over the current view.
+  ///
+  /// It names whatever the view is actually showing. A day view titled with
+  /// the month was the bar answering a question nobody asked — somebody
+  /// looking at one day wants to know which day, and "August 2026" over a
+  /// single Thursday is a bar that has to be ignored.
   String get title => switch (_view) {
     CalView.year => '${_focused.year}',
     CalView.month => '${monthName(_focused)} ${_focused.year}',
     CalView.week => _weekTitle(),
-    CalView.day || CalView.list => '${monthName(_focused)} ${_focused.year}',
+    CalView.day => shortDay(_focused),
+    CalView.list => '${monthName(_focused)} ${_focused.year}',
   };
 
   String _weekTitle() {

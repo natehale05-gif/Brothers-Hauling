@@ -31,9 +31,10 @@ void main() {
       expect(s.hasAccounts, isTrue);
       expect(s.accounts, hasLength(kSampleLogins.length));
       expect(s.sampleAccounts, hasLength(kSampleLogins.length));
+      // One owner, one driver, and the login the rest of the crew share.
       expect(s.accounts.map((a) => a.role).toSet(), {
         Role.admin,
-        Role.manager,
+        Role.driver,
         Role.employee,
       });
       s.dispose();
@@ -67,10 +68,10 @@ void main() {
       await s.restore();
 
       expect(await s.signIn('driver', kSamplePassword), isTrue);
-      expect(s.role, Role.employee);
+      expect(s.role, Role.driver);
       expect(s.session!.username, 'driver');
       // The board now knows who you are, rather than assuming.
-      expect(s.meId, 'c3');
+      expect(s.meId, 'c2');
       s.dispose();
     });
 
@@ -85,23 +86,28 @@ void main() {
       s.dispose();
     });
 
-    test('a manager sees money but cannot rewrite a job', () async {
-      final s = stateOn(MemoryStore());
-      await s.restore();
-
-      await s.signIn('manager', kSamplePassword);
-      expect(s.role, Role.manager);
-      expect(s.canSeeMoney, isTrue);
-      expect(s.canEditJobs, isFalse);
-      s.dispose();
-    });
-
-    test('a driver sees no money at all', () async {
+    test('a driver sees money but cannot rewrite a job', () async {
       final s = stateOn(MemoryStore());
       await s.restore();
 
       await s.signIn('driver', kSamplePassword);
+      expect(s.role, Role.driver);
+      // They take the payment, so they have to see what is owed.
+      expect(s.canSeeMoney, isTrue);
+      expect(s.canTakePayment, isTrue);
+      expect(s.canEditJobs, isFalse);
+      expect(s.canPriceJobs, isFalse);
+      s.dispose();
+    });
+
+    test('the shared crew login sees no money at all', () async {
+      final s = stateOn(MemoryStore());
+      await s.restore();
+
+      await s.signIn('crew', kSamplePassword);
+      expect(s.role, Role.employee);
       expect(s.canSeeMoney, isFalse);
+      expect(s.canTakePayment, isFalse);
       expect(s.canEditJobs, isFalse);
       s.dispose();
     });
@@ -135,13 +141,13 @@ void main() {
       final store = MemoryStore();
       final first = stateOn(store);
       await first.restore();
-      await first.signIn('manager', kSamplePassword);
+      await first.signIn('driver', kSamplePassword);
       first.dispose();
 
       final second = stateOn(store);
       await second.restore();
-      expect(second.role, Role.manager);
-      expect(second.session!.username, 'manager');
+      expect(second.role, Role.driver);
+      expect(second.session!.username, 'driver');
       second.dispose();
     });
 
@@ -149,7 +155,7 @@ void main() {
       final store = MemoryStore();
       final first = stateOn(store);
       await first.restore();
-      await first.signIn('manager', kSamplePassword);
+      await first.signIn('driver', kSamplePassword);
       await first.signOut();
       first.dispose();
 
@@ -163,15 +169,15 @@ void main() {
       final store = MemoryStore();
       final first = stateOn(store);
       await first.restore();
-      await first.signIn('manager', kSamplePassword);
+      await first.signIn('driver', kSamplePassword);
       first.dispose();
 
       // The account book arrives from elsewhere without them in it — which is
       // what a device syncing to an owner who revoked them looks like. The
-      // session on this device is untouched and still says manager.
+      // session on this device is untouched and still says driver.
       final without = AccountBook.decode(
         await store.readString('accounts.v1'),
-      ).accounts.where((a) => a.username != 'manager');
+      ).accounts.where((a) => a.username != 'driver');
       await store.writeString(
         'accounts.v1',
         AccountBook(accounts: {for (final a in without) a.key: a}).encode(),
@@ -188,11 +194,11 @@ void main() {
       final store = MemoryStore();
       final first = stateOn(store);
       await first.restore();
-      await first.signIn('manager', kSamplePassword);
+      await first.signIn('driver', kSamplePassword);
       first.dispose();
 
       final book = AccountBook.decode(await store.readString('accounts.v1'));
-      final was = book.accounts.firstWhere((a) => a.username == 'manager');
+      final was = book.accounts.firstWhere((a) => a.username == 'driver');
       final demoted = Account(
         username: was.username,
         crewId: was.crewId,
@@ -204,7 +210,7 @@ void main() {
         AccountBook(
           accounts: {
             for (final a in book.accounts)
-              a.key: a.username == 'manager' ? demoted : a,
+              a.key: a.username == 'driver' ? demoted : a,
           },
         ).encode(),
       );
@@ -260,10 +266,10 @@ void main() {
       s.dispose();
     });
 
-    test('a manager cannot hand one out at all', () async {
+    test('a driver cannot hand one out at all', () async {
       final s = stateOn(MemoryStore());
       await s.restore();
-      await s.signIn('manager', kSamplePassword);
+      await s.signIn('driver', kSamplePassword);
 
       final member = s.crew.firstWhere((c) => c.id == 'c4');
       expect(
@@ -410,8 +416,8 @@ void main() {
       expect(find.textContaining('cannot listen on a port'), findsOneWidget);
     });
 
-    testWidgets('a manager is not offered the server at all', (tester) async {
-      await pumpApp(tester, role: Role.manager);
+    testWidgets('a driver is not offered the server at all', (tester) async {
+      await pumpApp(tester, role: Role.driver);
       await openSheet(tester);
 
       expect(find.text('Serving the crew'), findsNothing);
@@ -437,7 +443,7 @@ void main() {
     });
 
     testWidgets('only an owner is offered the logins screen', (tester) async {
-      await pumpApp(tester, role: Role.manager);
+      await pumpApp(tester, role: Role.driver);
       await tester.tap(find.bySemanticsLabel('Calendars'));
       await settle(tester);
       await tester.ensureVisible(find.bySemanticsLabel('Sign out'));

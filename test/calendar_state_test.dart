@@ -98,7 +98,8 @@ void main() {
       }
 
       expect(titleIn(CalView.month, DateTime(2026, 8, 6)), 'August 2026');
-      expect(titleIn(CalView.day, DateTime(2026, 8, 6)), 'August 2026');
+      // A day view names the day. Anything else is a bar to be ignored.
+      expect(titleIn(CalView.day, DateTime(2026, 8, 6)), 'Thu 6 Aug');
       expect(titleIn(CalView.year, DateTime(2026, 8, 6)), '2026');
       expect(titleIn(CalView.week, DateTime(2026, 8, 6)), 'August 2026');
     });
@@ -117,14 +118,18 @@ void main() {
       final cal = stateAt(now);
       addTearDown(cal.dispose);
       final jobs = [
-        job('debris', type: 'Debris haul', at: DateTime(2026, 8, 6, 9)),
-        job('junk', type: 'Junk removal', at: DateTime(2026, 8, 6, 11)),
+        job(
+          'debris',
+          equipment: ['Dump trailer 14k'],
+          at: DateTime(2026, 8, 6, 9),
+        ),
+        job('junk', equipment: ['Flatbed 20ft'], at: DateTime(2026, 8, 6, 11)),
       ];
 
       expect(cal.visible(jobs), hasLength(2));
-      cal.toggleCalendar(WorkCalendar.junk);
+      cal.toggleCalendar(const WorkCalendar('Flatbed 20ft'));
       expect(cal.visible(jobs).map((e) => e.id), ['debris']);
-      expect(cal.isVisible(WorkCalendar.junk), isFalse);
+      expect(cal.isVisible(const WorkCalendar('Flatbed 20ft')), isFalse);
 
       // The job itself is untouched — this is a view, not a filter on data.
       expect(jobs, hasLength(2));
@@ -136,8 +141,8 @@ void main() {
     test('toggling twice puts it back', () {
       final cal = stateAt(now);
       addTearDown(cal.dispose);
-      cal.toggleCalendar(WorkCalendar.bark);
-      cal.toggleCalendar(WorkCalendar.bark);
+      cal.toggleCalendar(const WorkCalendar('Utility trailer'));
+      cal.toggleCalendar(const WorkCalendar('Utility trailer'));
       expect(cal.hidden, isEmpty);
     });
 

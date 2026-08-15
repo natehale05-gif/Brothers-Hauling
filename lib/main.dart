@@ -119,6 +119,7 @@ class _BrothersHaulingAppState extends State<BrothersHaulingApp> {
       AppState(
         location: const GeolocatorLocationService(),
         photos: ImagePickerPhotoService(),
+        links: widget.links,
       );
 
   late final CalendarState _calendar = widget.calendar ?? CalendarState();

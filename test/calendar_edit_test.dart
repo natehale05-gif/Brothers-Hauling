@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:haul_board/calendar/calendar_state.dart';
 import 'package:haul_board/calendar/date_math.dart';
-import 'package:haul_board/calendar/event_editor.dart';
 import 'package:haul_board/calendar/search.dart';
 import 'package:haul_board/calendar/views/timed_grid.dart';
 import 'package:haul_board/models/job.dart';
@@ -78,7 +77,7 @@ void main() {
   group('searching', () {
     final jobs = [
       ...bookedJobs(),
-      job('HL-9', type: 'Equipment move', customer: 'Fairbanks Excavating'),
+      job('HL-9', equipment: ['Lowboy 25t'], customer: 'Fairbanks Excavating'),
     ];
 
     test('matches any field', () {
@@ -88,9 +87,9 @@ void main() {
     });
 
     test('every word has to land, in any order', () {
-      expect(searchJobs(jobs, 'junk corvallis').map((j) => j.id), ['HL-2']);
-      expect(searchJobs(jobs, 'corvallis junk').map((j) => j.id), ['HL-2']);
-      expect(searchJobs(jobs, 'junk philomath'), isEmpty);
+      expect(searchJobs(jobs, 'flatbed corvallis').map((j) => j.id), ['HL-2']);
+      expect(searchJobs(jobs, 'corvallis flatbed').map((j) => j.id), ['HL-2']);
+      expect(searchJobs(jobs, 'flatbed philomath'), isEmpty);
     });
 
     test('case and stray spaces do not matter', () {
@@ -171,7 +170,6 @@ void main() {
       final app = await pumpApp(tester, jobs: bookedJobs());
 
       final made = await app.state.addJob(
-        type: 'Gravel delivery',
         customer: 'Skyline Ranch',
         city: 'Alsea',
         scheduledFor: DateTime(2026, 8, 12, 13),
@@ -242,15 +240,13 @@ void main() {
       expect(app.state.jobs.any((j) => j.id == 'HL-2'), isTrue);
     });
 
-    testWidgets('a manager sees the work but cannot rewrite it', (
-      tester,
-    ) async {
-      final app = await pumpApp(tester, jobs: bookedJobs(), role: Role.manager);
+    testWidgets('a driver sees the work but cannot rewrite it', (tester) async {
+      final app = await pumpApp(tester, jobs: bookedJobs(), role: Role.driver);
 
       expect(app.state.canEditJobs, isFalse);
       expect(find.bySemanticsLabel('New job'), findsNothing);
       // The board is still theirs to read.
-      expect(find.text('Debris haul'), findsWidgets);
+      expect(find.text('Dump trailer 14k'), findsWidgets);
     });
 
     testWidgets('an owner can', (tester) async {
@@ -385,14 +381,12 @@ void main() {
       await settle(tester);
 
       await tester.enterText(find.byType(TextField).first, 'Skyline Ranch');
-      await pickKind(tester, 'Gravel delivery');
       await pickRig(tester);
       await tester.tap(find.text('Add'));
       await settle(tester);
 
       final made = app.state.jobs.where((j) => j.customer == 'Skyline Ranch');
       expect(made, hasLength(1));
-      expect(made.single.type, 'Gravel delivery');
       expect(made.single.scheduledFor, isNotNull);
       // Back on the calendar afterwards.
       expect(find.text('New Job'), findsNothing);
@@ -433,43 +427,6 @@ void main() {
       expect(made[1].scheduledFor!.difference(made[0].scheduledFor!).inDays, 7);
       // Each is a job in its own right, with its own id.
       expect({for (final j in made) j.id}, hasLength(4));
-    });
-
-    testWidgets('the kind menu names a job the app has no colour for', (
-      tester,
-    ) async {
-      final app = await pumpApp(tester, jobs: bookedJobs());
-      await tester.tap(find.bySemanticsLabel('New job'));
-      await settle(tester);
-      await tester.enterText(find.byType(TextField).first, 'Kings Valley');
-      await settle(tester);
-
-      // A new kind of work is still bookable the same afternoon: the menu
-      // has an "Other work" entry, and choosing it opens a box to name it.
-      expect(find.byKey(kKindField), findsNothing);
-      await pickKind(tester, 'Other work');
-      expect(find.byKey(kKindField), findsOneWidget);
-
-      await tester.enterText(find.byKey(kKindField), 'Snow plowing');
-      await settle(tester);
-      await pickRig(tester);
-      await tester.tap(find.text('Add'));
-      await settle(tester);
-
-      final made = app.state.jobs.firstWhere(
-        (j) => j.customer == 'Kings Valley',
-      );
-      expect(made.type, 'Snow plowing');
-    });
-
-    testWidgets('a kind off the menu needs no box at all', (tester) async {
-      await pumpApp(tester, jobs: bookedJobs());
-      await tester.tap(find.bySemanticsLabel('New job'));
-      await settle(tester);
-
-      await pickKind(tester, 'Bark & soil');
-      expect(find.bySemanticsLabel('Kind, bark & soil'), findsOne);
-      expect(find.byKey(kKindField), findsNothing);
     });
 
     testWidgets('the alert menu holds the reminders, shut until asked', (
@@ -546,7 +503,7 @@ void main() {
     testWidgets('edits an existing job from its sheet', (tester) async {
       final app = await pumpApp(tester, jobs: bookedJobs());
 
-      await tester.tap(find.text('Junk removal').last);
+      await tester.tap(find.text('Flatbed 20ft').last);
       await settle(tester);
       await tester.tap(find.bySemanticsLabel('Edit job'));
       await settle(tester);

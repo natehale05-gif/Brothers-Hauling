@@ -20,7 +20,7 @@ Job priced(String id, {int billed = 0, int dumpFee = 0, JobStatus? status}) {
 
 /// Opens the job, then its price sheet.
 Future<void> openPricer(WidgetTester tester) async {
-  await tester.tap(find.text('Debris haul').first);
+  await tester.tap(find.text('Dump trailer 14k').first);
   await settle(tester);
   await tester.tap(find.bySemanticsLabel('Price job'));
   await settle(tester);
@@ -37,26 +37,33 @@ void main() {
       );
 
       expect(app.state.canPriceJobs, isTrue);
-      await tester.tap(find.text('Debris haul').first);
+      await tester.tap(find.text('Dump trailer 14k').first);
       await settle(tester);
       expect(find.bySemanticsLabel('Price job'), findsOneWidget);
     });
 
-    testWidgets('so is a manager', (tester) async {
+    testWidgets('a driver takes payment but does not set the price', (
+      tester,
+    ) async {
       final app = await pumpApp(
         tester,
-        role: Role.manager,
+        role: Role.driver,
         view: CalView.day,
         jobs: [priced('HL-1', billed: 300)],
       );
 
-      expect(app.state.canPriceJobs, isTrue);
-      await tester.tap(find.text('Debris haul').first);
+      // What a job bills is the owner's decision; what came in at the kerb is
+      // a record of what happened, and the driver is the one holding it.
+      expect(app.state.canPriceJobs, isFalse);
+      expect(app.state.canTakePayment, isTrue);
+      expect(app.state.canSeeMoney, isTrue);
+
+      await tester.tap(find.text('Dump trailer 14k').first);
       await settle(tester);
-      expect(find.bySemanticsLabel('Price job'), findsOneWidget);
-      // Pricing is not editing. The rest of the job stays the owner's.
-      expect(app.state.canEditJobs, isFalse);
+      expect(find.bySemanticsLabel('Price job'), findsNothing);
       expect(find.bySemanticsLabel('Edit job'), findsNothing);
+      // The figure itself is not hidden from them.
+      expect(find.text('\$300'), findsOneWidget);
     });
 
     testWidgets('a driver is not', (tester) async {
@@ -68,7 +75,7 @@ void main() {
       );
 
       expect(app.state.canPriceJobs, isFalse);
-      await tester.tap(find.text('Debris haul').first);
+      await tester.tap(find.text('Dump trailer 14k').first);
       await settle(tester);
       expect(find.bySemanticsLabel('Price job'), findsNothing);
       // Nor the figure itself.
@@ -82,7 +89,7 @@ void main() {
     ) async {
       final app = await pumpApp(
         tester,
-        role: Role.manager,
+        role: Role.admin,
         view: CalView.day,
         jobs: [priced('HL-1', billed: 300, dumpFee: 40)],
       );
@@ -145,7 +152,7 @@ void main() {
     testWidgets('cancelling changes nothing', (tester) async {
       final app = await pumpApp(
         tester,
-        role: Role.manager,
+        role: Role.admin,
         view: CalView.day,
         jobs: [priced('HL-1', billed: 300)],
       );
@@ -168,7 +175,7 @@ void main() {
     testWidgets('a tip that costs more than the job says so', (tester) async {
       await pumpApp(
         tester,
-        role: Role.manager,
+        role: Role.admin,
         view: CalView.day,
         jobs: [priced('HL-1', billed: 300)],
       );
@@ -200,12 +207,12 @@ void main() {
     ) async {
       await pumpApp(
         tester,
-        role: Role.manager,
+        role: Role.admin,
         view: CalView.day,
         jobs: [priced('HL-1')],
       );
 
-      await tester.tap(find.text('Debris haul').first);
+      await tester.tap(find.text('Dump trailer 14k').first);
       await settle(tester);
       expect(find.text('Put a price on it'), findsOneWidget);
     });
@@ -220,7 +227,7 @@ void main() {
         jobs: [priced('HL-1')],
       );
 
-      await tester.tap(find.text('Debris haul').first);
+      await tester.tap(find.text('Dump trailer 14k').first);
       await settle(tester);
       expect(find.text('Put a price on it'), findsNothing);
       expect(find.textContaining('until it has a price'), findsOneWidget);
@@ -229,7 +236,7 @@ void main() {
     testWidgets('pricing and publishing happen in one press', (tester) async {
       final app = await pumpApp(
         tester,
-        role: Role.manager,
+        role: Role.admin,
         view: CalView.day,
         jobs: [priced('HL-1')],
       );
@@ -256,7 +263,7 @@ void main() {
     testWidgets('and it cannot go up at no price at all', (tester) async {
       await pumpApp(
         tester,
-        role: Role.manager,
+        role: Role.admin,
         view: CalView.day,
         jobs: [priced('HL-1')],
       );

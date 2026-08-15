@@ -64,16 +64,25 @@ void main() {
       expect(find.bySemanticsLabel('Crew'), findsOneWidget);
     });
 
-    for (final role in [Role.manager, Role.employee]) {
-      testWidgets('a ${role.label} is not', (tester) async {
-        final app = await pumpApp(tester, role: role);
-        expect(app.state.canTrackCrew, isFalse);
+    testWidgets('so is a driver — they answer for each other on the road', (
+      tester,
+    ) async {
+      final app = await pumpApp(tester, role: Role.driver);
+      expect(app.state.canTrackCrew, isTrue);
 
-        await tester.tap(find.bySemanticsLabel('Calendars'));
-        await settle(tester);
-        expect(find.bySemanticsLabel('Crew'), findsNothing);
-      });
-    }
+      await tester.tap(find.bySemanticsLabel('Calendars'));
+      await settle(tester);
+      expect(find.bySemanticsLabel('Crew'), findsOneWidget);
+    });
+
+    testWidgets('the shared crew login is not', (tester) async {
+      final app = await pumpApp(tester, role: Role.employee);
+      expect(app.state.canTrackCrew, isFalse);
+
+      await tester.tap(find.bySemanticsLabel('Calendars'));
+      await settle(tester);
+      expect(find.bySemanticsLabel('Crew'), findsNothing);
+    });
 
     testWidgets('nor an owner standing in the crew view', (tester) async {
       final app = await pumpApp(tester, role: Role.admin);
@@ -123,12 +132,14 @@ void main() {
           inHand(
             'HL-1',
             who: 'c2',
-          ).copyWith(status: JobStatus.assigned, startedAt: null),
+          ).copyWith(status: JobStatus.active, startedAt: null),
         ],
       );
       await openCrew(tester);
 
-      expect(find.textContaining('waiting on a yes'), findsOneWidget);
+      // No yes to wait on any more: a job with their name on it is theirs,
+      // and the row says which one and where it has got to.
+      expect(find.textContaining('HL-1'), findsOneWidget);
     });
 
     testWidgets('empty hands are said plainly', (tester) async {
@@ -260,7 +271,7 @@ void main() {
       await scrollTo(tester, find.text('Take somebody on'));
       await tester.tap(find.bySemanticsLabel(RegExp('^Level, ')).last);
       await settle(tester);
-      await tester.tap(find.text('Manager').last);
+      await tester.tap(find.text('Driver').last);
       await settle(tester);
 
       await tester.enterText(find.byType(TextField).first, 'J. Reyes');
@@ -270,7 +281,7 @@ void main() {
 
       expect(
         app.state.crew.firstWhere((c) => c.name == 'J. Reyes').role,
-        Role.manager,
+        Role.driver,
       );
     });
   });
@@ -281,7 +292,7 @@ void main() {
       await openCrew(tester);
 
       final them = app.state.crew.firstWhere((c) => c.id == 'c2');
-      expect(them.role, Role.employee);
+      expect(them.role, Role.driver);
 
       // By the widget rather than by its label: several people on a roster
       // each have a level, and this names whose without depending on how the
@@ -293,10 +304,10 @@ void main() {
       await scrollTo(tester, row);
       await tester.tap(row);
       await settle(tester);
-      await tester.tap(find.text('Manager').last);
+      await tester.tap(find.text('Admin').last);
       await settle(tester);
 
-      expect(app.state.crew.firstWhere((c) => c.id == 'c2').role, Role.manager);
+      expect(app.state.crew.firstWhere((c) => c.id == 'c2').role, Role.admin);
     });
 
     testWidgets('but not their own, which is a door with no handle', (

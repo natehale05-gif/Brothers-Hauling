@@ -33,7 +33,7 @@ void main() {
   group('a job takes as many shots as it needs', () {
     test('before photos stack up instead of replacing each other', () async {
       final state = boot();
-      await state.claim(jobIn(state, 'HL-4471'));
+      await takeOn(state, 'HL-4471');
 
       await state.addPhoto(jobIn(state, 'HL-4471'), before: true);
       await state.addPhoto(jobIn(state, 'HL-4471'), before: true);
@@ -47,7 +47,7 @@ void main() {
 
     test('before and after stay in their own slots', () async {
       final state = boot();
-      await state.claim(jobIn(state, 'HL-4471'));
+      await takeOn(state, 'HL-4471');
       await state.addPhoto(jobIn(state, 'HL-4471'), before: true);
       await state.addPhoto(jobIn(state, 'HL-4471'), before: false);
       await state.addPhoto(jobIn(state, 'HL-4471'), before: false);
@@ -61,7 +61,7 @@ void main() {
 
     test('one of each is still all the gate asks for', () async {
       final state = boot();
-      await state.claim(jobIn(state, 'HL-4471'));
+      await takeOn(state, 'HL-4471');
       expect(jobIn(state, 'HL-4471').photosComplete, isFalse);
 
       await state.addPhoto(jobIn(state, 'HL-4471'), before: true);
@@ -117,7 +117,7 @@ void main() {
       final store = MemoryStore();
       final first = boot(store: store);
       await first.restore();
-      await first.claim(jobIn(first, 'HL-4471'));
+      await takeOn(first, 'HL-4471');
       for (var i = 0; i < 3; i++) {
         await first.addPhoto(jobIn(first, 'HL-4471'), before: true);
       }

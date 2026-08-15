@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:haul_board/calendar/calendar_state.dart';
 import 'package:haul_board/calendar/event.dart';
+import 'package:haul_board/calendar/event_sheet.dart';
 import 'package:haul_board/calendar/views/list_view.dart';
 import 'package:haul_board/calendar/views/month_view.dart';
 import 'package:haul_board/calendar/views/timed_grid.dart';
@@ -12,31 +13,33 @@ import 'calendar_event_test.dart' show job;
 import 'helpers.dart';
 
 /// A day's work around the pinned clock — Thursday 6 August 2026.
+/// A rig each, so the colour sets, the columns and the Calendars sheet all
+/// have something to tell apart. Alphabetical order is the calendar's order.
 List<Job> bookedJobs() => [
   job(
     'HL-1',
-    type: 'Debris haul',
+    equipment: ['Dump trailer 14k'],
     customer: 'Sunset Ridge Builders',
     city: 'Philomath',
     at: DateTime(2026, 8, 6, 7),
   ),
   job(
     'HL-2',
-    type: 'Junk removal',
+    equipment: ['Flatbed 20ft'],
     customer: 'Harrison St rental',
     city: 'Corvallis',
     at: DateTime(2026, 8, 6, 9),
   ),
   job(
     'HL-3',
-    type: 'Gravel delivery',
+    equipment: ['Lowboy 25t'],
     customer: 'Decker Rd residence',
     at: DateTime(2026, 8, 9, 13),
   ),
   // Booked for a day with no time on it — the all-day band.
   job(
     'HL-4',
-    type: 'Bark & soil',
+    equipment: ['Utility trailer'],
     customer: 'Airlie Rd residence',
     at: DateTime(2026, 8, 6),
   ),
@@ -53,22 +56,21 @@ void main() {
       expect(find.byType(DayCell), findsNWidgets(42));
       expect(find.text('31'), findsNWidgets(2));
       // The selected day's work is listed underneath.
-      expect(find.text('Debris haul'), findsWidgets);
+      expect(find.text('Dump trailer 14k'), findsWidgets);
       expect(find.text('Sunset Ridge Builders · Philomath'), findsOneWidget);
     });
 
-    testWidgets('tapping a day changes the list but not the month', (
-      tester,
-    ) async {
+    testWidgets('tapping a day opens that day', (tester) async {
       final app = await pumpApp(tester, jobs: bookedJobs());
 
       await tester.tap(find.bySemanticsLabel(RegExp('^Sunday, 9 August')));
       await settle(tester);
 
+      // One tap, not two: picking a day means wanting to see the day.
+      expect(app.calendar.view, CalView.day);
       expect(app.calendar.selected, DateTime(2026, 8, 9));
-      expect(app.calendar.focused, DateTime(2026, 8, 6));
-      expect(find.text('August 2026'), findsOneWidget);
-      expect(find.text('Gravel delivery'), findsWidgets);
+      expect(app.calendar.focused, DateTime(2026, 8, 9));
+      expect(find.text('Lowboy 25t'), findsWidgets);
     });
 
     testWidgets('a day announces what is on it', (tester) async {
@@ -85,14 +87,18 @@ void main() {
       expect(find.bySemanticsLabel('Sunday, 9 August. 1 job.'), findsOneWidget);
     });
 
-    testWidgets('an empty day says so rather than showing nothing', (
+    testWidgets('the list under the grid holds the day you came back to', (
       tester,
     ) async {
-      await pumpApp(tester, jobs: bookedJobs());
-      await tester.tap(find.bySemanticsLabel(RegExp('^Friday, 7 August')));
+      final app = await pumpApp(tester, jobs: bookedJobs());
+
+      await tester.tap(find.bySemanticsLabel(RegExp('^Sunday, 9 August')));
+      await settle(tester);
+      app.calendar.setView(CalView.month);
       await settle(tester);
 
-      expect(find.text('No jobs'), findsOneWidget);
+      expect(find.byType(EventRow), findsOneWidget);
+      expect(find.text('Lowboy 25t'), findsWidgets);
     });
 
     testWidgets('a window with room writes the work into the cells', (
@@ -103,13 +109,13 @@ void main() {
       // Mac Calendar's month view: titles in the cells, and no list below
       // repeating what is already on screen.
       expect(find.byType(EventRow), findsNothing);
-      expect(find.text('Junk removal'), findsOneWidget);
-      expect(find.text('Bark & soil'), findsOneWidget);
+      expect(find.text('Flatbed 20ft'), findsOneWidget);
+      expect(find.text('Utility trailer'), findsOneWidget);
       // And what is written in the cell is what gets read out of it.
       expect(
         find.bySemanticsLabel(
           'Thursday, 6 August, today. 3 jobs. '
-          'Bark & soil, Debris haul, Junk removal.',
+          'Utility trailer, Dump trailer 14k, Flatbed 20ft.',
         ),
         findsOneWidget,
       );
@@ -126,7 +132,7 @@ void main() {
       // The day-only booking rides the band, not a block at midnight.
       expect(find.text('all-day'), findsOneWidget);
       expect(
-        find.bySemanticsLabel(RegExp('^All day. Bark & soil')),
+        find.bySemanticsLabel(RegExp('^All day. Utility trailer')),
         findsOneWidget,
       );
     });
@@ -136,7 +142,7 @@ void main() {
 
       expect(
         find.bySemanticsLabel(
-          'Junk removal for Harrison St rental in Corvallis. '
+          'Flatbed 20ft for Harrison St rental in Corvallis. '
           '9 AM – 11 AM.',
         ),
         findsOneWidget,
@@ -200,7 +206,7 @@ void main() {
 
       expect(find.text('Today · Thursday, 6 August'), findsOneWidget);
       expect(find.text('Sunday, 9 August'), findsOneWidget);
-      expect(find.text('Gravel delivery'), findsOneWidget);
+      expect(find.text('Lowboy 25t'), findsOneWidget);
     });
 
     testWidgets('says so when there is nothing ahead', (tester) async {
@@ -221,7 +227,7 @@ void main() {
         view: CalView.list,
         jobs: [
           ...bookedJobs(),
-          job('HL-9', type: 'Equipment move', customer: 'Fairbanks'),
+          job('HL-9', equipment: ['Lowboy 25t'], customer: 'Fairbanks'),
         ],
       );
 
@@ -296,7 +302,7 @@ void main() {
     testWidgets('opens over the calendar and closes again', (tester) async {
       final app = await pumpApp(tester, jobs: bookedJobs());
 
-      await tester.tap(find.text('Junk removal').last);
+      await tester.tap(find.text('Flatbed 20ft').last);
       await settle(tester);
 
       expect(find.text('Harrison St rental'), findsWidgets);
@@ -318,7 +324,6 @@ void main() {
         jobs: [
           Job(
             id: 'HL-9',
-            type: 'Debris haul',
             customer: 'Someone',
             address: '1 Main St',
             city: 'Corvallis',
@@ -340,11 +345,19 @@ void main() {
         ],
       );
 
-      await tester.tap(find.text('Debris haul').last);
+      await tester.tap(find.text('Dump trailer 14k').last);
       await settle(tester);
 
       expect(find.text('Rig needed'), findsOneWidget);
-      expect(find.text('Dump trailer 14k'), findsOneWidget);
+      // Twice on the sheet: the coloured header, which is the rig the block
+      // was drawn as, and the row that lists every rig the job takes.
+      expect(
+        find.descendant(
+          of: find.byType(EventSheet),
+          matching: find.text('Dump trailer 14k'),
+        ),
+        findsNWidgets(2),
+      );
       // Never who is allowed to drive it.
       expect(find.textContaining('Assigned rig'), findsNothing);
     });
@@ -356,12 +369,12 @@ void main() {
       const tall = Size(500, 1200);
 
       await pumpApp(tester, jobs: jobs, role: Role.employee, size: tall);
-      await tester.tap(find.text('Junk removal').last);
+      await tester.tap(find.text('Flatbed 20ft').last);
       await settle(tester);
       expect(find.text('Bills at'), findsNothing);
 
-      await pumpApp(tester, jobs: jobs, role: Role.manager, size: tall);
-      await tester.tap(find.text('Junk removal').last);
+      await pumpApp(tester, jobs: jobs, role: Role.admin, size: tall);
+      await tester.tap(find.text('Flatbed 20ft').last);
       await settle(tester);
       expect(find.text('Bills at'), findsOneWidget);
     });
@@ -374,9 +387,12 @@ void main() {
       await tester.tap(find.bySemanticsLabel('Calendars'));
       await settle(tester);
 
-      await tester.tap(find.bySemanticsLabel(RegExp('^Junk removal, shown')));
+      await tester.tap(find.bySemanticsLabel(RegExp('^Flatbed 20ft, shown')));
       await settle(tester);
-      expect(app.calendar.isVisible(WorkCalendar.junk), isFalse);
+      expect(
+        app.calendar.isVisible(const WorkCalendar('Flatbed 20ft')),
+        isFalse,
+      );
 
       await tester.tap(find.text('Show all'));
       await settle(tester);
@@ -387,7 +403,7 @@ void main() {
       final app = await pumpApp(tester, view: CalView.day, jobs: bookedJobs());
       expect(find.byType(EventBlock), findsNWidgets(2));
 
-      app.calendar.toggleCalendar(WorkCalendar.junk);
+      app.calendar.toggleCalendar(const WorkCalendar('Flatbed 20ft'));
       await settle(tester);
       expect(find.byType(EventBlock), findsOneWidget);
     });

@@ -5,7 +5,6 @@ import 'package:haul_board/models/job.dart';
 /// A job with only the fields a calendar reads.
 Job job(
   String id, {
-  String type = 'Debris haul',
   String customer = 'Someone',
   String city = '',
   DateTime? at,
@@ -14,7 +13,6 @@ Job job(
   List<String> equipment = const ['Dump trailer 14k'],
 }) => Job(
   id: id,
-  type: type,
   customer: customer,
   address: '',
   city: city,
@@ -66,29 +64,48 @@ void main() {
   });
 
   group('which calendar a job belongs to', () {
-    test('matches on the kind of work, whatever the casing', () {
+    test('the rig it takes, whatever the casing', () {
       expect(
-        WorkCalendar.of(job('a', type: 'Junk removal')),
-        WorkCalendar.junk,
-      );
-      expect(
-        WorkCalendar.of(job('a', type: '  BARK & SOIL ')),
-        WorkCalendar.bark,
+        WorkCalendar.of(job('a', equipment: ['Lowboy 25t'])),
+        WorkCalendar.of(job('b', equipment: ['  LOWBOY 25T '])),
       );
     });
 
-    test('an unknown kind goes grey rather than borrowing a colour', () {
-      final unknown = WorkCalendar.of(job('a', type: 'Snow plowing'));
-      expect(unknown, WorkCalendar.other);
+    test('the first rig, when a job needs two', () {
+      final both = job('a', equipment: ['Lowboy 25t', 'Ramps']);
+      expect(WorkCalendar.of(both).label, 'Lowboy 25t');
+    });
+
+    test('a job with nothing on the truck says so rather than guessing', () {
+      final none = WorkCalendar.of(job('a', equipment: []));
+      expect(none.label, kNoRig);
+      expect(job('a', equipment: []).title, kNoRig);
+    });
+
+    test('a rig keeps its colour, run after run', () {
+      // Not Object.hashCode, which Dart does not promise to keep stable — see
+      // the note on the spread. Pinned so a change to it is a decision.
       expect(
-        WorkCalendar.values.where((c) => c.colour == unknown.colour),
-        hasLength(1),
+        WorkCalendar('Dump trailer 14k').colour,
+        WorkCalendar('dump trailer 14k').colour,
+      );
+      expect(
+        WorkCalendar('Dump trailer 14k').colour,
+        isNot(WorkCalendar('Flatbed 20ft').colour),
       );
     });
 
-    test('every calendar has its own colour', () {
-      final colours = {for (final c in WorkCalendar.values) c.colour};
-      expect(colours, hasLength(WorkCalendar.values.length));
+    test('the calendars are the rigs the work actually needs', () {
+      final rigs = calendarsFrom([
+        job('a', equipment: ['Utility trailer']),
+        job('b', equipment: ['Dump trailer 14k', 'Ramps']),
+        job('c', equipment: ['dump trailer 14k']),
+      ]);
+      expect(rigs.map((c) => c.label), [
+        'Dump trailer 14k',
+        'Ramps',
+        'Utility trailer',
+      ]);
     });
   });
 
@@ -130,7 +147,7 @@ void main() {
         job: job('HL-1'),
         start: DateTime(2026, 8, 6, 9),
         end: DateTime(2026, 8, 6, 9, 5),
-        calendar: WorkCalendar.debris,
+        calendar: const WorkCalendar('Dump trailer 14k'),
         allDay: false,
       );
       expect(short.lengthMinutes(DateTime(2026, 8, 6)), 15);
@@ -151,7 +168,7 @@ void main() {
           job: job(id),
           start: DateTime(2026, 8, 6, from),
           end: DateTime(2026, 8, 6, to),
-          calendar: WorkCalendar.debris,
+          calendar: const WorkCalendar('Dump trailer 14k'),
           allDay: false,
         ),
     ];
@@ -246,19 +263,22 @@ void main() {
     final day = DateTime(2026, 8, 6);
 
     List<CalendarEvent> booked(List<(String, String, int, int)> spans) => [
-      for (final (id, kind, from, to) in spans)
+      for (final (id, rig, from, to) in spans)
         CalendarEvent(
-          job: job(id, type: kind),
+          job: job(id, equipment: [rig]),
           start: DateTime(2026, 8, 6, from),
           end: DateTime(2026, 8, 6, to),
-          calendar: WorkCalendar.of(job(id, type: kind)),
+          calendar: WorkCalendar.of(job(id, equipment: [rig])),
           allDay: false,
         ),
     ];
 
     test('one kind takes the whole width', () {
       final placed = placeByCalendar(
-        booked([('a', 'Debris haul', 7, 9), ('b', 'Debris haul', 11, 13)]),
+        booked([
+          ('a', 'Dump trailer 14k', 7, 9),
+          ('b', 'Dump trailer 14k', 11, 13),
+        ]),
         day,
       );
       expect(placed, hasLength(2));
@@ -270,7 +290,10 @@ void main() {
       // The whole point: these never overlap in time, and still get their own
       // columns.
       final placed = placeByCalendar(
-        booked([('a', 'Debris haul', 7, 9), ('b', 'Junk removal', 14, 16)]),
+        booked([
+          ('a', 'Dump trailer 14k', 7, 9),
+          ('b', 'Flatbed 20ft', 14, 16),
+        ]),
         day,
       );
       final byId = {for (final p in placed) p.event.id: p};
@@ -283,9 +306,9 @@ void main() {
     test('every job of a kind shares that kind\'s column', () {
       final placed = placeByCalendar(
         booked([
-          ('a', 'Debris haul', 7, 9),
-          ('b', 'Debris haul', 10, 12),
-          ('c', 'Junk removal', 8, 10),
+          ('a', 'Dump trailer 14k', 7, 9),
+          ('b', 'Dump trailer 14k', 10, 12),
+          ('c', 'Flatbed 20ft', 8, 10),
         ]),
         day,
       );
@@ -299,8 +322,8 @@ void main() {
       // so a job moving must not shuffle the columns.
       final placed = placeByCalendar(
         booked([
-          ('late', 'Bark & soil', 7, 9),
-          ('early', 'Junk removal', 8, 10),
+          ('late', 'Utility trailer', 7, 9),
+          ('early', 'Flatbed 20ft', 8, 10),
         ]),
         day,
       );
@@ -311,9 +334,9 @@ void main() {
     test('two of the same kind at once split that column again', () {
       final placed = placeByCalendar(
         booked([
-          ('a', 'Debris haul', 9, 11),
-          ('b', 'Debris haul', 9, 11),
-          ('c', 'Junk removal', 9, 11),
+          ('a', 'Dump trailer 14k', 9, 11),
+          ('b', 'Dump trailer 14k', 9, 11),
+          ('c', 'Flatbed 20ft', 9, 11),
         ]),
         day,
       );
@@ -329,11 +352,11 @@ void main() {
     test('nothing is ever drawn off the right edge', () {
       final placed = placeByCalendar(
         booked([
-          ('a', 'Debris haul', 7, 9),
-          ('b', 'Junk removal', 8, 10),
-          ('c', 'Gravel delivery', 9, 11),
-          ('d', 'Bark & soil', 10, 12),
-          ('e', 'Equipment move', 11, 13),
+          ('a', 'Dump trailer 14k', 7, 9),
+          ('b', 'Flatbed 20ft', 8, 10),
+          ('c', 'Lowboy 25t', 9, 11),
+          ('d', 'Utility trailer', 10, 12),
+          ('e', 'Lowboy 25t', 11, 13),
         ]),
         day,
       );
@@ -356,12 +379,16 @@ void main() {
     test('a kind booked only for the day still gets its column', () {
       // The band above the grid draws it, and the two have to line up.
       final events = eventsFrom([
-        job('whenever', type: 'Junk removal', at: DateTime(2026, 8, 6)),
-        job('nine', type: 'Debris haul', at: DateTime(2026, 8, 6, 9)),
+        job('whenever', equipment: ['Flatbed 20ft'], at: DateTime(2026, 8, 6)),
+        job(
+          'nine',
+          equipment: ['Dump trailer 14k'],
+          at: DateTime(2026, 8, 6, 9),
+        ),
       ]);
       expect(calendarsOn(events, day), [
-        WorkCalendar.debris,
-        WorkCalendar.junk,
+        const WorkCalendar('Dump trailer 14k'),
+        const WorkCalendar('Flatbed 20ft'),
       ]);
 
       // The timed job takes the debris column — the left half — and leaves
@@ -382,7 +409,6 @@ void main() {
     final event = CalendarEvent.of(
       job(
         'HL-1',
-        type: 'Junk removal',
         customer: 'Harrison St rental',
         city: 'Corvallis',
         at: DateTime(2026, 8, 6, 9),
@@ -390,7 +416,7 @@ void main() {
     )!;
     expect(
       event.spoken,
-      'Junk removal for Harrison St rental in Corvallis. 9 AM – 11 AM.',
+      'Dump trailer 14k for Harrison St rental in Corvallis. 9 AM – 11 AM.',
     );
 
     final whenever = CalendarEvent.of(job('HL-2', at: DateTime(2026, 8, 6)))!;

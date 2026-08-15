@@ -29,7 +29,6 @@ void main() {
         final copy = roundTrip(original);
 
         expect(copy.id, original.id);
-        expect(copy.type, original.type);
         expect(copy.customer, original.customer);
         expect(copy.address, original.address);
         expect(copy.city, original.city);

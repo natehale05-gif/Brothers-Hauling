@@ -363,9 +363,6 @@ class _Person extends StatelessWidget {
   /// What they have in hand, in the words dispatch would use.
   String _doing(Job? job) {
     if (job == null) return 'Nothing in hand';
-    if (job.status == JobStatus.assigned) {
-      return '${job.id} pushed at them — waiting on a yes';
-    }
     return '${job.id} · ${job.phase.label} · ${job.customer}';
   }
 
